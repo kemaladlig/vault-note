@@ -27,7 +27,7 @@ export function SearchBar({
         autoFocus
         value={term}
         placeholder="Notta ara…"
-        aria-label="Notta ara"
+        aria-label="Aramayı gir"
         className="h-8"
         onChange={(event) => onTermChange(event.target.value)}
         onKeyDown={(event) => {

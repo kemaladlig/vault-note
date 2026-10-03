@@ -15,7 +15,7 @@ Google Drive `appDataFolder`; only ciphertext leaves the device. Local-first.
 | Editor         | CodeMirror 6 — basic wiring implemented                        |
 | Crypto         | WebCrypto AES-256-GCM + HKDF; Argon2id via `hash-wasm`        |
 | Sync           | Google Drive REST v3, `drive.appdata` — client + engine implemented |
-| Tests          | Vitest (32 tests: crypto + Dexie repos + sync engine + search) |
+| Tests          | Vitest (32 unit) + Playwright e2e smoke (real Chromium)       |
 
 ## Layout
 
@@ -87,6 +87,8 @@ src/
 - **Every seal uses a fresh 12-byte IV.** `Sealed = { v, alg, iv, ct }`, all base64.
 - **Access modes:** `passphrase` (cross-device) and `device` (keystore-held DEK, no
   cross-device without key transfer) — `VaultMode` in types.
+- **Locking** wipes the DEK and clears the decrypted note list from memory (notesStore
+  subscribes to the vault status).
 
 ## Sync & auth
 
@@ -120,7 +122,8 @@ src/
 
 - `npm run dev` — Vite dev server
 - `npm run build` — typecheck + production build
-- `npm test` — Vitest (crypto suite)
+- `npm test` — Vitest (crypto)
+- `npm run test:e2e` — Playwright smoke test in Chromium (needs a prior `npx playwright install chromium`)
 - `npm run lint` — oxlint
 - `npx cap sync` — copy web build into native projects (after adding platforms)
 

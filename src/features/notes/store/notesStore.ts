@@ -14,6 +14,8 @@ interface NotesState {
   create: () => Promise<void>
   update: (id: string, content: NoteContent) => Promise<void>
   remove: (id: string) => Promise<void>
+  /** Drop decrypted notes from memory (called when the vault locks). */
+  clear: () => void
 }
 
 /** The Vault Key only lives in the vault store; this is the single place we read it. */
@@ -62,4 +64,13 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       }
     })
   },
+
+  clear: () => set({ notes: [], selectedId: undefined, loading: false }),
 }))
+
+// Security: decrypted notes must not linger in memory once the vault is no longer unlocked.
+useVaultStore.subscribe((state, previous) => {
+  if (previous.status === 'unlocked' && state.status !== 'unlocked') {
+    useNotesStore.getState().clear()
+  }
+})
