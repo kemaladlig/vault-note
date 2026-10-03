@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">VaultNote</string>
+    <string name="title_activity_main">VaultNote</string>
+    <string name="package_name">com.vaultnote.app</string>
+    <string name="custom_url_scheme">com.vaultnote.app</string>
+</resources>

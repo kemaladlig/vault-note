@@ -66,7 +66,11 @@ src/
     sync/
       drive/types.ts         DriveClient interface (list/download/create/update/remove)
       drive/googleDrive.ts   real REST v3 client (appDataFolder)
-      auth/googleAuth.ts     Google Identity Services token flow
+      auth/config.ts         shared GOOGLE_CLIENT_ID / isAuthConfigured
+      auth/googleAuth.ts     facade: picks web vs native provider at runtime
+      auth/webGisAuth.ts     Google Identity Services token flow (web/webview)
+      auth/nativePkceAuth.ts Authorization Code + PKCE via browser + deep link
+      auth/pkce.ts           RFC 7636 verifier/challenge helpers
       manifest.ts            encrypted note index (seal/open)
       engine.ts              two-way LWW sync over Drive
       bootstrap.ts           vault.json for new-device discovery
@@ -104,14 +108,22 @@ src/
 - **Engine** (`syncNotes`): pull newer/missing remote rows → push local rows the remote lacks →
   rewrite manifest. Conflicts resolve last-write-wins (updatedAt, version tie-break); remote
   tombstones propagate.
-- **Auth:** Google Identity Services, `drive.appdata` scope. Set `VITE_GOOGLE_CLIENT_ID` in
-  `.env.local` (see `.env.example`). The Drive button is disabled until it is configured.
+- **Auth:** `googleAuth.ts` selects a provider via `Capacitor.isNativePlatform()`:
+  - **Web/webview** (`webGisAuth.ts`): Google Identity Services, `drive.appdata` scope.
+  - **Native** (`nativePkceAuth.ts`): Authorization Code + PKCE. Opens the system browser
+    (`@capacitor/browser`), receives the redirect `com.vaultnote.app://oauth2redirect` back via
+    `@capacitor/app` `appUrlOpen`, then exchanges the code (no client secret). The scheme/host
+    are mirrored by an intent-filter in `android/app/src/main/AndroidManifest.xml`; register the
+    same redirect URI on the OAuth client.
+  - Set `VITE_GOOGLE_CLIENT_ID` in `.env.local` (see `.env.example`). The Drive button is
+    disabled until it is configured.
 - **New device:** "Drive'dan geri yükle" pulls the bootstrap, adopts the header locally, then
   asks for the passphrase (lands in `locked`).
 - **Auto-sync:** `useAutoSync` runs on unlock, every 60s, and on `online`/`focus` — always
   `interactive: false`, so it never opens the OAuth popup and is a no-op until first sign-in.
-- **Still open:** native OAuth deep-link flow for Capacitor builds, and code-splitting the
-  bundle (CodeMirror dominates the ~340 kB gzip).
+- **Native:** Android platform is committed (`android/`); build outputs and copied web assets
+  are gitignored. `npx cap sync android` copies `dist/` in and registers plugins.
+- **Still open:** code-splitting the bundle (CodeMirror dominates the ~340 kB gzip).
 
 ## Search
 
@@ -131,6 +143,8 @@ src/
 - `npm run test:e2e` — Playwright smoke test in Chromium (needs a prior `npx playwright install chromium`)
 - `npm run lint` — oxlint
 - `npx cap sync` — copy web build into native projects (after adding platforms)
+- `npx cap sync android` — sync web assets + plugins into the Android project
+- `npx cap open android` — open in Android Studio (needs Android SDK/Java) to run on device
 
 ## Conventions
 

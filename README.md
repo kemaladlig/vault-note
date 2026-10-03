@@ -29,6 +29,19 @@ npm run lint     # oxlint
 2. Create an OAuth client id (Web application) with the `drive.appdata` scope; add your
    origins (`http://localhost:5173`, plus native/PWA origins for builds).
 3. Put the id in `.env.local` as `VITE_GOOGLE_CLIENT_ID`.
+4. For native builds, also register the redirect URI `com.vaultnote.app://oauth2redirect`
+   (and the Android signing SHA-1). Native uses PKCE + a system-browser deep link; web uses
+   Google Identity Services automatically.
+
+## Android
+
+The Android project lives in `android/`. After `npm run build`:
+
+```bash
+npx cap sync android     # copy the web build + plugins
+npx cap open android     # build/run in Android Studio (needs Android SDK + Java)
+```
+
 
 ## Security model
 
