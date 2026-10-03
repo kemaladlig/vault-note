@@ -13,8 +13,11 @@ export function UnlockForm() {
   const unlock = useVaultStore((s) => s.unlock)
   const unlockWithDevice = useVaultStore((s) => s.unlockWithDevice)
   const forgetDevice = useVaultStore((s) => s.forgetDevice)
+  const reset = useVaultStore((s) => s.reset)
   const quickAvailable = useVaultStore((s) => s.quickUnlockAvailable)
+  const mode = useVaultStore((s) => s.settings?.mode)
 
+  const isDevice = mode === 'device'
   const [withPassphrase, setWithPassphrase] = useState(!quickAvailable)
   const [passphrase, setPassphrase] = useState('')
   const [remember, setRemember] = useState(true)
@@ -51,7 +54,10 @@ export function UnlockForm() {
     }
   }
 
-  const showQuick = quickAvailable && !withPassphrase
+  // Device mode with the key still present: only quick unlock exists.
+  const showQuick = quickAvailable && (isDevice || !withPassphrase)
+  // Device mode with the key gone: nothing can recover it.
+  const brokenDevice = isDevice && !quickAvailable
 
   return (
     <div className="flex min-h-full items-center justify-center p-6">
@@ -59,34 +65,56 @@ export function UnlockForm() {
         <CardHeader>
           <CardTitle>Kilidi aç</CardTitle>
           <CardDescription>
-            {showQuick
-              ? 'Bu cihazda hızlı açma etkin.'
-              : 'Notlarına erişmek için ana parolanı gir.'}
+            {brokenDevice
+              ? 'Bu parolasız vault bu cihazda açılamıyor.'
+              : showQuick
+                ? 'Bu cihazda hızlı açma etkin.'
+                : 'Notlarına erişmek için ana parolanı gir.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {showQuick ? (
+          {brokenDevice ? (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-muted-foreground">
+                Cihaz anahtarı bulunamadı. Parolasız modda kurtarma yolu yoktur: vault'u
+                sıfırlayıp yeniden başlaman gerekir. Drive'daki yedek de bu cihazda açılamaz.
+              </div>
+              <Button
+                variant="destructive"
+                className="w-full"
+                disabled={busy}
+                onClick={() => {
+                  setBusy(true)
+                  void reset()
+                }}
+              >
+                Vault'u sıfırla
+              </Button>
+            </div>
+          ) : showQuick ? (
             <div className="space-y-4">
               <Button className="w-full" disabled={busy} onClick={() => void onQuickUnlock()}>
                 {busy ? 'Açılıyor…' : 'Hızlı aç'}
               </Button>
               {error && <p className="text-sm text-destructive">{error}</p>}
-              <div className="flex justify-center gap-4 text-xs">
-                <button
-                  type="button"
-                  className="text-muted-foreground underline-offset-4 hover:underline"
-                  onClick={() => setWithPassphrase(true)}
-                >
-                  Parolayla aç
-                </button>
-                <button
-                  type="button"
-                  className="text-muted-foreground underline-offset-4 hover:underline"
-                  onClick={() => void forgetDevice()}
-                >
-                  Bu cihazı unut
-                </button>
-              </div>
+              {!isDevice && (
+                <div className="flex justify-center gap-4 text-xs">
+                  <button
+                    type="button"
+                    className="text-muted-foreground underline-offset-4 hover:underline"
+                    onClick={() => setWithPassphrase(true)}
+                  >
+                    Parolayla aç
+                  </button>
+                  <button
+                    type="button"
+                    className="text-muted-foreground underline-offset-4 hover:underline"
+                    onClick={() => void forgetDevice()}
+                  >
+                    Bu cihazı unut
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <form className="space-y-4" onSubmit={onSubmit}>

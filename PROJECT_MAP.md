@@ -98,6 +98,11 @@ src/
 - **Quick unlock** wraps the DEK with a non-extractable device key (IndexedDB). It skips the
   passphrase on a trusted device but does not grant cross-device access; "forget this device"
   deletes it. Restoring a drive vault disables it.
+- **Passwordless mode (`device`):** the header is wrapped with a random throwaway passphrase we
+  discard, and the DEK is reachable only via this device's quick-unlock key. No recovery, no
+  cross-device: clearing site data loses the vault, and a Drive backup cannot be opened
+  elsewhere. The create form gates it behind an explicit acknowledgment; the unlock screen hides
+  the passphrase fallback and offers a reset if the device key is gone.
 
 ## Sync & auth
 

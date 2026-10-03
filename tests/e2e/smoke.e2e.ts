@@ -62,3 +62,24 @@ test('create vault → note → in-note search → lock/unlock, encrypted at res
   await expect(page.getByRole('button', { name: 'Yeni not' })).toBeVisible()
   await expect(page.getByText('gizli-baslik')).toBeVisible()
 })
+
+test('passwordless vault: create, lock, quick-unlock only', async ({ page }) => {
+  await page.goto('/')
+
+  // Create without a passphrase (device mode).
+  await page.getByRole('button', { name: 'Parolasız' }).click()
+  await page.getByRole('checkbox', { name: 'Riski anladım' }).click()
+  await page.getByRole('button', { name: 'Parolasız oluştur' }).click()
+
+  await expect(page.getByRole('button', { name: 'Yeni not' })).toBeVisible()
+  await page.getByRole('button', { name: 'Yeni not' }).click()
+  await page.getByPlaceholder('Başlıksız').fill('cihaz-notu')
+  await page.waitForTimeout(900)
+
+  // Lock: only quick unlock is offered, there is no passphrase to fall back to.
+  await page.getByRole('button', { name: 'Kilitle' }).click()
+  await expect(page.getByRole('button', { name: 'Hızlı aç' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Parolayla aç' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Hızlı aç' }).click()
+  await expect(page.getByText('cihaz-notu')).toBeVisible()
+})
