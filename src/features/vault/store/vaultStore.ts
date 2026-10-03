@@ -1,9 +1,15 @@
 import { create } from 'zustand'
 
 import { createVault, unlockVault, type Bytes, type VaultHeader, type VaultMode } from '../crypto'
+import { disableQuickUnlock, enableQuickUnlock, hasQuickUnlock, quickUnlock } from './quickUnlock'
 import { destroyVault, loadHeader, loadSettings, saveVault, type VaultSettings } from './vaultRepo'
 
 export type VaultStatus = 'loading' | 'uninitialized' | 'locked' | 'unlocked'
+
+export interface RememberOptions {
+  /** undefined = leave as-is, true = enable, false = disable. */
+  remember?: boolean
+}
 
 interface VaultState {
   status: VaultStatus
@@ -11,11 +17,17 @@ interface VaultState {
   settings?: VaultSettings
   /** Vault Key, in memory only while unlocked. Zeroed on lock. */
   dek?: Bytes
+  /** Whether this device can unlock without the passphrase. */
+  quickUnlockAvailable: boolean
   init: () => Promise<void>
-  create: (passphrase: string) => Promise<void>
-  unlock: (passphrase: string) => Promise<void>
+  create: (passphrase: string, options?: RememberOptions) => Promise<void>
+  unlock: (passphrase: string, options?: RememberOptions) => Promise<void>
+  /** Unlock via the device-held key; no passphrase. */
+  unlockWithDevice: () => Promise<void>
   /** Adopt a vault header discovered on Drive (new-device setup). Lands in `locked`. */
   restore: (header: VaultHeader, mode: VaultMode) => Promise<void>
+  /** Forget this device (disables quick unlock). */
+  forgetDevice: () => Promise<void>
   lock: () => void
   reset: () => Promise<void>
 }
@@ -26,34 +38,55 @@ function wipe(bytes?: Bytes): void {
 
 export const useVaultStore = create<VaultState>((set, get) => ({
   status: 'loading',
+  quickUnlockAvailable: false,
 
   init: async () => {
     set({ status: 'loading' })
-    const [header, settings] = await Promise.all([loadHeader(), loadSettings()])
+    const [header, settings, quick] = await Promise.all([
+      loadHeader(),
+      loadSettings(),
+      hasQuickUnlock(),
+    ])
     set({
       header,
       settings,
+      quickUnlockAvailable: quick,
       status: header && settings ? 'locked' : 'uninitialized',
     })
   },
 
-  create: async (passphrase) => {
+  create: async (passphrase, options) => {
     const { header, dek } = await createVault(passphrase)
     const settings = await saveVault(header, 'passphrase')
-    set({ header, settings, dek, status: 'unlocked' })
+    if (options?.remember !== false) await enableQuickUnlock(dek)
+    set({ header, settings, dek, status: 'unlocked', quickUnlockAvailable: await hasQuickUnlock() })
   },
 
-  unlock: async (passphrase) => {
+  unlock: async (passphrase, options) => {
     const { header } = get()
     if (!header) throw new Error('Vault başlığı yok')
     const dek = await unlockVault(passphrase, header)
+    if (options?.remember === true) await enableQuickUnlock(dek)
+    if (options?.remember === false) await disableQuickUnlock()
+    set({ dek, status: 'unlocked', quickUnlockAvailable: await hasQuickUnlock() })
+  },
+
+  unlockWithDevice: async () => {
+    const dek = await quickUnlock()
     set({ dek, status: 'unlocked' })
   },
 
   restore: async (header, mode) => {
     wipe(get().dek)
+    // A restored vault has a different DEK than any quick-unlock was made for.
+    await disableQuickUnlock()
     const settings = await saveVault(header, mode)
-    set({ header, settings, dek: undefined, status: 'locked' })
+    set({ header, settings, dek: undefined, status: 'locked', quickUnlockAvailable: false })
+  },
+
+  forgetDevice: async () => {
+    await disableQuickUnlock()
+    set({ quickUnlockAvailable: false })
   },
 
   lock: () => {
@@ -64,7 +97,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   reset: async () => {
     wipe(get().dek)
     await destroyVault()
-    set({ header: undefined, settings: undefined, dek: undefined })
+    set({ header: undefined, settings: undefined, dek: undefined, quickUnlockAvailable: false })
     await get().init()
   },
 }))

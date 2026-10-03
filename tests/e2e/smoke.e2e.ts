@@ -48,10 +48,15 @@ test('create vault → note → in-note search → lock/unlock, encrypted at res
   expect(raw).not.toContain('yumurta')
   expect(raw).toContain('"ct"')
 
-  // 6. Lock wipes the decrypted list, unlock restores it from disk.
+  // 6. Lock, then quick-unlock without a passphrase (device key).
   await page.getByRole('button', { name: 'Kilitle' }).click()
-  await expect(page.getByRole('button', { name: 'Kilidi aç' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Hızlı aç' })).toBeVisible()
+  await page.getByRole('button', { name: 'Hızlı aç' }).click()
+  await expect(page.getByText('gizli-baslik')).toBeVisible()
 
+  // 7. Lock again and fall back to the passphrase.
+  await page.getByRole('button', { name: 'Kilitle' }).click()
+  await page.getByRole('button', { name: 'Parolayla aç' }).click()
   await page.getByLabel('Ana parola').fill(PASS)
   await page.getByRole('button', { name: 'Kilidi aç' }).click()
   await expect(page.getByRole('button', { name: 'Yeni not' })).toBeVisible()

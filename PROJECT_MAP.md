@@ -42,7 +42,9 @@ src/
         crypto.test.ts
       store/
         vaultRepo.ts         header/settings persistence in Dexie meta
-        vaultStore.ts        Zustand: loading→uninitialized→locked→unlocked, DEK in RAM
+        vaultStore.ts        Zustand: lifecycle + quick-unlock state, DEK in RAM
+        deviceKey.ts         non-extractable AES key for quick unlock
+        quickUnlock.ts       wrap/unwrap the DEK with the device key
         vaultRepo.test.ts
       ui/
         VaultGate.tsx        routes app by vault lifecycle
@@ -89,6 +91,9 @@ src/
   cross-device without key transfer) — `VaultMode` in types.
 - **Locking** wipes the DEK and clears the decrypted note list from memory (notesStore
   subscribes to the vault status).
+- **Quick unlock** wraps the DEK with a non-extractable device key (IndexedDB). It skips the
+  passphrase on a trusted device but does not grant cross-device access; "forget this device"
+  deletes it. Restoring a drive vault disables it.
 
 ## Sync & auth
 
