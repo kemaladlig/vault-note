@@ -65,7 +65,7 @@ describe('syncNotes', () => {
 
     const result = await syncNotes({ drive, dek })
 
-    expect(result).toEqual({ pulled: 0, pushed: 1 })
+    expect(result).toMatchObject({ pulled: 0, pushed: 1 })
     expect(drive.raw(noteFileName('n1'))).toBeDefined()
     expect(drive.raw(MANIFEST_NAME)).toBeDefined()
     expect((await db.notes.get('n1'))!.dirty).toBe(0)
@@ -73,9 +73,13 @@ describe('syncNotes', () => {
 
   it('is a no-op on a second run', async () => {
     await db.notes.put(await makeRow('n1', payload('x'), { updatedAt: 1000 }))
-    await syncNotes({ drive, dek })
+    const first = await syncNotes({ drive, dek })
 
-    expect(await syncNotes({ drive, dek })).toEqual({ pulled: 0, pushed: 0 })
+    // With the cached manifest time and no local edits, the next sync fast-paths (no writes).
+    const before = drive.count()
+    const second = await syncNotes({ drive, dek, manifestModifiedTime: first.manifestModifiedTime })
+    expect(second).toMatchObject({ pulled: 0, pushed: 0 })
+    expect(drive.count()).toBe(before)
   })
 
   it('pulls remote notes into an empty local store', async () => {
@@ -83,7 +87,7 @@ describe('syncNotes', () => {
 
     const result = await syncNotes({ drive, dek })
 
-    expect(result).toEqual({ pulled: 1, pushed: 0 })
+    expect(result).toMatchObject({ pulled: 1, pushed: 0 })
     const local = await db.notes.get('r1')
     expect(local).toBeDefined()
     expect(local!.dirty).toBe(0)

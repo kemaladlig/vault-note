@@ -2,7 +2,15 @@ export * from './types'
 export * from './errors'
 export { utf8ToBytes, bytesToUtf8, toBase64, fromBase64, randomBytes, type Bytes } from './encoding'
 export { DEFAULT_KDF, newKdfParams, deriveKekBytes } from './kdf'
-export { importAesKey, seal, open, deriveNoteKey, deriveManifestKey } from './aead'
+export {
+  importAesKey,
+  seal,
+  open,
+  deriveNoteKey,
+  deriveManifestKey,
+  deriveFoldersKey,
+  deriveViewsKey,
+} from './aead'
 export {
   createVault,
   unlockVault,

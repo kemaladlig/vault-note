@@ -69,3 +69,13 @@ export function deriveNoteKey(dek: Bytes, noteId: string): Promise<CryptoKey> {
 export function deriveManifestKey(dek: Bytes): Promise<CryptoKey> {
   return deriveContextKey(dek, 'vaultnote:manifest')
 }
+
+/** Key for the encrypted notebook tree (folders doc). */
+export function deriveFoldersKey(dek: Bytes): Promise<CryptoKey> {
+  return deriveContextKey(dek, 'vaultnote:folders')
+}
+
+/** Key for the encrypted local smart-views doc. */
+export function deriveViewsKey(dek: Bytes): Promise<CryptoKey> {
+  return deriveContextKey(dek, 'vaultnote:views')
+}

@@ -1,19 +1,57 @@
 import { create } from 'zustand'
 
 import { useVaultStore } from '@/features/vault/store/vaultStore'
+import { getTrashRetentionDays, isTrashExpired } from '@/shared/trash'
 
-import { EMPTY_NOTE, type DecryptedNote, type NoteContent } from '../model'
+import { EMPTY_NOTE, type DecryptedNote, type NoteContent, type NotesView } from '../model'
 import * as repo from './noteRepo'
 
 interface NotesState {
+  /** Every note in the vault (active, archived, trashed); filtered for display downstream. */
   notes: DecryptedNote[]
   selectedId?: string
+  /** Open editor tabs, in order. Persisted so tabs survive a reload. */
+  openIds: string[]
   loading: boolean
+  /** Global sidebar filter: scope + text query + optional tag. Single source of truth. */
+  view: NotesView
+  folderId?: string
+  query: string
+  tagFilter?: string
+  /** Bumped on every local mutation; the auto-sync hook watches it to push soon after edits. */
+  revision: number
   load: () => Promise<void>
+  /** Re-read notes after a sync without toggling the loading skeleton. */
+  reload: () => Promise<void>
+  /** Select a note and make sure it has a tab. */
   select: (id?: string) => void
+  /** Close a tab; the neighbour becomes active. */
+  closeTab: (id: string) => void
+  /** Close every open tab. */
+  closeAllTabs: () => void
+  /** Close every tab except the given one. */
+  closeOtherTabs: (id: string) => void
+  setView: (view: NotesView) => void
+  setFolderFilter: (folderId?: string) => void
+  setQuery: (query: string) => void
+  setTagFilter: (tag?: string) => void
+  /** Apply a saved smart view's filters in one shot. */
+  applyView: (filters: { query: string; tag?: string; folderId?: string; view: NotesView }) => void
   create: () => Promise<void>
-  update: (id: string, content: NoteContent) => Promise<void>
+  update: (id: string, content: NoteContent) => Promise<DecryptedNote | undefined>
+  togglePin: (id: string) => Promise<void>
+  setArchived: (id: string, archived: boolean) => Promise<void>
+  moveToFolder: (id: string, folderId?: string) => Promise<void>
+  /** Unassign the given folders' notes (used when a notebook is deleted). */
+  reassignFolder: (folderIds: string[], folderId?: string) => Promise<void>
+  /** Move to trash (soft delete). */
   remove: (id: string) => Promise<void>
+  restore: (id: string) => Promise<void>
+  /** Permanent delete from this device. */
+  destroy: (id: string) => Promise<void>
+  emptyTrash: () => Promise<void>
+  /** Hard-delete trashed notes past the retention window; returns how many were purged. */
+  purgeTrash: () => Promise<number>
   /** Drop decrypted notes from memory (called when the vault locks). */
   clear: () => void
 }
@@ -25,47 +63,244 @@ function requireDek() {
   return dek
 }
 
+/** Full sealed payload for a note, so metadata edits never drop the body. */
+function contentOf(note: DecryptedNote): NoteContent {
+  return {
+    title: note.title,
+    body: note.body,
+    tags: note.tags,
+    pinned: note.pinned,
+    folderId: note.folderId,
+    archived: note.archived,
+  }
+}
+
+/* Tabs are just opaque note ids, so persisting them leaks nothing; pruning happens on load. */
+const TABS_KEY = 'vaultnote.tabs'
+
+interface PersistedTabs {
+  openIds: string[]
+  activeId?: string
+}
+
+function readTabs(): PersistedTabs {
+  if (typeof localStorage === 'undefined') return { openIds: [] }
+  try {
+    const parsed = JSON.parse(localStorage.getItem(TABS_KEY) ?? '{}') as Partial<PersistedTabs>
+    return {
+      openIds: Array.isArray(parsed.openIds) ? parsed.openIds : [],
+      activeId: typeof parsed.activeId === 'string' ? parsed.activeId : undefined,
+    }
+  } catch {
+    return { openIds: [] }
+  }
+}
+
+function writeTabs(openIds: string[], activeId?: string): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.setItem(TABS_KEY, JSON.stringify({ openIds, activeId }))
+  } catch {
+    /* storage full or unavailable — tabs just fall back to session memory */
+  }
+}
+
 export const useNotesStore = create<NotesState>((set, get) => ({
   notes: [],
+  selectedId: undefined,
+  openIds: [],
   loading: false,
+  view: 'all',
+  folderId: undefined,
+  query: '',
+  tagFilter: undefined,
+  revision: 0,
 
   load: async () => {
     set({ loading: true })
     const notes = await repo.listNotes(requireDek())
-    set((state) => ({
-      notes,
-      loading: false,
-      selectedId: state.selectedId ?? notes[0]?.id,
-    }))
+    const alive = new Set(notes.map((note) => note.id))
+    const persisted = readTabs()
+    const openIds = persisted.openIds.filter((id) => alive.has(id))
+    const selectedId =
+      persisted.activeId && alive.has(persisted.activeId) ? persisted.activeId : openIds[0]
+    set({ notes, loading: false, openIds, selectedId })
+    writeTabs(openIds, selectedId)
+    await get().purgeTrash()
   },
 
-  select: (id) => set({ selectedId: id }),
+  reload: async () => {
+    const notes = await repo.listNotes(requireDek())
+    const alive = new Set(notes.map((note) => note.id))
+    const state = get()
+    const openIds = state.openIds.filter((id) => alive.has(id))
+    const selectedId =
+      state.selectedId && alive.has(state.selectedId) ? state.selectedId : openIds[0]
+    set({ notes, openIds, selectedId })
+    writeTabs(openIds, selectedId)
+    await get().purgeTrash()
+  },
+
+  select: (id) => {
+    if (!id) {
+      set({ selectedId: undefined })
+      writeTabs(get().openIds, undefined)
+      return
+    }
+    const openIds = get().openIds.includes(id) ? get().openIds : [...get().openIds, id]
+    set({ selectedId: id, openIds })
+    writeTabs(openIds, id)
+  },
+
+  closeTab: (id) => {
+    const state = get()
+    const index = state.openIds.indexOf(id)
+    const openIds = state.openIds.filter((item) => item !== id)
+    const selectedId =
+      state.selectedId === id ? (openIds[index] ?? openIds[index - 1]) : state.selectedId
+    set({ openIds, selectedId })
+    writeTabs(openIds, selectedId)
+  },
+
+  closeAllTabs: () => {
+    set({ openIds: [], selectedId: undefined })
+    writeTabs([], undefined)
+  },
+
+  closeOtherTabs: (id) => {
+    set({ openIds: [id], selectedId: id })
+    writeTabs([id], id)
+  },
+
+  setView: (view) => set({ view, folderId: undefined }),
+  setFolderFilter: (folderId) => set({ folderId, view: 'all' }),
+  setQuery: (query) => set({ query }),
+  setTagFilter: (tagFilter) => set({ tagFilter }),
+  applyView: (filters) =>
+    set({
+      query: filters.query,
+      tagFilter: filters.tag,
+      folderId: filters.folderId,
+      view: filters.view,
+    }),
 
   create: async () => {
     const note = await repo.createNote(requireDek(), EMPTY_NOTE)
-    set((state) => ({ notes: [note, ...state.notes], selectedId: note.id }))
+    const openIds = [...get().openIds, note.id]
+    set((state) => ({
+      notes: [note, ...state.notes],
+      selectedId: note.id,
+      openIds,
+      revision: state.revision + 1,
+    }))
+    writeTabs(openIds, note.id)
   },
 
   update: async (id, content) => {
     const note = get().notes.find((n) => n.id === id)
-    if (!note) return
+    if (!note) return undefined
     const saved = await repo.updateNote(requireDek(), note, content)
     // Keep list order stable while typing; only touch the edited row.
-    set((state) => ({ notes: state.notes.map((n) => (n.id === id ? saved : n)) }))
+    set((state) => ({
+      notes: state.notes.map((n) => (n.id === id ? saved : n)),
+      revision: state.revision + 1,
+    }))
+    return saved
+  },
+
+  togglePin: async (id) => {
+    const note = get().notes.find((n) => n.id === id)
+    if (!note) return
+    await get().update(id, { ...contentOf(note), pinned: !note.pinned })
+  },
+
+  setArchived: async (id, archived) => {
+    const note = get().notes.find((n) => n.id === id)
+    if (!note) return
+    await get().update(id, { ...contentOf(note), archived })
+  },
+
+  moveToFolder: async (id, folderId) => {
+    const note = get().notes.find((n) => n.id === id)
+    if (!note) return
+    await get().update(id, { ...contentOf(note), folderId })
+  },
+
+  reassignFolder: async (folderIds, folderId) => {
+    const targets = get().notes.filter((note) => note.folderId && folderIds.includes(note.folderId))
+    for (const note of targets) {
+      await get().update(note.id, { ...contentOf(note), folderId })
+    }
   },
 
   remove: async (id) => {
     await repo.deleteNote(id)
-    set((state) => {
-      const notes = state.notes.filter((n) => n.id !== id)
-      return {
-        notes,
-        selectedId: state.selectedId === id ? notes[0]?.id : state.selectedId,
-      }
-    })
+    set((state) => ({
+      notes: state.notes.map((n) => (n.id === id ? { ...n, deleted: true } : n)),
+      revision: state.revision + 1,
+    }))
   },
 
-  clear: () => set({ notes: [], selectedId: undefined, loading: false }),
+  restore: async (id) => {
+    await repo.restoreNote(id)
+    set((state) => ({
+      notes: state.notes.map((n) => (n.id === id ? { ...n, deleted: false } : n)),
+      revision: state.revision + 1,
+    }))
+  },
+
+  destroy: async (id) => {
+    await repo.destroyNote(id)
+    const state = get()
+    const notes = state.notes.filter((n) => n.id !== id)
+    const openIds = state.openIds.filter((item) => item !== id)
+    const selectedId = state.selectedId === id ? openIds[0] : state.selectedId
+    set({ notes, openIds, selectedId })
+    writeTabs(openIds, selectedId)
+  },
+
+  emptyTrash: async () => {
+    await repo.emptyTrash()
+    const state = get()
+    const removed = new Set(state.notes.filter((n) => n.deleted).map((n) => n.id))
+    const notes = state.notes.filter((n) => !n.deleted)
+    const openIds = state.openIds.filter((id) => !removed.has(id))
+    const selectedId = state.selectedId && removed.has(state.selectedId) ? openIds[0] : state.selectedId
+    set({ notes, openIds, selectedId })
+    writeTabs(openIds, selectedId)
+  },
+
+  purgeTrash: async () => {
+    const days = getTrashRetentionDays()
+    if (days <= 0) return 0
+    const nowMs = Date.now()
+    const expired = get().notes.filter(
+      (note) => note.deleted && isTrashExpired(note.updatedAt, nowMs, days),
+    )
+    if (expired.length === 0) return 0
+    for (const note of expired) await repo.destroyNote(note.id)
+    const removed = new Set(expired.map((note) => note.id))
+    const state = get()
+    const notes = state.notes.filter((note) => !removed.has(note.id))
+    const openIds = state.openIds.filter((id) => !removed.has(id))
+    const selectedId =
+      state.selectedId && removed.has(state.selectedId) ? openIds[0] : state.selectedId
+    set({ notes, openIds, selectedId, revision: state.revision + 1 })
+    writeTabs(openIds, selectedId)
+    return expired.length
+  },
+
+  clear: () =>
+    set({
+      notes: [],
+      selectedId: undefined,
+      openIds: [],
+      loading: false,
+      view: 'all',
+      folderId: undefined,
+      query: '',
+      tagFilter: undefined,
+    }),
 }))
 
 // Security: decrypted notes must not linger in memory once the vault is no longer unlocked.

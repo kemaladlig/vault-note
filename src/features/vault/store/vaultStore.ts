@@ -3,6 +3,7 @@ import { create } from 'zustand'
 import {
   createVault,
   randomBytes,
+  rekeyVault,
   toBase64,
   unlockVault,
   type Bytes,
@@ -39,6 +40,8 @@ interface VaultState {
   unlock: (passphrase: string, options?: RememberOptions) => Promise<void>
   /** Unlock via the device-held key; no passphrase. */
   unlockWithDevice: () => Promise<void>
+  /** Re-wrap the same DEK under a new passphrase. Notes are never re-encrypted. */
+  changePassphrase: (current: string, next: string) => Promise<void>
   /** Adopt a vault header discovered on Drive (new-device setup). Lands in `locked`. */
   restore: (header: VaultHeader, mode: VaultMode) => Promise<void>
   /** Forget this device (disables quick unlock). */
@@ -51,17 +54,23 @@ function wipe(bytes?: Bytes): void {
   if (bytes) bytes.fill(0)
 }
 
+/** Monotonic boot token; lets a stale `init()` bail instead of clobbering live vault state. */
+let initToken = 0
+
 export const useVaultStore = create<VaultState>((set, get) => ({
   status: 'loading',
   quickUnlockAvailable: false,
 
   init: async () => {
-    set({ status: 'loading' })
+    // StrictMode double-invokes effects and `reset()` re-calls this. Token the call and never
+    // downgrade a session the user has already unlocked while the (async) boot read was in flight.
+    const token = ++initToken
     const [header, settings, quick] = await Promise.all([
       loadHeader(),
       loadSettings(),
       hasQuickUnlock(),
     ])
+    if (token !== initToken || get().status === 'unlocked') return
     set({
       header,
       settings,
@@ -103,6 +112,16 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     set({ dek, status: 'unlocked' })
   },
 
+  changePassphrase: async (current, next) => {
+    const { header, dek, settings } = get()
+    if (!header || !dek) throw new Error('Vault kilitli')
+    // Verifies the current passphrase (throws WrongPassphraseError) before re-wrapping.
+    await unlockVault(current, header)
+    const newHeader = await rekeyVault({ dek }, next)
+    const saved = await saveVault(newHeader, settings?.mode ?? 'passphrase')
+    set({ header: newHeader, settings: saved })
+  },
+
   restore: async (header, mode) => {
     wipe(get().dek)
     // A restored vault has a different DEK than any quick-unlock was made for.
@@ -126,7 +145,13 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     wipe(get().dek)
     await destroyVault()
     await clearDeviceKey()
-    set({ header: undefined, settings: undefined, dek: undefined, quickUnlockAvailable: false })
+    set({
+      header: undefined,
+      settings: undefined,
+      dek: undefined,
+      quickUnlockAvailable: false,
+      status: 'loading',
+    })
     await get().init()
   },
 }))

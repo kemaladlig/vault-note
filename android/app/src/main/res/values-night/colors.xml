@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark variants; see values/colors.xml. -->
+    <color name="window_background">#1A1C21</color>
+    <color name="splash_background">#13161B</color>
+</resources>

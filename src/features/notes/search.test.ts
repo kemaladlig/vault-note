@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { DecryptedNote } from './model'
-import { filterNotes } from './search'
+import { filterNotes, matchInfo } from './search'
 
 function note(partial: Partial<DecryptedNote>): DecryptedNote {
   return {
@@ -12,6 +12,7 @@ function note(partial: Partial<DecryptedNote>): DecryptedNote {
     version: 1,
     createdAt: 0,
     updatedAt: 0,
+    deleted: false,
     ...partial,
   }
 }
@@ -41,5 +42,25 @@ describe('filterNotes', () => {
 
   it('returns nothing when there is no match', () => {
     expect(filterNotes(NOTES, 'zzzz')).toEqual([])
+  })
+})
+
+describe('matchInfo', () => {
+  it('reports the field and a snippet centered on the hit', () => {
+    const long = note({
+      id: 'd',
+      title: 'Uzun not',
+      body: `${'dolgu '.repeat(40)}NEEDLE burada ${'sonra '.repeat(40)}`,
+    })
+    const info = matchInfo(long, 'needle')
+    expect(info?.field).toBe('body')
+    expect(info?.snippet).toContain('NEEDLE')
+    expect(info?.snippet.startsWith('…')).toBe(true)
+  })
+
+  it('flags title and tag hits', () => {
+    expect(matchInfo(NOTES[0], 'alışveriş')?.field).toBe('title')
+    expect(matchInfo(NOTES[0], 'ev')?.field).toBe('tags')
+    expect(matchInfo(NOTES[0], 'yok-böyle')).toBeNull()
   })
 })

@@ -17,11 +17,15 @@ export const noteFileName = (id: string) => `note-${id}.json`
 export interface SyncDeps {
   drive: DriveClient
   dek: Bytes
+  /** `modifiedTime` of the manifest we last synced against; lets an idle poll skip work. */
+  manifestModifiedTime?: string
 }
 
 export interface SyncResult {
   pulled: number
   pushed: number
+  /** Current manifest `modifiedTime` to cache for the next poll. */
+  manifestModifiedTime?: string
 }
 
 /** Last-write-wins: timestamps decide, version breaks ties. */
@@ -46,17 +50,27 @@ async function readRemoteManifest(deps: SyncDeps, fileId: string | undefined): P
 /**
  * Two-way, offline-first sync against `appDataFolder`.
  *
+ * 0. Fast path: if the remote manifest is unchanged and nothing is pending locally, do nothing.
  * 1. Pull remote notes newer than (or missing from) the local store.
  * 2. Push local rows the remote does not already reflect (newer or dirty).
- * 3. Rewrite the encrypted manifest.
+ * 3. Rewrite the encrypted manifest, but only when something actually changed.
  *
  * Content is already encrypted with per-note keys, so this stage never touches plaintext.
  */
 export async function syncNotes(deps: SyncDeps): Promise<SyncResult> {
   const { drive } = deps
 
+  const localRows = await db.notes.toArray()
+  const hasLocalChanges = localRows.some((row) => row.dirty)
+
   const files = await drive.list()
   const manifestFile = files.find((f) => f.name === MANIFEST_NAME)
+
+  // 0. Fast path — remote untouched since our last sync and no local edits pending.
+  if (manifestFile && deps.manifestModifiedTime === manifestFile.modifiedTime && !hasLocalChanges) {
+    return { pulled: 0, pushed: 0, manifestModifiedTime: manifestFile.modifiedTime }
+  }
+
   const remote = await readRemoteManifest(deps, manifestFile?.id)
   const remoteNotes: Record<string, ManifestEntry> = { ...remote.notes }
 
@@ -64,14 +78,17 @@ export async function syncNotes(deps: SyncDeps): Promise<SyncResult> {
   let pushed = 0
 
   // 1. Pull.
-  const localById = new Map((await db.notes.toArray()).map((row) => [row.id, row]))
+  const localById = new Map(localRows.map((row) => [row.id, row]))
   for (const [id, entry] of Object.entries(remoteNotes)) {
     const local = localById.get(id)
     if (local && !remoteWins(entry, local)) continue
 
     if (entry.deleted) {
       // Remote tombstone: mirror it locally without downloading a body.
-      if (local) await db.notes.update(id, { deleted: 1, dirty: 0, updatedAt: entry.updatedAt })
+      if (local) {
+        await db.notes.update(id, { deleted: 1, dirty: 0, updatedAt: entry.updatedAt })
+        pulled++
+      }
       continue
     }
     const row = JSON.parse(await drive.download(entry.fileId)) as NoteRow
@@ -79,7 +96,7 @@ export async function syncNotes(deps: SyncDeps): Promise<SyncResult> {
     pulled++
   }
 
-  // 2. Push.
+  // 2. Push (re-read: pulls above may have rewritten rows).
   for (const row of await db.notes.toArray()) {
     const entry = remoteNotes[row.id]
     if (entry && remoteWins(entry, row)) {
@@ -106,11 +123,16 @@ export async function syncNotes(deps: SyncDeps): Promise<SyncResult> {
     pushed++
   }
 
-  // 3. Manifest.
-  const manifest: Manifest = { updatedAt: now(), notes: remoteNotes }
-  const sealed = await sealManifest(deps.dek, manifest)
-  if (manifestFile) await drive.update(manifestFile.id, sealed)
-  else await drive.create(MANIFEST_NAME, sealed)
+  // 3. Manifest — only when something changed, so idle polls never write.
+  let manifestModifiedTime = manifestFile?.modifiedTime
+  if (pulled > 0 || pushed > 0) {
+    const manifest: Manifest = { updatedAt: now(), notes: remoteNotes }
+    const sealed = await sealManifest(deps.dek, manifest)
+    const saved = manifestFile
+      ? await drive.update(manifestFile.id, sealed)
+      : await drive.create(MANIFEST_NAME, sealed)
+    manifestModifiedTime = saved.modifiedTime
+  }
 
-  return { pulled, pushed }
+  return { pulled, pushed, manifestModifiedTime }
 }

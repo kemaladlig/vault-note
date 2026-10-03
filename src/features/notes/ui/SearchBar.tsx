@@ -22,7 +22,7 @@ export function SearchBar({
   onClose,
 }: SearchBarProps) {
   return (
-    <div className="flex items-center gap-1.5 border-b px-2 py-1.5">
+    <div className="flex items-center gap-1.5 border-b border-border/70 bg-sidebar/60 px-2 py-1.5 animate-slide-up">
       <Input
         autoFocus
         value={term}

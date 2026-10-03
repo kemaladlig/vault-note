@@ -16,6 +16,8 @@ export interface CodeEditorHandle {
   setQuery: (term: string) => void
   findNext: () => void
   findPrevious: () => void
+  /** Replace the whole document without notifying `onChange` (remote revision). */
+  setValue: (text: string) => void
 }
 
 interface CodeEditorProps {
@@ -37,11 +39,16 @@ const theme = EditorView.theme({
     height: '100%',
     backgroundColor: 'transparent',
     color: 'var(--color-foreground)',
-    fontSize: '0.95rem',
+    fontSize: '1rem',
   },
   '&.cm-focused': { outline: 'none' },
-  '.cm-scroller': { fontFamily: 'inherit', lineHeight: '1.7', padding: '0 4px' },
-  '.cm-content': { caretColor: 'var(--color-primary)' },
+  '.cm-scroller': { fontFamily: 'inherit', lineHeight: '1.75', padding: '0 4px' },
+  // CodeMirror draws its own cursor; its default is black and vanishes on dark.
+  '.cm-cursor, .cm-dropCursor': {
+    borderLeftColor: 'var(--color-foreground)',
+    borderLeftWidth: '2px',
+  },
+  '.cm-content': { caretColor: 'var(--color-foreground)' },
   '.cm-gutters': { display: 'none' },
   '.cm-activeLine': { backgroundColor: 'transparent' },
   '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
@@ -78,6 +85,8 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
   const changeRef = useRef(onChange)
   const matchRef = useRef(onMatchCount)
   const requestRef = useRef(onRequestSearch)
+  // True while we dispatch a programmatic doc change, so it is not reported as a user edit.
+  const applying = useRef(false)
 
   useEffect(() => {
     changeRef.current = onChange
@@ -100,6 +109,13 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
     findPrevious: () => {
       if (viewRef.current) cmFindPrevious(viewRef.current)
     },
+    setValue: (text) => {
+      const view = viewRef.current
+      if (!view || view.state.doc.toString() === text) return
+      applying.current = true
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } })
+      applying.current = false
+    },
   }))
 
   useEffect(() => {
@@ -115,7 +131,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
         keymap.of([{ key: 'Mod-f', run: () => (requestRef.current?.(), true) }]),
       ),
       EditorView.updateListener.of((update) => {
-        if (update.docChanged) changeRef.current(update.state.doc.toString())
+        if (update.docChanged && !applying.current) changeRef.current(update.state.doc.toString())
       }),
     ]
     const view = new EditorView({

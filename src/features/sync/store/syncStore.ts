@@ -7,6 +7,9 @@ import { getAccessToken, hasSession, isAuthConfigured, signOut } from '../auth/g
 import { downloadBootstrap, uploadBootstrap } from '../bootstrap'
 import { createGoogleDriveClient } from '../drive/googleDrive'
 import { syncNotes } from '../engine'
+import { syncFolders } from '../folders'
+import { useNotesStore } from '@/features/notes/store/notesStore'
+import { useFolderStore } from '@/features/notes/store/folderStore'
 
 type SyncStatus = 'idle' | 'syncing' | 'error'
 
@@ -20,6 +23,8 @@ interface SyncState {
   lastSyncedAt?: number
   error?: string
   configured: boolean
+  /** Manifest `modifiedTime` from the last sync; lets idle polls skip work. */
+  manifestModifiedTime?: string
   sync: (options?: SyncOptions) => Promise<void>
   /** New-device setup: pull the vault header from Drive and adopt it locally. */
   restore: () => Promise<boolean>
@@ -30,7 +35,7 @@ function drive() {
   return createGoogleDriveClient(getAccessToken)
 }
 
-export const useSyncStore = create<SyncState>((set) => ({
+export const useSyncStore = create<SyncState>((set, get) => ({
   status: 'idle',
   configured: isAuthConfigured(),
 
@@ -53,8 +58,43 @@ export const useSyncStore = create<SyncState>((set) => ({
           createdAt: settings.createdAt,
         },
       })
-      await syncNotes({ drive: client, dek })
-      set({ status: 'idle', lastSyncedAt: now() })
+      const result = await syncNotes({
+        drive: client,
+        dek,
+        manifestModifiedTime: get().manifestModifiedTime,
+      })
+      // Only re-read (and re-decrypt) when something was actually pulled in.
+      if (result.pulled > 0 && useVaultStore.getState().dek) {
+        await useNotesStore.getState().reload()
+      }
+
+      // Sync the notebook tree as a separate sealed doc (only once it has been loaded).
+      const folders = useFolderStore.getState()
+      if (folders.loaded) {
+        const folderResult = await syncFolders({
+          drive: client,
+          dek,
+          folders: folders.folders,
+          updatedAt: folders.updatedAt,
+          modifiedTime: folders.modifiedTime,
+          dirty: folders.dirty,
+        })
+        if (folderResult.pulled) {
+          await useFolderStore
+            .getState()
+            .adopt(folderResult.folders, folderResult.updatedAt, folderResult.modifiedTime)
+        } else if (folderResult.pushed) {
+          await useFolderStore
+            .getState()
+            .markSynced(folderResult.updatedAt, folderResult.modifiedTime)
+        }
+      }
+
+      set({
+        status: 'idle',
+        lastSyncedAt: now(),
+        manifestModifiedTime: result.manifestModifiedTime,
+      })
     } catch (err) {
       set({ status: 'error', error: err instanceof Error ? err.message : 'Senkron başarısız' })
     }
@@ -79,6 +119,6 @@ export const useSyncStore = create<SyncState>((set) => ({
 
   disconnect: () => {
     signOut()
-    set({ status: 'idle', lastSyncedAt: undefined, error: undefined })
+    set({ status: 'idle', lastSyncedAt: undefined, error: undefined, manifestModifiedTime: undefined })
   },
 }))

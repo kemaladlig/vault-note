@@ -11,6 +11,10 @@ export interface NotePayload {
   readonly title: string
   readonly body: string
   readonly tags: string[]
+  /** Organizational metadata, sealed with the content so nothing leaks at rest. */
+  readonly pinned?: boolean
+  readonly folderId?: string
+  readonly archived?: boolean
 }
 
 /** Encrypt a whole note payload (title + body + tags) under the note's own derived key. */
@@ -21,7 +25,15 @@ export async function sealNote(
   payload: NotePayload,
 ): Promise<Sealed> {
   const key = await deriveNoteKey(dek, noteId)
-  const json = JSON.stringify({ title: payload.title, body: payload.body, tags: payload.tags })
+  // Only serialize the optional fields when set, so old payloads stay byte-identical.
+  const json = JSON.stringify({
+    title: payload.title,
+    body: payload.body,
+    tags: payload.tags,
+    ...(payload.pinned !== undefined ? { pinned: payload.pinned } : {}),
+    ...(payload.folderId !== undefined ? { folderId: payload.folderId } : {}),
+    ...(payload.archived !== undefined ? { archived: payload.archived } : {}),
+  })
   return seal(key, utf8ToBytes(json), noteAad(noteId, version))
 }
 

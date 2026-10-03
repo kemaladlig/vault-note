@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { openNote, randomBytes, type Bytes } from '@/features/vault/crypto'
 import { db } from '@/shared/db'
 
-import { createNote, deleteNote, listNotes, updateNote } from './noteRepo'
+import { createNote, deleteNote, destroyNote, listNotes, restoreNote, updateNote } from './noteRepo'
 
 let dek: Bytes
 
@@ -56,11 +56,22 @@ describe('noteRepo (encrypted at rest)', () => {
     expect((await listNotes(dek))[0].body).toBe('ikinci')
   })
 
-  it('delete soft-hides the note and clears it from the active list', async () => {
+  it('delete soft-hides the note as a trashed row', async () => {
     const { id } = await createNote(dek, { title: 't', body: 'b', tags: [] })
     await deleteNote(id)
-    expect(await listNotes(dek)).toHaveLength(0)
+    const notes = await listNotes(dek)
+    expect(notes).toHaveLength(1)
+    expect(notes[0].deleted).toBe(true)
     const row = await db.notes.get(id)
     expect(row!.deleted).toBe(1)
+  })
+
+  it('restore clears the tombstone and destroy removes the row', async () => {
+    const { id } = await createNote(dek, { title: 't', body: 'b', tags: [] })
+    await deleteNote(id)
+    await restoreNote(id)
+    expect((await listNotes(dek))[0].deleted).toBe(false)
+    await destroyNote(id)
+    expect(await listNotes(dek)).toHaveLength(0)
   })
 })

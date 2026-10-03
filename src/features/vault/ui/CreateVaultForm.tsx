@@ -9,6 +9,7 @@ import { RestoreFromDrive } from '@/features/sync/ui/RestoreFromDrive'
 import { cn } from '@/lib/utils'
 
 import { useVaultStore } from '../store/vaultStore'
+import { VaultFrame } from './VaultFrame'
 
 const MIN_LENGTH = 8
 
@@ -62,7 +63,7 @@ export function CreateVaultForm() {
   }
 
   return (
-    <div className="flex min-h-full items-center justify-center p-6">
+    <VaultFrame>
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Vault oluştur</CardTitle>
@@ -171,6 +172,6 @@ export function CreateVaultForm() {
           <RestoreFromDrive />
         </CardContent>
       </Card>
-    </div>
+    </VaultFrame>
   )
 }

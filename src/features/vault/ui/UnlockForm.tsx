@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 
 import { WrongPassphraseError } from '../crypto'
 import { useVaultStore } from '../store/vaultStore'
+import { VaultFrame } from './VaultFrame'
 
 export function UnlockForm() {
   const unlock = useVaultStore((s) => s.unlock)
@@ -60,7 +61,7 @@ export function UnlockForm() {
   const brokenDevice = isDevice && !quickAvailable
 
   return (
-    <div className="flex min-h-full items-center justify-center p-6">
+    <VaultFrame>
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Kilidi aç</CardTitle>
@@ -155,6 +156,6 @@ export function UnlockForm() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </VaultFrame>
   )
 }

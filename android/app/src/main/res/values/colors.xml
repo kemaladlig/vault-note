@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Mirrors src/index.css: window_background = --background, splash_background stands in for
+      the --shell-from / --shell-to gradient the web boot screen paints (the system splash API
+      only takes a solid color). Keep the two files in step.
+    -->
+    <color name="window_background">#FFFFFF</color>
+    <color name="splash_background">#EEF1F7</color>
+</resources>

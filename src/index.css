@@ -1,66 +1,162 @@
 @import 'tailwindcss';
 
-/* VaultNote design tokens — single source of truth.
-   Values are oklch; mapped into Tailwind's theme below. */
-:root {
-  --background: oklch(0.99 0.002 265);
-  --foreground: oklch(0.21 0.01 265);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.21 0.01 265);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.21 0.01 265);
-  --primary: oklch(0.55 0.19 285);
-  --primary-foreground: oklch(0.98 0.005 285);
-  --secondary: oklch(0.96 0.004 265);
-  --secondary-foreground: oklch(0.28 0.01 265);
-  --muted: oklch(0.96 0.004 265);
-  --muted-foreground: oklch(0.52 0.012 265);
-  --accent: oklch(0.95 0.01 285);
-  --accent-foreground: oklch(0.3 0.03 285);
-  --destructive: oklch(0.58 0.22 27);
-  --destructive-foreground: oklch(0.98 0.005 27);
-  --border: oklch(0.91 0.005 265);
-  --input: oklch(0.91 0.005 265);
-  --ring: oklch(0.55 0.19 285);
-  --search-highlight: oklch(0.9 0.16 95);
-  --search-highlight-active: oklch(0.82 0.17 75);
+/* ============================================================================
+   VaultNote design tokens — single source of truth.
+   Enterprise-SaaS refresh: cool slate neutrals with three surface tiers
+   (shell → sidebar → surface), a deep refined blue brand, layered soft
+   elevation, and a motion set for enter/exit transitions.
+   ============================================================================ */
 
-  --radius: 0.625rem;
+:root {
+  /* Surfaces & content (three tiers: shell < sidebar < surface) */
+  --background: #ffffff;
+  --foreground: #1b2333;
+  --surface: #ffffff;
+  --surface-variant: #f1f4f9;
+  --shell-from: #e7ecf4;
+  --shell-to: #f2f4f9;
+  --sidebar: #f7f9fc;
+  --card: #ffffff;
+  --card-foreground: #1b2333;
+  --popover: #ffffff;
+  --popover-foreground: #1b2333;
+
+  /* Brand (refined blue) */
+  --primary: #0b57d0;
+  --primary-foreground: #ffffff;
+  --primary-hover: #0a4cb5;
+  --brand-from: #2b7cf0;
+  --brand-to: #0b57d0;
+
+  /* Neutral containers */
+  --secondary: #eef1f6;
+  --secondary-foreground: #3d4657;
+  --muted: #eef1f6;
+  --muted-foreground: #5f6b7e;
+  --accent: #e7f0fd;
+  --accent-foreground: #0b57d0;
+
+  /* Lines */
+  --border: #dfe5ee;
+  --input: #d4dce8;
+  --outline: #6b7484;
+  --outline-variant: #c3cad6;
+  --ring: #0b57d0;
+
+  /* Status */
+  --destructive: #d93025;
+  --destructive-foreground: #ffffff;
+  --success: #188038;
+  --success-foreground: #ffffff;
+  --warning: #b06000;
+  --warning-foreground: #ffffff;
+
+  /* Notebook accent colors */
+  --folder-blue: #0b57d0;
+  --folder-green: #188038;
+  --folder-red: #d93025;
+  --folder-amber: #b06000;
+  --folder-violet: #7c4dff;
+  --folder-teal: #0f8a80;
+  --folder-slate: #5f6b7e;
+
+  /* Scrim / overlays */
+  --scrim: rgb(15 23 42 / 0.42);
+
+  /* Search highlight (in-note) */
+  --search-highlight: #fde293;
+  --search-highlight-active: #fbbc04;
+
+  /* Shape */
+  --radius: 0.875rem;
+
+  /* Elevation (layered, cool-tinted) */
+  --elevation-1: 0 1px 2px 0 rgb(23 31 54 / 0.06), 0 1px 3px 1px rgb(23 31 54 / 0.07);
+  --elevation-2: 0 2px 6px -2px rgb(23 31 54 / 0.08), 0 6px 16px -4px rgb(23 31 54 / 0.1);
+  --elevation-3: 0 4px 12px -4px rgb(23 31 54 / 0.12), 0 16px 40px -12px rgb(23 31 54 / 0.24);
+  --shadow-pop: 0 2px 6px -2px rgb(23 31 54 / 0.08), 0 16px 42px -12px rgb(23 31 54 / 0.28);
+  --shadow-glow: 0 6px 16px -6px rgb(11 87 208 / 0.45);
+
+  /* Motion */
+  --duration-fast: 140ms;
+  --duration-base: 220ms;
+  --duration-slow: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.05, 0.7, 0.1, 1);
 }
 
 .dark {
-  --background: oklch(0.17 0.008 265);
-  --foreground: oklch(0.95 0.005 265);
-  --card: oklch(0.21 0.009 265);
-  --card-foreground: oklch(0.95 0.005 265);
-  --popover: oklch(0.21 0.009 265);
-  --popover-foreground: oklch(0.95 0.005 265);
-  --primary: oklch(0.7 0.16 290);
-  --primary-foreground: oklch(0.17 0.02 290);
-  --secondary: oklch(0.27 0.01 265);
-  --secondary-foreground: oklch(0.95 0.005 265);
-  --muted: oklch(0.27 0.01 265);
-  --muted-foreground: oklch(0.68 0.012 265);
-  --accent: oklch(0.3 0.02 285);
-  --accent-foreground: oklch(0.95 0.01 285);
-  --destructive: oklch(0.65 0.2 25);
-  --destructive-foreground: oklch(0.17 0.02 25);
-  --border: oklch(0.3 0.008 265);
-  --input: oklch(0.32 0.008 265);
-  --ring: oklch(0.7 0.16 290);
-  --search-highlight: oklch(0.55 0.14 85);
-  --search-highlight-active: oklch(0.65 0.16 70);
+  --background: #1a1c21;
+  --foreground: #e6e9f0;
+  --surface: #1a1c21;
+  --surface-variant: #23252c;
+  --shell-from: #101116;
+  --shell-to: #16181e;
+  --sidebar: #171921;
+  --card: #22242b;
+  --card-foreground: #e6e9f0;
+  --popover: #24262e;
+  --popover-foreground: #e6e9f0;
+
+  --primary: #8ab4f8;
+  --primary-foreground: #16181d;
+  --primary-hover: #a5c6fa;
+  --brand-from: #9cc0fa;
+  --brand-to: #78a6f5;
+
+  --secondary: #2a2d36;
+  --secondary-foreground: #e6e9f0;
+  --muted: #272a32;
+  --muted-foreground: #9aa4b5;
+  --accent: #25395c;
+  --accent-foreground: #aecbfa;
+
+  --border: #31343d;
+  --input: #3a3e49;
+  --outline: #9aa4b5;
+  --outline-variant: #565c69;
+  --ring: #8ab4f8;
+
+  --destructive: #f28b82;
+  --destructive-foreground: #16181d;
+  --success: #81c995;
+  --success-foreground: #16181d;
+  --warning: #fdd663;
+  --warning-foreground: #16181d;
+
+  --folder-blue: #8ab4f8;
+  --folder-green: #81c995;
+  --folder-red: #f28b82;
+  --folder-amber: #fdd663;
+  --folder-violet: #c58af9;
+  --folder-teal: #78d9d0;
+  --folder-slate: #9aa4b5;
+
+  --scrim: rgb(0 0 0 / 0.6);
+
+  --search-highlight: #7a5c00;
+  --search-highlight-active: #a1790a;
+
+  --elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.45), 0 1px 3px 1px rgb(0 0 0 / 0.28);
+  --elevation-2: 0 2px 6px -2px rgb(0 0 0 / 0.4), 0 6px 16px -4px rgb(0 0 0 / 0.45);
+  --elevation-3: 0 4px 12px -4px rgb(0 0 0 / 0.5), 0 16px 40px -12px rgb(0 0 0 / 0.6);
+  --shadow-pop: 0 2px 6px -2px rgb(0 0 0 / 0.45), 0 16px 42px -12px rgb(0 0 0 / 0.65);
+  --shadow-glow: 0 6px 16px -6px rgb(138 180 248 / 0.35);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-variant: var(--surface-variant);
+  --color-sidebar: var(--sidebar);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -69,19 +165,143 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
   --color-ring: var(--ring);
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 3px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  --shadow-e1: var(--elevation-1);
+  --shadow-e2: var(--elevation-2);
+  --shadow-e3: var(--elevation-3);
+  --shadow-pop: var(--shadow-pop);
+  --shadow-glow: var(--shadow-glow);
+
+  --font-sans:
+    'Google Sans', Roboto, 'Helvetica Neue', system-ui, 'Segoe UI', -apple-system, sans-serif;
+
+  --animate-fade-in: fade-in var(--duration-base) var(--ease-standard) both;
+  --animate-fade-out: fade-out var(--duration-fast) var(--ease-standard) both;
+  --animate-pop-in: pop-in var(--duration-base) var(--ease-emphasized) both;
+  --animate-slide-up: slide-up var(--duration-base) var(--ease-standard) both;
+  --animate-rise: rise var(--duration-slow) var(--ease-emphasized) both;
+  /* Entrance for large, centered statements (splash, empty states). */
+  --animate-brand-in: brand-in var(--duration-slow) var(--ease-emphasized) both;
+  /* Compact list/panel entrances and exits. */
+  --animate-slide-in-left: slide-in-left var(--duration-base) var(--ease-emphasized) both;
+  --animate-toast-in: toast-in var(--duration-base) var(--ease-emphasized) both;
+  --animate-tab-in: tab-in var(--duration-fast) var(--ease-standard) both;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-grow-x: grow-x var(--duration-base) var(--ease-emphasized) both;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(4px);
+  }
+}
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@keyframes brand-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+}
+@keyframes tab-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scaleX(0.96);
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* App frame: subtle cool gradient behind the floating workspace card. */
+@utility bg-shell-gradient {
+  background-image: linear-gradient(165deg, var(--shell-from), var(--shell-to) 55%);
+}
+
+/* Horizontal scrollers that must never reserve layout space (tab strips). */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Skeleton sweep. */
+@utility shimmer {
+  background-image: linear-gradient(
+    100deg,
+    var(--color-muted) 40%,
+    color-mix(in srgb, var(--color-muted) 45%, var(--color-background)) 50%,
+    var(--color-muted) 60%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
 }
 
 @layer base {
   * {
     border-color: var(--color-border);
+  }
+  html {
+    /* Laptop-first scale: everything is rem-based, so this lifts the whole UI. */
+    font-size: 17px;
   }
   html,
   body,
@@ -92,9 +312,34 @@
     margin: 0;
     background: var(--color-background);
     color: var(--color-foreground);
-    font-family:
-      system-ui, 'Segoe UI', Roboto, -apple-system, sans-serif;
+    font-family: var(--font-sans);
+    font-synthesis-weight: none;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    caret-color: var(--color-primary);
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--color-primary) 24%, transparent);
+  }
+  /* Quiet, thin scrollbars that fade in only when scrolling. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--foreground) 18%, transparent) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--foreground) 16%, transparent);
+    border: 3px solid transparent;
+    border-radius: 9999px;
+    background-clip: content-box;
+    transition: background 200ms;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--foreground) 28%, transparent);
+    background-clip: content-box;
   }
   @media (prefers-reduced-motion: reduce) {
     *,
@@ -102,6 +347,51 @@
     *::after {
       animation-duration: 0.01ms !important;
       transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /*
+   * Modal enter/exit on the native <dialog>. Open uses the standard
+   * [open]+@starting-style pattern; closed keeps opacity/transform
+   * transitions alive via `transition-behavior: allow-discrete`.
+   * Browsers without support simply skip the exit animation.
+   */
+  dialog[data-slot='modal'] {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+    transition:
+      opacity var(--duration-base) var(--ease-standard),
+      transform var(--duration-base) var(--ease-emphasized),
+      overlay var(--duration-base) allow-discrete,
+      display var(--duration-base) allow-discrete;
+  }
+  dialog[data-slot='modal'][open] {
+    opacity: 1;
+    transform: none;
+  }
+  dialog[data-slot='modal']::backdrop {
+    opacity: 0;
+    background: var(--scrim);
+    backdrop-filter: blur(0);
+    transition:
+      opacity var(--duration-base) var(--ease-standard),
+      backdrop-filter var(--duration-base) var(--ease-standard),
+      overlay var(--duration-base) allow-discrete;
+  }
+  dialog[data-slot='modal'][open]::backdrop {
+    opacity: 1;
+    backdrop-filter: blur(3px);
+  }
+  @starting-style {
+    dialog[data-slot='modal'][open] {
+      opacity: 0;
+      transform: scale(0.96) translateY(10px);
+    }
+    dialog[data-slot='modal'][open]::backdrop {
+      opacity: 0;
+      backdrop-filter: blur(0);
     }
   }
 }
