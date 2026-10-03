@@ -13,6 +13,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@aparajita/capacitor-biometric-auth": "^10.0.0",
+    "@aparajita/capacitor-secure-storage": "^8.0.1",
     "@base-ui/react": "^1.8.0",
     "@capacitor/android": "^8.5.2",
     "@capacitor/app": "^8.1.2",

@@ -9,6 +9,8 @@ import {
   type VaultHeader,
   type VaultMode,
 } from '../crypto'
+import { verifyBiometric } from './biometric'
+import { clearDeviceKey } from './deviceKey'
 import { disableQuickUnlock, enableQuickUnlock, hasQuickUnlock, quickUnlock } from './quickUnlock'
 import { destroyVault, loadHeader, loadSettings, saveVault, type VaultSettings } from './vaultRepo'
 
@@ -95,6 +97,8 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   },
 
   unlockWithDevice: async () => {
+    // Gate on the OS biometric prompt when available; throws on cancel/failure.
+    await verifyBiometric('VaultNote kilidini aç')
     const dek = await quickUnlock()
     set({ dek, status: 'unlocked' })
   },
@@ -109,6 +113,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 
   forgetDevice: async () => {
     await disableQuickUnlock()
+    await clearDeviceKey()
     set({ quickUnlockAvailable: false })
   },
 
@@ -120,6 +125,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   reset: async () => {
     wipe(get().dek)
     await destroyVault()
+    await clearDeviceKey()
     set({ header: undefined, settings: undefined, dek: undefined, quickUnlockAvailable: false })
     await get().init()
   },

@@ -21,6 +21,9 @@ export default defineConfig({
         // and the editor code can be cached independently.
         manualChunks(id) {
           if (!id.includes('node_modules')) return
+          // Native-only plugins: keep them in their own lazy chunks so the web bundle
+          // never loads them (they are behind dynamic imports + isNativePlatform()).
+          if (id.includes('@aparajita/')) return
           if (id.includes('@lezer') || id.includes('lang-markdown')) return 'editor-lang'
           if (id.includes('@codemirror') || id.includes('/codemirror/')) return 'editor-core'
           return 'vendor'

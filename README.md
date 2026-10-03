@@ -42,6 +42,9 @@ npx cap sync android     # copy the web build + plugins
 npx cap open android     # build/run in Android Studio (needs Android SDK + Java)
 ```
 
+On native, quick unlock is gated by the device biometric prompt (falls back to device
+credential). No extra manifest edit is needed — the plugin merges `USE_BIOMETRIC` itself.
+
 
 ## Security model
 

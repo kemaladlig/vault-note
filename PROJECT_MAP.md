@@ -43,8 +43,9 @@ src/
       store/
         vaultRepo.ts         header/settings persistence in Dexie meta
         vaultStore.ts        Zustand: lifecycle + quick-unlock state, DEK in RAM
-        deviceKey.ts         non-extractable AES key for quick unlock
+        deviceKey.ts         device key: non-extractable (web) / OS secure store (native)
         quickUnlock.ts       wrap/unwrap the DEK with the device key
+        biometric.ts         native biometric gate (dynamic imports, no-op on web)
         vaultRepo.test.ts
       ui/
         VaultGate.tsx        routes app by vault lifecycle
@@ -95,9 +96,12 @@ src/
   cross-device without key transfer) — `VaultMode` in types.
 - **Locking** wipes the DEK and clears the decrypted note list from memory (notesStore
   subscribes to the vault status).
-- **Quick unlock** wraps the DEK with a non-extractable device key (IndexedDB). It skips the
-  passphrase on a trusted device but does not grant cross-device access; "forget this device"
-  deletes it. Restoring a drive vault disables it.
+- **Quick unlock** wraps the DEK with a device key. Web keeps that key non-extractable in
+  IndexedDB; native stores the raw key in the OS secure store (Keychain / EncryptedSharedPrefs)
+  and gates the unlock behind a **biometric prompt** (`biometric.ts`, dynamic imports so web
+  never loads the plugins). "Forget this device" deletes the sealed DEK and the device key.
+  Restoring a drive vault disables it. The key is bound to the OS keystore, not to biometry —
+  the prompt is an app-level gate on top of it.
 - **Passwordless mode (`device`):** the header is wrapped with a random throwaway passphrase we
   discard, and the DEK is reachable only via this device's quick-unlock key. No recovery, no
   cross-device: clearing site data loses the vault, and a Drive backup cannot be opened
