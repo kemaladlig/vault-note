@@ -5,6 +5,7 @@ import { ImportDialog } from '@/features/notes/ui/ImportDialog'
 import { TemplatePickerDialog } from '@/features/notes/ui/TemplatePickerDialog'
 import { NotesShell } from '@/features/notes/ui/NotesShell'
 import { useAutoSync } from '@/features/sync/useAutoSync'
+import { useAutoLock } from '@/features/vault/store/useAutoLock'
 
 import { useShortcuts } from '../useShortcuts'
 import { CommandPalette } from './CommandPalette'
@@ -14,6 +15,7 @@ import { TopBar } from './TopBar'
 /** Application chrome: floating workspace card on a soft gradient shell. */
 export function AppShell() {
   useAutoSync()
+  useAutoLock()
   useShortcuts()
 
   // Templates are device-local; load them once the (already unlocked) shell mounts.

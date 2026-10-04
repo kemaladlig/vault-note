@@ -16,6 +16,7 @@ import { useSyncStore } from '@/features/sync/store/syncStore'
 import { WrongPassphraseError } from '@/features/vault/crypto'
 import { PinDialog, type PinDialogMode } from '@/features/vault/ui/PinDialog'
 import { biometricAvailable, type AppLockMode } from '@/features/vault/store/appLock'
+import { AUTO_LOCK_OPTIONS, getAutoLockMinutes, setAutoLockMinutes } from '@/features/vault/store/autoLock'
 import { useVaultStore } from '@/features/vault/store/vaultStore'
 import { useI18nStore, useT, LOCALES, type MessageKey } from '@/shared/i18n'
 import { cn } from '@/lib/utils'
@@ -110,6 +111,7 @@ export function SettingsDialog() {
   const [pinMode, setPinMode] = useState<PinDialogMode | null>(null)
   /** Target mode to apply once the current PIN has been verified and removed. */
   const [pendingLock, setPendingLock] = useState<'none' | 'biometric' | null>(null)
+  const [autoLock, setAutoLockState] = useState(() => getAutoLockMinutes())
 
   const isDevice = vaultMode === 'device'
   const syncing = syncStatus === 'syncing'
@@ -357,6 +359,34 @@ export function SettingsDialog() {
                   ? t('settings.lockBiometricNote')
                   : t('settings.appLockDesc')}
             </p>
+            {/* Auto-lock only guards something when a gate exists; with "no lock" the app reopens
+                silently, so the delay would have no effect. */}
+            {appLockMode !== 'none' && (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">{t('settings.autoLock')}</p>
+                <div className="grid grid-cols-5 gap-1 rounded-xl bg-muted p-1 text-xs">
+                  {AUTO_LOCK_OPTIONS.map(({ minutes, labelKey, params }) => (
+                    <button
+                      key={minutes}
+                      type="button"
+                      aria-pressed={autoLock === minutes}
+                      onClick={() => {
+                        setAutoLockState(minutes)
+                        setAutoLockMinutes(minutes)
+                      }}
+                      className={cn(
+                        'rounded-lg px-2 py-1.5 transition-colors',
+                        autoLock === minutes
+                          ? 'bg-background shadow-e1'
+                          : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      {t(labelKey, params)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {pinSet && (
               <Button size="xs" variant="ghost" onClick={() => setPinMode('change')}>
                 {t('settings.pinChange')}
