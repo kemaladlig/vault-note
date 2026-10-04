@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client'
 import { registerSW } from 'virtual:pwa-register'
 
 import { Toaster } from '@/components/ui/toaster'
+import { initAccent } from '@/shared/accent'
+import { initEditorPrefs } from '@/shared/editorPrefs'
 import { initI18n } from '@/shared/i18n'
 import { initScale } from '@/shared/scale'
 import { initTheme } from '@/shared/theme'
@@ -12,6 +14,8 @@ import App from './App.tsx'
 
 initTheme()
 initScale()
+initAccent()
+initEditorPrefs()
 initI18n()
 
 // Register the app-shell service worker (no-op in dev). autoUpdate keeps the installed

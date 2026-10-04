@@ -49,17 +49,40 @@
         /* The outgoing brand screen must never eat input aimed at the screen under it. */
         pointer-events: none;
       }
-      /* The mark is drawn as-is: the asset carries its own tile shape and edge treatment. */
+      /* The mark is drawn as-is: the asset carries its own tile shape and edge treatment.
+         Entrance is short and transform/opacity-only so it never delays the handover. */
       #boot-splash img {
         width: 84px;
         height: 84px;
         user-select: none;
+        animation: boot-mark 260ms cubic-bezier(0.2, 0, 0, 1) both;
       }
       #boot-splash span {
         font:
           500 17px/1 'Google Sans', Roboto, 'Helvetica Neue', system-ui, 'Segoe UI', sans-serif;
         letter-spacing: 0.01em;
         color: #5f6b7e;
+        animation: boot-word 240ms cubic-bezier(0.2, 0, 0, 1) 110ms both;
+      }
+      @keyframes boot-mark {
+        from {
+          opacity: 0;
+          transform: scale(0.92);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+      @keyframes boot-word {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
       html.dark #boot-splash span {
         color: #9aa4b5;
@@ -68,11 +91,16 @@
         #boot-splash {
           transition: none;
         }
+        #boot-splash img,
+        #boot-splash span {
+          animation: none;
+        }
       }
     </style>
     <script>
-      /* Apply persisted theme + scale before first paint. Keys mirror shared/theme.ts
-         and shared/scale.ts; kept inline on purpose so it runs with zero dependencies. */
+      /* Apply persisted theme + scale + accent + editor prefs before first paint. Keys mirror
+         shared/theme.ts, shared/scale.ts, shared/accent.ts and shared/editorPrefs.ts;
+         kept inline on purpose so it runs with zero dependencies. */
       ;(function () {
         try {
           var root = document.documentElement
@@ -85,6 +113,18 @@
           root.style.colorScheme = dark ? 'dark' : 'light'
           var scale = localStorage.getItem('vaultnote.scale')
           root.style.fontSize = (scale === 'compact' ? 15 : scale === 'comfortable' ? 19 : 17) + 'px'
+          var accent = localStorage.getItem('vaultnote.accent')
+          if (accent && accent !== 'blue') root.setAttribute('data-accent', accent)
+          var delta = Number(localStorage.getItem('vaultnote.editorDelta') ?? 0)
+          if (Number.isFinite(delta) && delta !== 0) {
+            delta = Math.min(6, Math.max(-3, Math.round(delta)))
+            root.style.setProperty('--editor-delta', delta + 'px')
+          }
+          var line = localStorage.getItem('vaultnote.editorLine')
+          root.style.setProperty(
+            '--editor-line-height',
+            line === 'compact' ? '1.55' : line === 'relaxed' ? '2' : '1.75',
+          )
         } catch (e) {
           /* localStorage unavailable — fall back to the CSS defaults. */
         }

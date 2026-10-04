@@ -6,7 +6,7 @@ import {
   ArrowUpDown,
   CalendarDays,
   Clock,
-  PanelLeft,
+  Menu as MenuIcon,
   Pin,
   Plus,
   Search,
@@ -24,6 +24,7 @@ import { useShellStore } from '@/features/shell/store/shellStore'
 import { cn } from '@/lib/utils'
 import { folderSubtree } from '@/shared/folders'
 import { useT, type MessageKey } from '@/shared/i18n'
+import { toast } from '@/shared/toast'
 
 import type { NotesView } from '../model'
 import { selectNotes } from '../search'
@@ -31,6 +32,7 @@ import { groupFieldFor, sortNotes } from '../sort'
 import { useFolderStore } from '../store/folderStore'
 import { useNotesStore } from '../store/notesStore'
 import { NoteEditor } from './NoteEditor'
+import { MoveNoteDialog } from './MoveNoteDialog'
 import { NoteList } from './NoteList'
 import { SidebarNav } from './SidebarNav'
 import { TabBar } from './TabBar'
@@ -142,6 +144,8 @@ export function NotesShell() {
   const setTagFilter = useNotesStore((s) => s.setTagFilter)
   const togglePin = useNotesStore((s) => s.togglePin)
   const setArchived = useNotesStore((s) => s.setArchived)
+  const remove = useNotesStore((s) => s.remove)
+  const moveToFolder = useNotesStore((s) => s.moveToFolder)
   const restore = useNotesStore((s) => s.restore)
   const destroy = useNotesStore((s) => s.destroy)
   const emptyTrash = useNotesStore((s) => s.emptyTrash)
@@ -158,6 +162,7 @@ export function NotesShell() {
 
   const [pendingDestroy, setPendingDestroy] = useState<string | null>(null)
   const [confirmEmpty, setConfirmEmpty] = useState(false)
+  const [moveNoteId, setMoveNoteId] = useState<string | null>(null)
 
   useEffect(() => {
     void load()
@@ -297,14 +302,15 @@ export function NotesShell() {
       >
         <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border/70 px-2.5">
           <Button
-            size="icon-sm"
+            size="icon-lg"
             variant="ghost"
             className="xl:hidden"
             aria-label={t('notes.shell.menu')}
             title={t('notes.shell.menu')}
+            aria-haspopup="dialog"
             onClick={() => setNavOpen(true)}
           >
-            <PanelLeft />
+            <MenuIcon />
           </Button>
           <span className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-tight">
             {scopeName}
@@ -390,10 +396,20 @@ export function NotesShell() {
               grouped={groupField !== null}
               dateField={groupField ?? 'updatedAt'}
               onTogglePin={(id) => void togglePin(id)}
-              onArchive={(id, archived) => void setArchived(id, archived)}
+              onArchive={(id, archived) =>
+                void setArchived(id, archived).then(() =>
+                  toast(t(archived ? 'notes.list.archived' : 'notes.list.unarchived'), 'success'),
+                )
+              }
               onOpenBeside={onOpenBeside}
-              onRestore={(id) => void restore(id)}
+              onRestore={(id) =>
+                void restore(id).then(() => toast(t('notes.list.restored'), 'success'))
+              }
               onDestroy={(id) => setPendingDestroy(id)}
+              onRemove={(id) =>
+                void remove(id).then(() => toast(t('notes.editor.deleted'), 'success'))
+              }
+              onMove={(id) => setMoveNoteId(id)}
             />
           )}
         </div>
@@ -407,7 +423,7 @@ export function NotesShell() {
           showList ? 'hidden md:flex' : 'flex',
         )}
       >
-        <TabBar />
+        <TabBar onBack={() => setListOpen(true)} />
         <div className="flex min-h-0 flex-1">
           <div className="flex min-w-0 flex-1 flex-col">
             {selected ? (
@@ -415,7 +431,6 @@ export function NotesShell() {
                 key={selected.id}
                 note={selected}
                 initialSearch={deferredSearching ? deferredQuery.trim() : undefined}
-                onBack={() => setListOpen(true)}
               />
             ) : (
               <EmptyState
@@ -445,7 +460,11 @@ export function NotesShell() {
                 </button>
               </header>
               <div className="min-h-0 flex-1">
-                <NoteEditor key={splitNote.id} note={splitNote} />
+                <NoteEditor
+                  key={splitNote.id}
+                  note={splitNote}
+                  initialSearch={deferredSearching ? deferredQuery.trim() : undefined}
+                />
               </div>
             </div>
           )}
@@ -458,14 +477,29 @@ export function NotesShell() {
           type="button"
           aria-label={t('notes.shell.createNote')}
           onClick={() => {
-            void create()
-            setListOpen(false)
+            create().then(
+              () => setListOpen(false),
+              (err) => toast(err instanceof Error ? err.message : t('notes.editor.createFailed'), 'error'),
+            )
           }}
           className="absolute right-5 bottom-[max(env(safe-area-inset-bottom),1.25rem)] z-20 grid size-14 place-items-center rounded-2xl bg-[image:linear-gradient(180deg,var(--brand-from),var(--brand-to))] text-primary-foreground shadow-glow transition-transform duration-[var(--duration-base)] animate-pop-in hover:scale-105 active:scale-95 md:hidden"
         >
           <Plus className="size-6" />
         </button>
       )}
+
+      <MoveNoteDialog
+        open={moveNoteId !== null}
+        currentFolderId={notes.find((note) => note.id === moveNoteId)?.folderId}
+        onSelect={(folderId) => {
+          if (moveNoteId) {
+            void moveToFolder(moveNoteId, folderId).then(() =>
+              toast(t('notes.list.moved'), 'success'),
+            )
+          }
+        }}
+        onClose={() => setMoveNoteId(null)}
+      />
 
       <Modal
         open={Boolean(pendingDestroy)}
@@ -481,7 +515,11 @@ export function NotesShell() {
             <Button
               variant="destructive"
               onClick={() => {
-                if (pendingDestroy) void destroy(pendingDestroy)
+                if (pendingDestroy) {
+                  void destroy(pendingDestroy).then(() =>
+                    toast(t('notes.list.destroyed'), 'success'),
+                  )
+                }
                 setPendingDestroy(null)
               }}
             >
@@ -505,7 +543,7 @@ export function NotesShell() {
             <Button
               variant="destructive"
               onClick={() => {
-                void emptyTrash()
+                void emptyTrash().then(() => toast(t('notes.shell.emptyTrashDone'), 'success'))
                 setConfirmEmpty(false)
               }}
             >

@@ -9,6 +9,8 @@ interface PopoverProps {
   /** The trigger element; the panel anchors to it. */
   anchor: ReactNode
   align?: 'start' | 'end'
+  /** Which side of the trigger the panel opens on (default below). */
+  side?: 'below' | 'above'
   /** Accessible name for the panel (role="dialog"). */
   label?: string
   className?: string
@@ -24,6 +26,7 @@ export function Popover({
   onOpenChange,
   anchor,
   align = 'end',
+  side = 'below',
   label,
   className,
   children,
@@ -55,7 +58,10 @@ export function Popover({
           role="dialog"
           aria-label={label}
           className={cn(
-            'absolute top-full z-50 mt-1.5 origin-top rounded-xl border border-border/70 bg-popover text-popover-foreground shadow-pop',
+            'absolute z-50 rounded-xl border border-border/70 bg-popover text-popover-foreground shadow-pop',
+            side === 'below'
+              ? 'top-full mt-1.5 origin-top'
+              : 'bottom-full mb-1.5 origin-bottom',
             closing ? 'pointer-events-none animate-pop-out' : 'animate-pop-in',
             align === 'end' ? 'right-0' : 'left-0',
             className,

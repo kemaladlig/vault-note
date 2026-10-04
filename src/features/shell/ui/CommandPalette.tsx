@@ -9,6 +9,7 @@ import {
   Search,
   Settings,
   Sun,
+  X,
 } from 'lucide-react'
 import { useDeferredValue, useMemo, useState, type ReactNode } from 'react'
 
@@ -25,6 +26,7 @@ import { useExitMotion } from '@/shared/exitMotion'
 import { useT } from '@/shared/i18n'
 import { relativeTime } from '@/shared/time'
 import { useThemeStore } from '@/shared/theme'
+import { toast } from '@/shared/toast'
 
 import { useShellStore } from '../store/shellStore'
 
@@ -85,7 +87,10 @@ function Palette({ onClose, closing = false }: { onClose: () => void; closing?: 
         group: t('shell.palette.groupActions'),
         run: () => {
           onClose()
-          void create().then(() => setListOpen(false))
+          create().then(
+            () => setListOpen(false),
+            (err) => toast(err instanceof Error ? err.message : t('notes.editor.createFailed'), 'error'),
+          )
         },
       },
       {
@@ -233,7 +238,7 @@ function Palette({ onClose, closing = false }: { onClose: () => void; closing?: 
             value={term}
             aria-label={t('shell.palette.searchLabel')}
             placeholder={t('shell.palette.placeholder')}
-            className="h-12 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground"
+            className="h-12 min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground"
             onChange={(event) => {
               setTerm(event.target.value)
               setActive(0)
@@ -254,6 +259,21 @@ function Palette({ onClose, closing = false }: { onClose: () => void; closing?: 
               }
             }}
           />
+          {term && (
+            <button
+              type="button"
+              aria-label={t('shell.search.clear')}
+              title={t('shell.search.clear')}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                setTerm('')
+                setActive(0)
+              }}
+              className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
           <Kbd>Esc</Kbd>
         </div>
 

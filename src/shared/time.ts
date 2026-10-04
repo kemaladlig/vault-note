@@ -1,4 +1,4 @@
-import { useI18nStore } from './i18n'
+import { t, useI18nStore, type Locale } from './i18n'
 
 /** Epoch milliseconds. Centralised so a single clock source can be swapped in later. */
 export function now(): number {
@@ -27,6 +27,8 @@ const UNITS: ReadonlyArray<readonly [Intl.RelativeTimeFormatUnit, number]> = [
   ['minute', 60_000],
 ]
 
+type ShortUnit = 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'year'
+
 /** "3 dk önce" / "3 min ago" style label. Falls back to seconds for very recent timestamps. */
 export function relativeTime(ts: number, from = Date.now()): string {
   const diff = ts - from
@@ -35,6 +37,22 @@ export function relativeTime(ts: number, from = Date.now()): string {
     if (Math.abs(diff) >= ms) return formatter.format(Math.round(diff / ms), unit)
   }
   return formatter.format(Math.round(diff / 1000), 'second')
+}
+
+const SHORT_SUFFIX: Record<Locale, Record<ShortUnit, string>> = {
+  tr: { second: 'sn', minute: 'dk', hour: 'sa', day: 'g', week: 'hf', month: 'ay', year: 'y' },
+  en: { second: 's', minute: 'm', hour: 'h', day: 'd', week: 'w', month: 'mo', year: 'y' },
+}
+
+/** Compact "35sn" / "12m" label for tight rows — no önce/ago suffix. */
+export function relativeTimeShort(ts: number, from = Date.now()): string {
+  const abs = Math.abs(ts - from)
+  if (abs < 10_000) return t('time.now')
+  const suffix = SHORT_SUFFIX[useI18nStore.getState().locale]
+  for (const [unit, ms] of UNITS) {
+    if (abs >= ms) return `${Math.round(abs / ms)}${suffix[unit as ShortUnit]}`
+  }
+  return `${Math.round(abs / 1000)}${suffix.second}`
 }
 
 export type DateBucket = 'today' | 'yesterday' | 'week' | 'older'

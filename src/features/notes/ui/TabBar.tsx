@@ -1,4 +1,5 @@
-import { Ellipsis, FileText, X, XCircle } from 'lucide-react'
+import { ChevronLeft, Ellipsis, FileText, X, XCircle } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 
 import { Menu, type MenuItem } from '@/components/ui/menu'
 import { useShellStore } from '@/features/shell/store/shellStore'
@@ -7,11 +8,16 @@ import { useT } from '@/shared/i18n'
 
 import { useNotesStore } from '../store/notesStore'
 
+interface TabBarProps {
+  /** Mobile: return to the note list. Renders at the head of the strip. */
+  onBack?: () => void
+}
+
 /**
  * Open-note tabs above the editor. Tabs size to their content and the active tab
  * joins the editor surface (its bottom edge covers the strip's border).
  */
-export function TabBar() {
+export function TabBar({ onBack }: TabBarProps) {
   const notes = useNotesStore((s) => s.notes)
   const openIds = useNotesStore((s) => s.openIds)
   const selectedId = useNotesStore((s) => s.selectedId)
@@ -24,6 +30,19 @@ export function TabBar() {
   const setSplitId = useShellStore((s) => s.setSplitId)
 
   const t = useT()
+
+  const activeRef = useRef<HTMLDivElement | null>(null)
+
+  // Keep the active tab visible: new tabs append at the end and would otherwise
+  // land outside the scrolled strip.
+  useEffect(() => {
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    activeRef.current?.scrollIntoView({
+      block: 'nearest',
+      inline: 'nearest',
+      behavior: reduced ? 'auto' : 'smooth',
+    })
+  }, [selectedId, openIds.length])
 
   if (openIds.length === 0) return null
 
@@ -52,6 +71,19 @@ export function TabBar() {
 
   return (
     <div className="flex h-11 shrink-0 items-stretch border-b bg-surface-variant/80 pr-1.5 pl-1.5">
+      {/* Back sits with the tabs, not in the editor header: it reads as leaving
+          the strip, the same gesture as a browser history back. */}
+      {onBack && (
+        <button
+          type="button"
+          aria-label={t('notes.editor.back')}
+          title={t('notes.editor.back')}
+          onClick={onBack}
+          className="my-1.5 mr-1 grid size-8 shrink-0 place-items-center self-center rounded-full bg-surface/80 text-muted-foreground shadow-e1 transition-[background-color,color,transform] duration-[var(--duration-base)] hover:bg-surface hover:text-foreground active:scale-95 md:hidden"
+        >
+          <ChevronLeft className="size-4" />
+        </button>
+      )}
       <div
         role="tablist"
         aria-label={t('notes.tabs.aria')}
@@ -65,6 +97,7 @@ export function TabBar() {
           return (
             <div
               key={id}
+              ref={active ? activeRef : undefined}
               className={cn(
                 'group flex h-9 max-w-45 shrink-0 items-center rounded-t-lg animate-tab-in',
                 active

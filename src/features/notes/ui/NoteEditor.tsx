@@ -1,5 +1,5 @@
-import { Archive, ArchiveRestore, ChevronLeft, Download, Eye, FolderInput, History, LayoutTemplate, Link2, MoreVertical, PenLine, Pin, Search, Tags, Trash2, X } from 'lucide-react'
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { Archive, ArchiveRestore, Download, Eye, FolderInput, History, LayoutTemplate, Link2, MoreVertical, PenLine, Pin, Search, SlidersHorizontal, Tags, Trash2, X } from 'lucide-react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,6 +18,7 @@ import { countWords } from '../stats'
 import { useNotesStore } from '../store/notesStore'
 import { useTemplateStore } from '../store/templateStore'
 import type { CodeEditorHandle, LinkTarget } from './CodeEditor'
+import { EditorToolbar } from './EditorToolbar'
 import { MoveNoteDialog } from './MoveNoteDialog'
 import { NoteHistory } from './NoteHistory'
 import { PromptDialog } from './PromptDialog'
@@ -32,12 +33,83 @@ const MarkdownPreview = lazy(() =>
 
 const SAVE_DELAY_MS = 500
 
+const TOOLS_KEY = 'vaultnote.toolsOpen'
+
+/** Header tools start open on desktop, closed on small screens; then the choice sticks. */
+function readToolsOpen(): boolean {
+  if (typeof localStorage === 'undefined') return true
+  try {
+    const raw = localStorage.getItem(TOOLS_KEY)
+    if (raw === 'open') return true
+    if (raw === 'closed') return false
+  } catch {
+    return true
+  }
+  return window.matchMedia('(min-width: 768px)').matches
+}
+
 interface NoteEditorProps {
   note: DecryptedNote
   /** Pre-fills and opens in-note search (used when opening from a search hit). */
   initialSearch?: string
-  /** Mobile: return to the note list. */
-  onBack?: () => void
+}
+
+interface TagEditorProps {
+  tags: string[]
+  tagInput: string
+  setTagInput: (value: string) => void
+  onTagInputKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void
+  onAddTag: () => void
+  onRemoveTag: (tag: string) => void
+  inputRef: RefObject<HTMLInputElement | null>
+}
+
+/** Tag list plus the entry field; shared by the desktop and mobile tag popovers. */
+function TagEditor({
+  tags,
+  tagInput,
+  setTagInput,
+  onTagInputKeyDown,
+  onAddTag,
+  onRemoveTag,
+  inputRef,
+}: TagEditorProps) {
+  const t = useT()
+  return (
+    <div className="space-y-2.5 p-4">
+      <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+        {t('notes.editor.tags')}
+      </p>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {tags.map((tag) => (
+          <span
+            key={tag}
+            className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground"
+          >
+            #{tag}
+            <button
+              type="button"
+              aria-label={t('notes.editor.removeTag', { tag })}
+              className="rounded-full p-0.5 transition-colors hover:bg-foreground/10"
+              onClick={() => onRemoveTag(tag)}
+            >
+              <X className="size-3" />
+            </button>
+          </span>
+        ))}
+        <input
+          ref={inputRef}
+          value={tagInput}
+          aria-label={t('notes.editor.addTag')}
+          placeholder={tags.length > 0 ? t('notes.editor.addTagShort') : t('notes.editor.addTag') + '…'}
+          className="h-9 min-w-24 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          onChange={(event) => setTagInput(event.target.value)}
+          onKeyDown={onTagInputKeyDown}
+          onBlur={onAddTag}
+        />
+      </div>
+    </div>
+  )
 }
 
 function normalizeTag(value: string): string {
@@ -45,7 +117,7 @@ function normalizeTag(value: string): string {
 }
 
 /** Single-note editor: encrypted save is debounced, then flushed on unmount. */
-export function NoteEditor({ note, initialSearch, onBack }: NoteEditorProps) {
+export function NoteEditor({ note, initialSearch }: NoteEditorProps) {
   const t = useT()
   const update = useNotesStore((s) => s.update)
   const remove = useNotesStore((s) => s.remove)
@@ -71,6 +143,7 @@ export function NoteEditor({ note, initialSearch, onBack }: NoteEditorProps) {
   const [linksOpen, setLinksOpen] = useState(false)
   const [templateOpen, setTemplateOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [toolsOpen, setToolsOpen] = useState(readToolsOpen)
 
   const editorRef = useRef<CodeEditorHandle>(null)
   const tagFieldRef = useRef<HTMLInputElement>(null)
@@ -141,6 +214,18 @@ export function NoteEditor({ note, initialSearch, onBack }: NoteEditorProps) {
     setTerm('')
     setMatchCount(0)
     editorRef.current?.setQuery('')
+  }
+
+  function toggleTools() {
+    setToolsOpen((value) => {
+      const next = !value
+      try {
+        localStorage.setItem(TOOLS_KEY, next ? 'open' : 'closed')
+      } catch {
+        /* storage unavailable — the choice just lasts this session */
+      }
+      return next
+    })
   }
 
   // Flush genuinely unsaved edits when switching notes or leaving the screen.
@@ -226,7 +311,13 @@ export function NoteEditor({ note, initialSearch, onBack }: NoteEditorProps) {
     {
       label: note.archived ? t('notes.list.unarchive') : t('notes.list.archive'),
       icon: note.archived ? <ArchiveRestore /> : <Archive />,
-      onSelect: () => void setArchived(note.id, !note.archived),
+      onSelect: () =>
+        void setArchived(note.id, !note.archived).then(() =>
+          toast(
+            t(note.archived ? 'notes.list.unarchived' : 'notes.list.archived'),
+            'success',
+          ),
+        ),
     },
     {
       label: t('notes.editor.moveToFolder'),
@@ -247,20 +338,29 @@ export function NoteEditor({ note, initialSearch, onBack }: NoteEditorProps) {
     },
   ]
 
+  // The phone header has room for two buttons, not six: the desktop tool row
+  // (search, pin, links, history) moves into the overflow menu there.
+  const mobileMenuItems: MenuItem[] = [
+    {
+      label: preview ? t('notes.editor.edit') : t('notes.editor.preview'),
+      icon: preview ? <PenLine /> : <Eye />,
+      onSelect: () => setPreview((value) => !value),
+    },
+    {
+      label: note.pinned ? t('notes.list.unpin') : t('notes.list.pin'),
+      icon: <Pin />,
+      selected: note.pinned,
+      onSelect: () => void togglePin(note.id),
+    },
+    { label: t('notes.editor.links'), icon: <Link2 />, onSelect: () => setLinksOpen(true) },
+    { label: t('notes.editor.history'), icon: <History />, onSelect: () => setHistoryOpen(true) },
+    { type: 'separator' },
+    ...menuItems,
+  ]
+
   return (
     <div className="flex h-full flex-col animate-slide-up">
       <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-border/70 px-2">
-        {onBack && (
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            className="md:hidden"
-            aria-label={t('notes.editor.back')}
-            onClick={onBack}
-          >
-            <ChevronLeft />
-          </Button>
-        )}
         <Input
           value={title}
           placeholder={t('common.untitled')}
@@ -282,12 +382,14 @@ export function NoteEditor({ note, initialSearch, onBack }: NoteEditorProps) {
           {t('notes.editor.saving')}
         </span>
 
-        <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-border/60 bg-muted/40 p-0.5 [&_button:hover]:bg-surface [&_button:hover]:shadow-e1">
+        {/* Primary view switch + overflow live here on mobile; the full tool
+            row (pin, links, history) needs more width than a phone header has. */}
+        <div className="hidden shrink-0 items-center gap-0.5 rounded-full border border-border/60 bg-muted/40 p-0.5 md:flex [&_button:hover]:bg-surface [&_button:hover]:shadow-e1">
           <Popover
             open={tagsOpen}
             onOpenChange={setTagsOpen}
             label={t('notes.editor.tags')}
-            className="w-64"
+            className="w-64 max-sm:fixed max-sm:inset-x-4 max-sm:top-36 max-sm:w-auto"
             anchor={
               <span className="relative">
                 <Button
@@ -308,62 +410,24 @@ export function NoteEditor({ note, initialSearch, onBack }: NoteEditorProps) {
               </span>
             }
           >
-            <div className="space-y-2.5">
-              <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                {t('notes.editor.tags')}
-              </p>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground"
-                  >
-                    #{tag}
-                    <button
-                      type="button"
-                      aria-label={t('notes.editor.removeTag', { tag })}
-                      className="rounded-full p-0.5 transition-colors hover:bg-foreground/10"
-                      onClick={() => removeTag(tag)}
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </span>
-                ))}
-                <input
-                  ref={tagFieldRef}
-                  value={tagInput}
-                  aria-label={t('notes.editor.addTag')}
-                  placeholder={
-                    tags.length > 0 ? t('notes.editor.addTagShort') : t('notes.editor.addTag') + '…'
-                  }
-                  className="h-7 min-w-24 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                  onChange={(event) => setTagInput(event.target.value)}
-                  onKeyDown={onTagKeyDown}
-                  onBlur={() => addTag(tagInput)}
-                />
-              </div>
-            </div>
+            <TagEditor
+              tags={tags}
+              tagInput={tagInput}
+              setTagInput={setTagInput}
+              onTagInputKeyDown={onTagKeyDown}
+              onAddTag={() => addTag(tagInput)}
+              onRemoveTag={removeTag}
+              inputRef={tagFieldRef}
+            />
           </Popover>
 
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label={note.pinned ? t('notes.list.unpin') : t('notes.list.pin')}
-            title={note.pinned ? t('notes.list.unpin') : t('notes.list.pin')}
-            onClick={() => void togglePin(note.id)}
-          >
-            <Pin className={cn(note.pinned && 'fill-primary text-primary')} />
-          </Button>
           <Button
             size="icon-sm"
             variant="ghost"
             aria-label={preview ? t('notes.editor.edit') : t('notes.editor.preview')}
             title={preview ? t('notes.editor.edit') : t('notes.editor.preview')}
             aria-pressed={preview}
-            onClick={() => {
-              if (!preview) closeSearch()
-              setPreview((value) => !value)
-            }}
+            onClick={() => setPreview((value) => !value)}
           >
             {preview ? <PenLine /> : <Eye />}
           </Button>
@@ -376,34 +440,115 @@ export function NoteEditor({ note, initialSearch, onBack }: NoteEditorProps) {
           >
             <Search />
           </Button>
-          <span className="relative">
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              aria-label={t('notes.editor.links')}
-              title={t('notes.editor.links')}
-              aria-pressed={linksOpen}
-              onClick={() => setLinksOpen((value) => !value)}
-            >
-              <Link2 className={cn(linksOpen && 'text-primary')} />
-            </Button>
-            {linkCount > 0 && (
-              <span className="pointer-events-none absolute -top-0.5 -right-0.5 grid size-4 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
-                {linkCount}
-              </span>
-            )}
-          </span>
           <Button
             size="icon-sm"
             variant="ghost"
-            aria-label={t('notes.editor.history')}
-            title={t('notes.editor.history')}
-            aria-pressed={historyOpen}
-            onClick={() => setHistoryOpen((value) => !value)}
+            aria-label={t('notes.editor.tools')}
+            title={t('notes.editor.tools')}
+            aria-expanded={toolsOpen}
+            onClick={toggleTools}
           >
-            <History className={cn(historyOpen && 'text-primary')} />
+            <SlidersHorizontal className={cn(toolsOpen && 'text-primary')} />
           </Button>
+          <span
+            aria-hidden={!toolsOpen}
+            className={cn(
+              'grid transition-[grid-template-columns,opacity] duration-[var(--duration-base)] ease-[var(--ease-emphasized)]',
+              toolsOpen ? 'grid-cols-[1fr] opacity-100' : 'grid-cols-[0fr] opacity-0',
+            )}
+          >
+            <span className="flex min-w-0 items-center gap-0.5 overflow-hidden">
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label={note.pinned ? t('notes.list.unpin') : t('notes.list.pin')}
+                title={note.pinned ? t('notes.list.unpin') : t('notes.list.pin')}
+                tabIndex={toolsOpen ? undefined : -1}
+                onClick={() => void togglePin(note.id)}
+              >
+                <Pin className={cn(note.pinned && 'fill-primary text-primary')} />
+              </Button>
+              <span className="relative">
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label={t('notes.editor.links')}
+                  title={t('notes.editor.links')}
+                  aria-pressed={linksOpen}
+                  tabIndex={toolsOpen ? undefined : -1}
+                  onClick={() => setLinksOpen((value) => !value)}
+                >
+                  <Link2 className={cn(linksOpen && 'text-primary')} />
+                </Button>
+                {linkCount > 0 && (
+                  <span className="pointer-events-none absolute -top-0.5 -right-0.5 grid size-4 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                    {linkCount}
+                  </span>
+                )}
+              </span>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label={t('notes.editor.history')}
+                title={t('notes.editor.history')}
+                aria-pressed={historyOpen}
+                tabIndex={toolsOpen ? undefined : -1}
+                onClick={() => setHistoryOpen((value) => !value)}
+              >
+                <History className={cn(historyOpen && 'text-primary')} />
+              </Button>
+            </span>
+          </span>
           <Menu label={t('notes.editor.more')} icon={<MoreVertical />} items={menuItems} />
+        </div>
+
+        {/* Mobile: tags + preview/edit, everything else one tap deeper. */}
+        <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-border/60 bg-muted/40 p-0.5 md:hidden [&_button:hover]:bg-surface [&_button:hover]:shadow-e1">
+          <Popover
+            open={tagsOpen}
+            onOpenChange={setTagsOpen}
+            label={t('notes.editor.tags')}
+            className="fixed inset-x-4 top-24 w-auto"
+            anchor={
+              <span className="relative">
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label={t('notes.editor.tags')}
+                  aria-haspopup="dialog"
+                  aria-expanded={tagsOpen}
+                  onClick={() => setTagsOpen((value) => !value)}
+                >
+                  <Tags />
+                </Button>
+                {tags.length > 0 && (
+                  <span className="pointer-events-none absolute -top-0.5 -right-0.5 grid size-4 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                    {tags.length}
+                  </span>
+                )}
+              </span>
+            }
+          >
+            <TagEditor
+              tags={tags}
+              tagInput={tagInput}
+              setTagInput={setTagInput}
+              onTagInputKeyDown={onTagKeyDown}
+              onAddTag={() => addTag(tagInput)}
+              onRemoveTag={removeTag}
+              inputRef={tagFieldRef}
+            />
+          </Popover>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={t('notes.editor.searchInNote')}
+            title={t('notes.editor.searchInNote')}
+            onClick={() => setSearchOpen(true)}
+          >
+            <Search />
+          </Button>
+          <Menu label={t('notes.editor.more')} icon={<MoreVertical />} items={mobileMenuItems} />
         </div>
       </header>
 
@@ -440,7 +585,7 @@ export function NoteEditor({ note, initialSearch, onBack }: NoteEditorProps) {
             key={note.id}
             className="min-h-0 flex-1 overflow-auto"
             value={body}
-            initialQuery={initialSearch}
+            initialQuery={term || undefined}
             linkTargets={linkTargets}
             onMatchCount={setMatchCount}
             onRequestSearch={() => setSearchOpen(true)}
@@ -452,6 +597,11 @@ export function NoteEditor({ note, initialSearch, onBack }: NoteEditorProps) {
           />
         </Suspense>
       )}
+
+      <EditorToolbar
+        formattingEnabled={!preview}
+        onFormat={(action) => editorRef.current?.format(action)}
+      />
 
       {linksOpen && (
         <aside
@@ -564,7 +714,9 @@ export function NoteEditor({ note, initialSearch, onBack }: NoteEditorProps) {
       <MoveNoteDialog
         open={moveOpen}
         currentFolderId={note.folderId}
-        onSelect={(folderId) => void moveToFolder(note.id, folderId)}
+        onSelect={(folderId) =>
+          void moveToFolder(note.id, folderId).then(() => toast(t('notes.list.moved'), 'success'))
+        }
         onClose={() => setMoveOpen(false)}
       />
 

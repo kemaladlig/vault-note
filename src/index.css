@@ -85,6 +85,52 @@
   --ease-emphasized: cubic-bezier(0.05, 0.7, 0.1, 1);
   /* Per-item delay for list entrances; the list component caps the count. */
   --stagger-step: 22ms;
+
+  /* Editor reading prefs (personal delta over the root size + line height). */
+  --editor-delta: 0px;
+  --editor-line-height: 1.75;
+}
+
+/* Accent themes: blue is the `:root` default; these override brand + ring + glow. */
+:root[data-accent='violet'] {
+  --primary: #6d28d9;
+  --primary-hover: #5b21b6;
+  --brand-from: #8b5cf6;
+  --brand-to: #6d28d9;
+  --accent: #ede7fd;
+  --accent-foreground: #5b21b6;
+  --ring: #6d28d9;
+  --shadow-glow: 0 6px 16px -6px rgb(109 40 217 / 0.45);
+}
+:root[data-accent='teal'] {
+  --primary: #0f766e;
+  --primary-hover: #0c5f59;
+  --brand-from: #14b8a6;
+  --brand-to: #0f766e;
+  --accent: #d9efec;
+  --accent-foreground: #0c5f59;
+  --ring: #0f766e;
+  --shadow-glow: 0 6px 16px -6px rgb(15 118 110 / 0.45);
+}
+:root[data-accent='amber'] {
+  --primary: #b45309;
+  --primary-hover: #92400e;
+  --brand-from: #e8a33d;
+  --brand-to: #b45309;
+  --accent: #faf0da;
+  --accent-foreground: #92400e;
+  --ring: #b45309;
+  --shadow-glow: 0 6px 16px -6px rgb(180 83 9 / 0.45);
+}
+:root[data-accent='rose'] {
+  --primary: #be123c;
+  --primary-hover: #9f1239;
+  --brand-from: #f4738f;
+  --brand-to: #be123c;
+  --accent: #fbe4ea;
+  --accent-foreground: #9f1239;
+  --ring: #be123c;
+  --shadow-glow: 0 6px 16px -6px rgb(190 18 60 / 0.45);
 }
 
 .dark {
@@ -144,6 +190,47 @@
   --elevation-3: 0 4px 12px -4px rgb(0 0 0 / 0.5), 0 16px 40px -12px rgb(0 0 0 / 0.6);
   --shadow-pop: 0 2px 6px -2px rgb(0 0 0 / 0.45), 0 16px 42px -12px rgb(0 0 0 / 0.65);
   --shadow-glow: 0 6px 16px -6px rgb(138 180 248 / 0.35);
+}
+
+.dark[data-accent='violet'] {
+  --primary: #c4b5fd;
+  --primary-hover: #d0c2ff;
+  --brand-from: #cdb9ff;
+  --brand-to: #a78bfa;
+  --accent: #2c2545;
+  --accent-foreground: #d3c5ff;
+  --ring: #c4b5fd;
+  --shadow-glow: 0 6px 16px -6px rgb(196 181 253 / 0.35);
+}
+.dark[data-accent='teal'] {
+  --primary: #5eead4;
+  --primary-hover: #7df0dd;
+  --brand-from: #7df0dd;
+  --brand-to: #2dd4bf;
+  --accent: #143935;
+  --accent-foreground: #8df0e2;
+  --ring: #5eead4;
+  --shadow-glow: 0 6px 16px -6px rgb(94 234 212 / 0.35);
+}
+.dark[data-accent='amber'] {
+  --primary: #fbbf24;
+  --primary-hover: #fcd34d;
+  --brand-from: #fcd34d;
+  --brand-to: #f59e0b;
+  --accent: #46351a;
+  --accent-foreground: #fcd34d;
+  --ring: #fbbf24;
+  --shadow-glow: 0 6px 16px -6px rgb(251 191 36 / 0.35);
+}
+.dark[data-accent='rose'] {
+  --primary: #fda4af;
+  --primary-hover: #fecdd3;
+  --brand-from: #fecdd3;
+  --brand-to: #fb7185;
+  --accent: #46222b;
+  --accent-foreground: #fecdd3;
+  --ring: #fda4af;
+  --shadow-glow: 0 6px 16px -6px rgb(253 164 175 / 0.35);
 }
 
 @theme inline {
@@ -470,8 +557,8 @@
    */
   .md-preview {
     color: var(--color-foreground);
-    font-size: 1rem;
-    line-height: 1.75;
+    font-size: calc(1rem + var(--editor-delta));
+    line-height: var(--editor-line-height);
     overflow-wrap: anywhere;
   }
   .md-preview > :first-child {

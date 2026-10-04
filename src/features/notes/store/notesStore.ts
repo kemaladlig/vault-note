@@ -33,8 +33,10 @@ interface NotesState {
   load: () => Promise<void>
   /** Re-read notes after a sync without toggling the loading skeleton. */
   reload: () => Promise<void>
-  /** Select a note and make sure it has a tab. */
-  select: (id?: string) => void
+  /** Select a note and make sure it has a tab. Pristine empty notes left behind go to trash. */
+  select: (id?: string) => Promise<void>
+  /** Trash every pristine empty note except `keepId`; returns how many were dropped. */
+  dropEmpty: (keepId?: string) => Promise<number>
   /** Close a tab; the neighbour becomes active. */
   closeTab: (id: string) => void
   /** Close every open tab. */
@@ -95,9 +97,26 @@ function contentOf(note: DecryptedNote): NoteContent {
   }
 }
 
+/**
+ * Untouched and contentless: created but never edited, with no organization intent.
+ * A note the user deliberately emptied (version 2+) is never pristine — only these
+ * silent leftovers are pruned, and only into the trash (recoverable + synced).
+ */
+export function isPristineEmpty(note: DecryptedNote): boolean {
+  return (
+    note.version === 1 &&
+    !note.deleted &&
+    !note.archived &&
+    !note.pinned &&
+    !note.folderId &&
+    note.tags.length === 0 &&
+    !note.title.trim() &&
+    !note.body.trim()
+  )
+}
+
 /* Tabs are just opaque note ids, so persisting them leaks nothing; pruning happens on load. */
 const TABS_KEY = 'vaultnote.tabs'
-
 interface PersistedTabs {
   openIds: string[]
   activeId?: string
@@ -183,6 +202,13 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       persisted.activeId && alive.has(persisted.activeId) ? persisted.activeId : openIds[0]
     set({ notes, loading: false, openIds, selectedId })
     writeTabs(openIds, selectedId)
+    // Crash leftovers: untouched empty notes from a killed session go to trash,
+    // except the note being restored (the user may still type into it).
+    try {
+      await get().dropEmpty(selectedId)
+    } catch {
+      /* retried on the next note switch */
+    }
     await get().purgeTrash()
   },
 
@@ -198,7 +224,16 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     await get().purgeTrash()
   },
 
-  select: (id) => {
+  select: async (id) => {
+    // Leaving an untouched empty note behind trashes it (recoverable, synced like trash).
+    const current = get().selectedId
+    if (current && current !== id) {
+      try {
+        await get().dropEmpty(id)
+      } catch {
+        /* Dexie hiccup — the empty note stays; retried on the next switch */
+      }
+    }
     if (!id) {
       set({ selectedId: undefined })
       writeTabs(get().openIds, undefined)
@@ -209,6 +244,14 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     writeTabs(openIds, id)
   },
 
+  dropEmpty: async (keepId) => {
+    const targets = get().notes.filter((note) => note.id !== keepId && isPristineEmpty(note))
+    for (const target of targets) {
+      await get().remove(target.id)
+    }
+    return targets.length
+  },
+
   closeTab: (id) => {
     const state = get()
     const index = state.openIds.indexOf(id)
@@ -217,16 +260,25 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       state.selectedId === id ? (openIds[index] ?? openIds[index - 1]) : state.selectedId
     set({ openIds, selectedId })
     writeTabs(openIds, selectedId)
+    void get()
+      .dropEmpty(selectedId)
+      .catch(() => {})
   },
 
   closeAllTabs: () => {
     set({ openIds: [], selectedId: undefined })
     writeTabs([], undefined)
+    void get()
+      .dropEmpty()
+      .catch(() => {})
   },
 
   closeOtherTabs: (id) => {
     set({ openIds: [id], selectedId: id })
     writeTabs([id], id)
+    void get()
+      .dropEmpty(id)
+      .catch(() => {})
   },
 
   setView: (view) => set({ view, folderId: undefined }),

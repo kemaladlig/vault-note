@@ -37,6 +37,8 @@ src/
     i18n.ts                   persisted locale (tr/en) + t()/useT() + init
     locales.ts                message catalog (tr is the key source of truth; en must cover it)
     scale.ts                  persisted UI scale (compact/normal/comfortable) + init
+    accent.ts                 persisted accent color (blue/violet/teal/amber/rose) + init
+    editorPrefs.ts            persisted editor delta size + line spacing + init
     trash.ts                  trash retention preference + isTrashExpired predicate
     revisions.ts              version-history retention preference (10/25/50/unlimited)
     boot.ts                   dismisses the inline boot splash once the first screen is up
@@ -98,6 +100,7 @@ src/
         templateRepo.ts      templates as one sealed doc in meta (device-local)
         templateStore.ts     Zustand: CRUD for note templates
         noteRepo.test.ts
+        notesStore.test.ts    pristine-empty pruning (trash, never destroy)
       ui/
         NotesShell.tsx       3-pane (nav sidebar | list | editor) + split; nav is a slide-over drawer below xl
         SidebarNav.tsx       scope + smart views, notebook tree (drag-to-reparent, colors), tags
@@ -113,6 +116,7 @@ src/
         SearchBar.tsx        in-note search controls (count, next/prev)
         Highlight.tsx        Turkish-aware substring highlight (list + palette)
         CodeEditor.tsx       CodeMirror 6 wrapper: markdown, search, [[ completion, token theme
+        EditorToolbar.tsx    Markdown format bar + text-appearance (size/line) popover
         MarkdownPreview.tsx  read-only preview: marked + sanitized HTML; wiki links navigate in-app
       search.test.ts
       links.test.ts
@@ -167,10 +171,12 @@ src/
   `shared/scale.ts` and the tokens in `index.css`; `applyTheme` also keeps `color-scheme` in sync
   for native controls.
 - **Boot splash:** the same `index.html` paints a brand screen (master app icon + wordmark on the
-  `--shell-from`/`--shell-to` gradient) that needs no JS. `features/shell/useBoot.ts` hands over as
-  soon as the vault lifecycle leaves `loading`: the app fades it out (`shared/boot.ts`), the
-  unlock/setup screens drop it instantly, and a 6 s budget releases it even if boot stalls. The
-  fading element sets `pointer-events: none`, and a stuck splash is a bug (e2e asserts it is gone).
+  `--shell-from`/`--shell-to` gradient) that needs no JS. The mark scales in and the wordmark
+  follows ~110 ms behind — transform/opacity only, and `prefers-reduced-motion` drops it.
+  `features/shell/useBoot.ts` hands over as soon as the vault lifecycle leaves `loading`: the app
+  fades it out (`shared/boot.ts`), the unlock/setup screens drop it instantly, and a 6 s budget
+  releases it even if boot stalls. The fading element sets `pointer-events: none`, and a stuck
+  splash is a bug (e2e asserts it is gone).
 - **Native launch:** `AppTheme.NoActionBarLaunch` uses `Theme.SplashScreen`
   (`androidx.core:core-splashscreen`) with `@drawable/splash_icon` — a resized copy of
   `public/vaultnote-icon.png` — on `@color/splash_background`, which mirrors the web gradient as a
@@ -218,22 +224,24 @@ src/
   a device preference (`localStorage['vaultnote.appLock']`, `appLock.ts`); PIN presence is derived
   from `hasPinGate()`. With `none`, `vaultStore.init()` **auto-unlocks on a cold boot** (no tap);
   a manual **lock stays locked** for the session because the auto-open runs only from `init()`,
-  never from `lock()`. Chosen at signup (`CreateVaultForm`) and changeable in Settings; switching
-  off a PIN requires verifying it first, since that unwraps the device key.
-- **Passwordless mode (`device`):** the header is wrapped with a random throwaway passphrase we
-  discard, and the DEK is reachable only via this device's quick-unlock key. No recovery, no
-  cross-device: clearing site data loses the vault, and a Drive backup cannot be opened
-  elsewhere. The create form gates it behind an explicit acknowledgment; the unlock screen hides
-  the passphrase fallback and offers a reset if the device key is gone.
+  never from `lock()`. Created vaults default to `none` with quick unlock enabled
+  (`CreateVaultForm` always remembers the device); the mode is changeable in Settings, and
+  switching off a PIN requires verifying it first, since that unwraps the device key.
+- **Passwordless mode (`device`)** — legacy, no longer offered at creation: the header is wrapped
+  with a random throwaway passphrase we discard, and the DEK is reachable only via this device's
+  quick-unlock key. No recovery, no cross-device. Vault creation is passphrase-only; existing
+  device vaults still unlock (the unlock screen hides the passphrase fallback and offers a reset
+  if the device key is gone).
 - **Passphrase change (rekey):** Settings → "Parolayı değiştir" verifies the current passphrase,
   then `rekeyVault` re-wraps the same DEK. Hidden in passwordless mode (there is no passphrase).
 
 ## Features (user-facing)
 
-- Vault lifecycle: create (passphrase or passwordless) with a chosen **open mode** (no lock /
-  PIN / biometric on native), unlock (passphrase, quick-unlock, PIN, biometric on native), lock,
-  reset, forget device. "No lock" opens the boot directly, no gate. Settings → Security switches
-  the open mode at any time and can add/change/remove the app-lock **PIN**.
+- Vault lifecycle: create (passphrase; the device is remembered by default), unlock (passphrase,
+  quick-unlock, PIN, biometric on native), lock, reset, forget device. Existing **open modes**
+  (no lock / PIN / biometric on native) stay; "No lock" opens the boot directly, no gate.
+  Settings → Security switches the open mode at any time and can add/change/remove the
+  app-lock **PIN**.
 - Notes: create/edit (debounced encrypted save), delete with confirmation, tags, search.
   The editor toggles a **sanitized Markdown preview** (rendered with `marked` + `DOMPurify`,
   loaded lazily; the body never leaves the device). The list is grouped by date

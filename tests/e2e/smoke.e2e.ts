@@ -80,27 +80,6 @@ test('boot splash: covers the cold boot, then hands over to the first screen', a
   await expect(page.locator('#boot-splash')).toHaveCount(0)
 })
 
-test('passwordless vault: create, lock, quick-unlock only', async ({ page }) => {
-  await page.goto('/')
-
-  // Create without a passphrase (device mode).
-  await page.getByRole('button', { name: 'Parolasız' }).click()
-  await page.getByRole('checkbox', { name: 'Riski anladım' }).click()
-  await page.getByRole('button', { name: 'Parolasız oluştur' }).click()
-
-  await expect(page.getByRole('button', { name: 'Yeni not' })).toBeVisible()
-  await page.getByRole('button', { name: 'Yeni not' }).click()
-  await page.getByPlaceholder('Başlıksız').fill('cihaz-notu')
-  await page.waitForTimeout(900)
-
-  // Lock: only quick unlock is offered, there is no passphrase to fall back to.
-  await page.getByRole('button', { name: 'Kilitle' }).click()
-  await expect(page.getByRole('button', { name: 'Hızlı aç' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Parolayla aç' })).toHaveCount(0)
-  await page.getByRole('button', { name: 'Hızlı aç' }).click()
-  await expect(page.getByRole('complementary').getByRole('button', { name: /cihaz-notu/ })).toBeVisible()
-})
-
 test('app lock: a PIN gates quick unlock on this device', async ({ page }) => {
   await page.goto('/')
   await page.getByLabel('Ana parola').fill(PASS)
@@ -140,8 +119,7 @@ test('open mode: "no lock" opens the boot directly, switching to PIN gates it', 
   await page.goto('/')
   await page.getByLabel('Ana parola').fill(PASS)
   await page.getByLabel('Parolayı doğrula').fill(PASS)
-  // The default open mode is "no lock" and it is pre-selected at signup.
-  await expect(page.getByRole('radio', { name: 'Kilit yok' })).toHaveAttribute('aria-checked', 'true')
+  // The vault is remembered on this device ("no lock"), so the app opens directly after signup.
   await page.getByRole('button', { name: 'Vault oluştur' }).click()
   await expect(page.getByRole('button', { name: 'Yeni not' })).toBeVisible()
 
@@ -712,9 +690,9 @@ test('history: restore an earlier version of a note', async ({ page }) => {
 
 test('install: the top bar offers install when the browser allows it', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: 'Parolasız' }).click()
-  await page.getByRole('checkbox', { name: 'Riski anladım' }).click()
-  await page.getByRole('button', { name: 'Parolasız oluştur' }).click()
+  await page.getByLabel('Ana parola').fill(PASS)
+  await page.getByLabel('Parolayı doğrula').fill(PASS)
+  await page.getByRole('button', { name: 'Vault oluştur' }).click()
   await expect(page.getByRole('button', { name: 'Yeni not' })).toBeVisible()
 
   // No install affordance until the browser fires beforeinstallprompt.

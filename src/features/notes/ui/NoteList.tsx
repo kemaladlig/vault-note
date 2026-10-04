@@ -1,13 +1,14 @@
 import { Archive, ArchiveRestore, Columns2, Pin, RotateCcw, Trash2 } from 'lucide-react'
-import { useMemo, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
 import { useT, type MessageKey } from '@/shared/i18n'
-import { bucketOf, relativeTime, type DateBucket } from '@/shared/time'
+import { bucketOf, relativeTimeShort, type DateBucket } from '@/shared/time'
 
 import type { DecryptedNote, NotesView } from '../model'
 import { matchInfo } from '../search'
 import { Highlight } from './Highlight'
+import { NoteContextMenu, type NoteMenuAnchor } from './NoteContextMenu'
 
 interface NoteListProps {
   notes: DecryptedNote[]
@@ -26,6 +27,8 @@ interface NoteListProps {
   onOpenBeside?: (id: string) => void
   onRestore?: (id: string) => void
   onDestroy?: (id: string) => void
+  onRemove?: (id: string) => void
+  onMove?: (id: string) => void
 }
 
 const GROUP_LABELS: Record<DateBucket, MessageKey> = {
@@ -112,6 +115,7 @@ function NoteRow({
   onOpenBeside,
   onRestore,
   onDestroy,
+  onMenu,
   staggerIndex,
 }: {
   note: DecryptedNote
@@ -124,6 +128,7 @@ function NoteRow({
   onOpenBeside?: (id: string) => void
   onRestore?: (id: string) => void
   onDestroy?: (id: string) => void
+  onMenu: (note: DecryptedNote, anchor: NoteMenuAnchor | null) => void
   /** Row position for the entrance stagger; capped by staggerDelay(). */
   staggerIndex: number
 }) {
@@ -131,15 +136,71 @@ function NoteRow({
   const info = query.trim() ? matchInfo(note, query) : null
   const bodyPreview = info ? info.snippet : preview(note.body)
   const alwaysShowActions = view === 'trash' || view === 'archive'
+  const timer = useRef<number | undefined>(undefined)
+  const start = useRef<{ x: number; y: number } | null>(null)
+  const fired = useRef(false)
+
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+
+  function clearTimer() {
+    window.clearTimeout(timer.current)
+    timer.current = undefined
+    start.current = null
+  }
+
+  function handleTouchStart(event: React.TouchEvent) {
+    if (event.touches.length !== 1) return
+    const touch = event.touches[0]
+    start.current = { x: touch.clientX, y: touch.clientY }
+    fired.current = false
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => {
+      fired.current = true
+      start.current = null
+      try {
+        navigator.vibrate?.(12)
+      } catch {
+        /* haptics unavailable — the menu still opens */
+      }
+      onMenu(note, { x: touch.clientX, y: touch.clientY })
+    }, 450)
+  }
+
+  function handleTouchMove(event: React.TouchEvent) {
+    const origin = start.current
+    if (!origin || event.touches.length !== 1) return
+    const touch = event.touches[0]
+    if (Math.hypot(touch.clientX - origin.x, touch.clientY - origin.y) > 10) clearTimer()
+  }
 
   return (
     <li className="group relative animate-slide-in-left" style={{ animationDelay: staggerDelay(staggerIndex) }}>
       <button
         type="button"
-        onClick={() => onSelect(note.id)}
+        onClick={(event) => {
+          if (fired.current) {
+            fired.current = false
+            event.preventDefault()
+            event.stopPropagation()
+            return
+          }
+          onSelect(note.id)
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={clearTimer}
+        onTouchCancel={clearTimer}
+        onContextMenu={(event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          window.clearTimeout(timer.current)
+          if (fired.current) return
+          onMenu(note, { x: event.clientX, y: event.clientY })
+        }}
         aria-current={active}
+        style={{ WebkitTouchCallout: 'none' }}
         className={cn(
-          'w-full rounded-xl px-3 py-2.5 pr-16 text-left transition-[background-color,color,box-shadow] duration-[var(--duration-base)] md:pr-24',
+          'w-full rounded-xl px-3 py-2.5 pr-20 text-left select-none transition-[background-color,color,box-shadow] duration-[var(--duration-base)] md:pr-25',
           active
             ? 'bg-accent text-accent-foreground shadow-e2 ring-1 ring-primary/10'
             : 'hover:bg-muted/60 hover:shadow-e1',
@@ -150,7 +211,7 @@ function NoteRow({
             {note.title ? <Highlight text={note.title} query={query} /> : t('common.untitled')}
           </span>
           <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-            {relativeTime(note.updatedAt)}
+            {relativeTimeShort(note.updatedAt)}
           </span>
         </span>
         {bodyPreview && (
@@ -261,6 +322,8 @@ export function NoteList({
   onOpenBeside,
   onRestore,
   onDestroy,
+  onRemove,
+  onMove,
 }: NoteListProps) {
   const t = useT()
   const pinned = groupPinned ? notes.filter((note) => note.pinned) : []
@@ -269,6 +332,18 @@ export function NoteList({
     () => (grouped ? groupByDate(rest, dateField) : []),
     [grouped, rest, dateField],
   )
+  const [menuNote, setMenuNote] = useState<DecryptedNote | null>(null)
+  const [menuAnchor, setMenuAnchor] = useState<NoteMenuAnchor | null>(null)
+
+  function openMenu(note: DecryptedNote, anchor: NoteMenuAnchor | null) {
+    setMenuNote(note)
+    setMenuAnchor(anchor)
+  }
+
+  function closeMenu() {
+    setMenuNote(null)
+    setMenuAnchor(null)
+  }
 
   if (notes.length === 0) {
     return (
@@ -278,7 +353,7 @@ export function NoteList({
     )
   }
 
-  const rowProps = { query, view, onSelect, onTogglePin, onArchive, onOpenBeside, onRestore, onDestroy }
+  const rowProps = { query, view, onSelect, onTogglePin, onArchive, onOpenBeside, onRestore, onDestroy, onMenu: openMenu }
   // Stagger index runs across all sections so the cascade reads as one continuous list.
   let shown = 0
 
@@ -312,6 +387,20 @@ export function NoteList({
           ))}
         </ul>
       )}
+      <NoteContextMenu
+        note={menuNote}
+        anchor={menuAnchor}
+        view={view}
+        onClose={closeMenu}
+        onOpen={(id) => onSelect(id)}
+        onTogglePin={onTogglePin}
+        onArchive={onArchive}
+        onOpenBeside={onOpenBeside}
+        onRestore={onRestore}
+        onDestroy={onDestroy}
+        onRemove={onRemove}
+        onMove={onMove}
+      />
     </div>
   )
 }

@@ -9,12 +9,15 @@ import {
   Search,
   Settings,
   Sun,
+  X,
 } from 'lucide-react'
+import { useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Kbd } from '@/components/ui/kbd'
 import { Menu, type MenuItem } from '@/components/ui/menu'
+import { Modal } from '@/components/ui/modal'
 import { Spinner } from '@/components/ui/spinner'
 import { VaultNoteIcon } from '@/components/ui/vault-note-icon'
 import { useNotesStore } from '@/features/notes/store/notesStore'
@@ -25,6 +28,7 @@ import { useT } from '@/shared/i18n'
 import { promptInstall, useCanInstall } from '@/shared/pwaInstall'
 import { relativeTime } from '@/shared/time'
 import { useThemeStore } from '@/shared/theme'
+import { toast } from '@/shared/toast'
 
 import { useShellStore } from '../store/shellStore'
 
@@ -55,7 +59,10 @@ export function TopBar() {
 
   const canInstall = useCanInstall()
 
+  const [confirmLock, setConfirmLock] = useState(false)
+
   const syncing = syncStatus === 'syncing'
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   const menuItems: MenuItem[] = [
     ...(canInstall
@@ -89,8 +96,12 @@ export function TopBar() {
   ]
 
   async function onNewNote() {
-    await create()
-    setListOpen(false)
+    try {
+      await create()
+      setListOpen(false)
+    } catch (err) {
+      toast(err instanceof Error ? err.message : t('notes.editor.createFailed'), 'error')
+    }
   }
 
   const syncIcon = syncing ? (
@@ -121,21 +132,47 @@ export function TopBar() {
         <div className="group/search relative hidden min-w-0 flex-1 sm:block">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within/search:text-primary" />
           <Input
+            ref={searchInputRef}
             value={query}
             placeholder={t('shell.search.placeholder')}
             aria-label={t('shell.search.label')}
-            className="h-9 rounded-full border-transparent bg-transparent pl-9 pr-16 shadow-none focus-visible:border-transparent focus-visible:ring-0"
+            className={cn(
+              'h-9 rounded-full border-transparent bg-transparent pr-9 pl-9 shadow-none focus-visible:border-transparent focus-visible:ring-0',
+              !query && 'pr-16',
+            )}
             onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape' && query) {
+                event.preventDefault()
+                setQuery('')
+              }
+            }}
           />
-          <button
-            type="button"
-            aria-label={t('shell.openPalette')}
-            onClick={() => setCommandOpen(true)}
-            className="absolute top-1/2 right-1.5 flex -translate-y-1/2 items-center gap-0.5 rounded-md px-1 py-0.5 transition-colors hover:bg-muted"
-          >
-            <Kbd>Ctrl</Kbd>
-            <Kbd>K</Kbd>
-          </button>
+          {query ? (
+            <button
+              type="button"
+              aria-label={t('shell.search.clear')}
+              title={t('shell.search.clear')}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                setQuery('')
+                searchInputRef.current?.focus()
+              }}
+              className="absolute top-1/2 right-1.5 grid size-6 -translate-y-1/2 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <X className="size-3.5" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              aria-label={t('shell.openPalette')}
+              onClick={() => setCommandOpen(true)}
+              className="absolute top-1/2 right-1.5 flex -translate-y-1/2 items-center gap-0.5 rounded-md px-1 py-0.5 transition-colors hover:bg-muted"
+            >
+              <Kbd>Ctrl</Kbd>
+              <Kbd>K</Kbd>
+            </button>
+          )}
         </div>
       </div>
 
@@ -211,7 +248,8 @@ export function TopBar() {
           className="bg-transparent text-muted-foreground hover:bg-surface/70"
           aria-label={t('shell.lock')}
           title={t('shell.lock')}
-          onClick={lock}
+          aria-haspopup="dialog"
+          onClick={() => setConfirmLock(true)}
         >
           <Lock />
         </Button>
@@ -224,6 +262,29 @@ export function TopBar() {
           triggerClassName="text-muted-foreground hover:bg-surface/70"
         />
       </div>
+
+      <Modal
+        open={confirmLock}
+        onClose={() => setConfirmLock(false)}
+        title={t('shell.lockTitle')}
+        description={t('shell.lockDesc')}
+        icon={<Lock />}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirmLock(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={() => {
+                setConfirmLock(false)
+                lock()
+              }}
+            >
+              {t('shell.lock')}
+            </Button>
+          </>
+        }
+      />
     </header>
   )
 }

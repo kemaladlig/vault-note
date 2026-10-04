@@ -20,6 +20,7 @@ import { AUTO_LOCK_OPTIONS, getAutoLockMinutes, setAutoLockMinutes } from '@/fea
 import { useVaultStore } from '@/features/vault/store/vaultStore'
 import { useI18nStore, useT, LOCALES, type MessageKey } from '@/shared/i18n'
 import { cn } from '@/lib/utils'
+import { ACCENTS, useAccentStore } from '@/shared/accent'
 import { relativeTime } from '@/shared/time'
 import { SCALES, useScaleStore } from '@/shared/scale'
 import {
@@ -41,6 +42,16 @@ const THEMES: { value: ThemeMode; labelKey: MessageKey; icon: typeof Sun }[] = [
   { value: 'system', labelKey: 'settings.theme.system', icon: Monitor },
   { value: 'light', labelKey: 'settings.theme.light', icon: Sun },
   { value: 'dark', labelKey: 'settings.theme.dark', icon: Moon },
+]
+
+const TABS: ReadonlyArray<{
+  id: 'appearance' | 'security' | 'sync' | 'data'
+  labelKey: MessageKey
+}> = [
+  { id: 'appearance', labelKey: 'settings.appearance' },
+  { id: 'security', labelKey: 'settings.security' },
+  { id: 'sync', labelKey: 'settings.syncSection' },
+  { id: 'data', labelKey: 'settings.data' },
 ]
 
 const MIN_LENGTH = 8
@@ -67,6 +78,8 @@ export function SettingsDialog() {
   const purgeTrash = useNotesStore((s) => s.purgeTrash)
   const mode = useThemeStore((s) => s.mode)
   const setMode = useThemeStore((s) => s.setMode)
+  const accent = useAccentStore((s) => s.accent)
+  const setAccent = useAccentStore((s) => s.setAccent)
   const scale = useScaleStore((s) => s.scale)
   const setScale = useScaleStore((s) => s.setScale)
 
@@ -113,6 +126,7 @@ export function SettingsDialog() {
   const [renameTarget, setRenameTarget] = useState<NoteTemplate | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<NoteTemplate | null>(null)
   const [pinMode, setPinMode] = useState<PinDialogMode | null>(null)
+  const [tab, setTab] = useState<(typeof TABS)[number]['id']>('appearance')
   /** Target mode to apply once the current PIN has been verified and removed. */
   const [pendingLock, setPendingLock] = useState<'none' | 'biometric' | null>(null)
   const [autoLock, setAutoLockState] = useState(() => getAutoLockMinutes())
@@ -122,6 +136,7 @@ export function SettingsDialog() {
 
   function close() {
     setOpen(false)
+    setTab('appearance')
     setRekeying(false)
     setCurrent('')
     setNext('')
@@ -229,7 +244,26 @@ export function SettingsDialog() {
       description={t('settings.description')}
       className="w-[min(94vw,34rem)]"
     >
-      <div className="max-h-[70vh] space-y-5 overflow-y-auto pr-1">
+      <div role="tablist" aria-label={t('settings.title')} className="grid grid-cols-4 gap-1 rounded-xl bg-muted p-1 text-[13px]">
+        {TABS.map(({ id, labelKey }) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+            className={cn(
+              'rounded-lg px-2 py-1.5 transition-colors',
+              tab === id ? 'bg-background shadow-e1' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {t(labelKey)}
+          </button>
+        ))}
+      </div>
+      <div key={tab} role="tabpanel" className="max-h-[60vh] min-h-48 space-y-5 overflow-y-auto pr-1 animate-fade-in">
+        {tab === 'appearance' && (
+          <>
         <Section title={t('settings.appearance')}>
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">{t('settings.theme')}</p>
@@ -249,6 +283,27 @@ export function SettingsDialog() {
                 >
                   <Icon className="size-4" />
                   {t(labelKey)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">{t('settings.accent')}</p>
+            <div className="-m-1 flex items-center gap-1.5 p-1" role="group" aria-label={t('settings.accent')}>
+              {ACCENTS.map(({ id, labelKey, swatch }) => (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={accent === id}
+                  aria-label={t(labelKey)}
+                  title={t(labelKey)}
+                  onClick={() => setAccent(id)}
+                  className={cn(
+                    'grid size-9 place-items-center rounded-full transition-transform duration-[var(--duration-fast)] hover:scale-110 active:scale-95',
+                    accent === id && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
+                  )}
+                >
+                  <span aria-hidden className="size-5 rounded-full" style={{ backgroundColor: swatch }} />
                 </button>
               ))}
             </div>
@@ -296,7 +351,10 @@ export function SettingsDialog() {
             </div>
           </div>
         </Section>
-
+          </>
+        )}
+        {tab === 'security' && (
+          <>
         <Section title={t('settings.security')}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm">
@@ -456,7 +514,10 @@ export function SettingsDialog() {
             </Button>
           )}
         </Section>
-
+          </>
+        )}
+        {tab === 'sync' && (
+          <>
         <Section title={t('settings.syncSection')}>
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="outline" disabled={!configured || syncing} onClick={() => void sync()}>
@@ -496,7 +557,10 @@ export function SettingsDialog() {
             </p>
           )}
         </Section>
-
+          </>
+        )}
+        {tab === 'data' && (
+          <>
         <Section title={t('settings.data')}>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={() => { downloadAllJson(notes); toast(t('settings.exportedJson'), 'success') }}>
@@ -634,6 +698,8 @@ export function SettingsDialog() {
             </Button>
           )}
         </Section>
+          </>
+        )}
       </div>
 
       <PromptDialog
