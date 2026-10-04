@@ -17,4 +17,6 @@ export const hasSession = (): boolean => impl.hasSession()
 export const restoreSession = (): Promise<boolean> => impl.restoreSession()
 export const signIn = (): Promise<void> => impl.signIn()
 export const getAccessToken = (): Promise<string> => impl.getAccessToken()
+/** Silent token for background sync: never prompts, throws when there is no session. */
+export const getAccessTokenSilent = (): Promise<string> => impl.getAccessTokenSilent()
 export const signOut = (): void => impl.signOut()

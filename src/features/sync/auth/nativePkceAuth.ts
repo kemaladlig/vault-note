@@ -115,6 +115,15 @@ export async function getAccessToken(): Promise<string> {
   return accessToken as string
 }
 
+/**
+ * Token for background work: the live session only, never the system browser. PKCE
+ * issues no refresh token, so an expired session just means background sync waits.
+ */
+export async function getAccessTokenSilent(): Promise<string> {
+  if (!hasSession()) throw new Error('Oturum yok')
+  return accessToken as string
+}
+
 export function signOut(): void {
   accessToken = undefined
   expiresAt = 0

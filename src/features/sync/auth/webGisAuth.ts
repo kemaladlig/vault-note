@@ -87,6 +87,16 @@ export async function signIn(): Promise<void> {
 }
 
 /**
+ * Token for background work: silent restore only, never a popup. Throws when there is
+ * no live session so auto-sync no-ops quietly instead of tripping the popup blocker.
+ */
+export async function getAccessTokenSilent(): Promise<string> {
+  if (hasSession()) return accessToken as string
+  if (await restoreSession()) return accessToken as string
+  throw new Error('Oturum yok')
+}
+
+/**
  * Silent session restore: reuses the browser's existing Google session with no UI. Resolves
  * `false` when consent or interaction is needed, so background sync can no-op quietly.
  */

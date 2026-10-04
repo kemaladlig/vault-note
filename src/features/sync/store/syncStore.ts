@@ -8,6 +8,7 @@ import { toast } from '@/shared/toast'
 
 import {
   getAccessToken,
+  getAccessTokenSilent,
   hasSession,
   isAuthConfigured,
   restoreSession,
@@ -49,8 +50,10 @@ interface SyncState {
   disconnect: () => void
 }
 
-function drive() {
-  return createGoogleDriveClient(getAccessToken)
+function drive(interactive: boolean) {
+  // Background sync must stay silent end to end: the token getter itself refuses to
+  // prompt, so an expiry mid-sync no-ops quietly instead of tripping the popup blocker.
+  return createGoogleDriveClient(interactive ? getAccessToken : getAccessTokenSilent)
 }
 
 async function countPending(): Promise<number> {
@@ -87,7 +90,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
 
     set({ status: 'syncing', error: undefined })
     try {
-      const client = drive()
+      const client = drive(interactive)
       // Idempotent: makes the vault discoverable from a new device.
       await uploadBootstrap(client, {
         header,
@@ -163,7 +166,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   restore: async () => {
     set({ status: 'syncing', error: undefined })
     try {
-      const bootstrap = await downloadBootstrap(drive())
+      const bootstrap = await downloadBootstrap(drive(true))
       if (!bootstrap) {
         set({ status: 'idle' })
         return false
