@@ -61,9 +61,11 @@ Save-Scaled $master 180 (Join-Path $root 'public\apple-touch-icon.png')
 Save-Scaled $master 32  (Join-Path $root 'public\favicon-32.png')
 
 # Maskable: fill the transparent corners by extending the nearest edge colour (edge clamp), so
-# the result is a seamless, solid full-bleed square the OS can mask freely.
+# the result is a seamless, solid full-bleed square the OS can mask freely. Done on a clone so the
+# transparent master below keeps its cut corners.
+$maskBase = New-Object System.Drawing.Bitmap $master
 $rect = New-Object System.Drawing.Rectangle 0, 0, $S, $S
-$md = $master.LockBits($rect, [System.Drawing.Imaging.ImageLockMode]::ReadWrite, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+$md = $maskBase.LockBits($rect, [System.Drawing.Imaging.ImageLockMode]::ReadWrite, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
 $mstride = $md.Stride
 $mbuf = New-Object byte[] ($mstride * $S)
 [System.Runtime.InteropServices.Marshal]::Copy($md.Scan0, $mbuf, 0, $mbuf.Length)
@@ -83,8 +85,9 @@ for ($y = 0; $y -lt $S; $y++) {
   }
 }
 [System.Runtime.InteropServices.Marshal]::Copy($mbuf, 0, $md.Scan0, $mbuf.Length)
-$master.UnlockBits($md)
-Save-Scaled $master 512 (Join-Path $root 'public\pwa-maskable-512.png')
+$maskBase.UnlockBits($md)
+Save-Scaled $maskBase 512 (Join-Path $root 'public\pwa-maskable-512.png')
+$maskBase.Dispose()
 
 # Store the master downscaled; it is the source of truth for the next regeneration.
 Save-Scaled $master $masterSize $srcPath
