@@ -2,9 +2,7 @@ import { create } from 'zustand'
 
 import {
   createVault,
-  randomBytes,
   rekeyVault,
-  toBase64,
   unlockVault,
   type Bytes,
   type VaultHeader,
@@ -45,11 +43,6 @@ interface VaultState {
   appLockMode: AppLockMode
   init: () => Promise<void>
   create: (passphrase: string, options?: RememberOptions) => Promise<void>
-  /**
-   * Passwordless vault: the header is wrapped with a random passphrase we discard, and the DEK
-   * is only reachable through this device's quick-unlock key. No recovery, no cross-device.
-   */
-  createDevice: () => Promise<void>
   unlock: (passphrase: string, options?: RememberOptions) => Promise<void>
   /** Unlock via the device-held key; no passphrase. */
   unlockWithDevice: () => Promise<void>
@@ -133,24 +126,6 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       dek,
       status: 'unlocked',
       quickUnlockAvailable: await hasQuickUnlock(),
-      pinSet: false,
-      appLockMode: getAppLockPref(),
-    })
-  },
-
-  createDevice: async () => {
-    // A throwaway passphrase nobody knows: the header stays well-formed and cloud-backup-able,
-    // but the only way back in is this device's quick-unlock key.
-    const throwaway = toBase64(randomBytes(32))
-    const { header, dek } = await createVault(throwaway)
-    const settings = await saveVault(header, 'device')
-    await enableQuickUnlock(dek)
-    set({
-      header,
-      settings,
-      dek,
-      status: 'unlocked',
-      quickUnlockAvailable: true,
       pinSet: false,
       appLockMode: getAppLockPref(),
     })
