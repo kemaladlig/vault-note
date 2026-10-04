@@ -25,7 +25,8 @@ export function Toaster() {
             role="status"
             onClick={() => dismiss(item.id)}
             className={cn(
-              'pointer-events-auto flex items-center gap-2.5 rounded-full border border-border/60 bg-popover/95 px-4 py-2.5 text-left text-sm shadow-e3 backdrop-blur-md animate-toast-in',
+              'pointer-events-auto flex items-center gap-2.5 rounded-full border border-border/60 bg-popover/95 px-4 py-2.5 text-left text-sm shadow-e3 backdrop-blur-md',
+              item.leaving ? 'animate-toast-out' : 'animate-toast-in',
               item.tone === 'error' && 'border-destructive/40 text-destructive',
               item.tone === 'success' && 'border-success/40',
             )}

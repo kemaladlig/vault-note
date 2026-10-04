@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
+import { useExitMotion } from '@/shared/exitMotion'
 
 interface PopoverProps {
   open: boolean
@@ -28,6 +29,7 @@ export function Popover({
   children,
 }: PopoverProps) {
   const root = useRef<HTMLDivElement>(null)
+  const { mounted, closing } = useExitMotion(open)
 
   useEffect(() => {
     if (!open) return
@@ -48,12 +50,13 @@ export function Popover({
   return (
     <div ref={root} className="relative">
       {anchor}
-      {open && (
+      {mounted && (
         <div
           role="dialog"
           aria-label={label}
           className={cn(
-            'absolute top-full z-50 mt-1.5 origin-top rounded-xl border border-border/70 bg-popover text-popover-foreground shadow-pop animate-pop-in',
+            'absolute top-full z-50 mt-1.5 origin-top rounded-xl border border-border/70 bg-popover text-popover-foreground shadow-pop',
+            closing ? 'pointer-events-none animate-pop-out' : 'animate-pop-in',
             align === 'end' ? 'right-0' : 'left-0',
             className,
           )}

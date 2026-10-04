@@ -10,6 +10,7 @@ import {
 import { createPortal } from 'react-dom'
 
 import { cn } from '@/lib/utils'
+import { useExitMotion } from '@/shared/exitMotion'
 
 import { Button } from './button'
 
@@ -45,6 +46,7 @@ export function Menu({ label, icon, items, align = 'end', triggerClassName }: Me
   const panel = useRef<HTMLDivElement>(null)
   const [style, setStyle] = useState<CSSProperties>({ visibility: 'hidden' })
   const openedAt = useRef(0)
+  const { mounted, closing } = useExitMotion(open)
 
   useEffect(() => {
     if (!open) return
@@ -108,14 +110,15 @@ export function Menu({ label, icon, items, align = 'end', triggerClassName }: Me
       >
         {icon}
       </Button>
-      {open &&
+      {mounted &&
         createPortal(
           <div
             ref={panel}
             role="menu"
             style={style}
             className={cn(
-              'fixed z-[70] min-w-56 overflow-hidden rounded-xl border border-border/70 bg-popover p-1.5 shadow-pop animate-pop-in',
+              'fixed z-[70] min-w-56 overflow-hidden rounded-xl border border-border/70 bg-popover p-1.5 shadow-pop',
+              closing ? 'pointer-events-none animate-pop-out' : 'animate-pop-in',
               style.transformOrigin === 'bottom center' && 'origin-bottom',
             )}
           >

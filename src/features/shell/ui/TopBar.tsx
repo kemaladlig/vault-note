@@ -101,7 +101,7 @@ export function TopBar() {
 
   return (
     <header className="relative z-30 flex h-14 shrink-0 items-center gap-2 px-3 md:px-4">
-      <div className="group/dock flex min-w-0 flex-1 items-center gap-1.5 rounded-full border border-border/60 bg-surface/70 p-1 pr-2 shadow-e1 backdrop-blur-md transition-all duration-200 animate-fade-in hover:shadow-e2 focus-within:border-primary/40 focus-within:shadow-e2 focus-within:ring-4 focus-within:ring-primary/10 max-sm:border-transparent max-sm:bg-transparent max-sm:p-0 max-sm:shadow-none max-sm:backdrop-blur-none lg:max-w-xl">
+      <div className="group/dock flex min-w-0 flex-1 items-center gap-1.5 rounded-full border border-border/60 bg-surface/70 p-1 pr-2 shadow-e1 backdrop-blur-md transition-[border-color,box-shadow] duration-[var(--duration-base)] animate-fade-in hover:shadow-e2 focus-within:border-primary/40 focus-within:shadow-e2 focus-within:ring-4 focus-within:ring-primary/10 max-sm:border-transparent max-sm:bg-transparent max-sm:p-0 max-sm:shadow-none max-sm:backdrop-blur-none lg:max-w-xl">
         <div className="flex min-w-0 items-center gap-2 pl-0.5">
           <VaultNoteIcon className="size-8 shrink-0 shadow-e1" />
           <span className="hidden text-[15px] font-semibold tracking-tight md:block">
@@ -144,7 +144,7 @@ export function TopBar() {
         <Button
           size="sm"
           variant="ghost"
-          className="hidden gap-1.5 rounded-full border border-border/60 bg-surface/70 px-3 shadow-e1 backdrop-blur-sm transition-all hover:shadow-e2 sm:inline-flex"
+          className="hidden gap-1.5 rounded-full border border-border/60 bg-surface/70 px-3 shadow-e1 backdrop-blur-sm transition-shadow hover:shadow-e2 sm:inline-flex"
           aria-label={t('shell.syncAria')}
           title={syncTitle}
           disabled={!configured || syncing}

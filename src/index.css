@@ -83,6 +83,8 @@
   --duration-slow: 320ms;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-emphasized: cubic-bezier(0.05, 0.7, 0.1, 1);
+  /* Per-item delay for list entrances; the list component caps the count. */
+  --stagger-step: 22ms;
 }
 
 .dark {
@@ -192,6 +194,9 @@
   --animate-fade-in: fade-in var(--duration-base) var(--ease-standard) both;
   --animate-fade-out: fade-out var(--duration-fast) var(--ease-standard) both;
   --animate-pop-in: pop-in var(--duration-base) var(--ease-emphasized) both;
+  /* Exit counterparts for portals/overlays that unmount (kept at fast for snappiness). */
+  --animate-pop-out: pop-out var(--duration-fast) var(--ease-standard) both;
+  --animate-toast-out: toast-out var(--duration-fast) var(--ease-standard) both;
   --animate-slide-up: slide-up var(--duration-base) var(--ease-standard) both;
   --animate-rise: rise var(--duration-slow) var(--ease-emphasized) both;
   /* Entrance for large, centered statements (splash, empty states). */
@@ -215,6 +220,12 @@
 }
 @keyframes pop-in {
   from {
+    opacity: 0;
+    transform: scale(0.97) translateY(4px);
+  }
+}
+@keyframes pop-out {
+  to {
     opacity: 0;
     transform: scale(0.97) translateY(4px);
   }
@@ -247,6 +258,12 @@
   from {
     opacity: 0;
     transform: translateY(10px) scale(0.97);
+  }
+}
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
   }
 }
 @keyframes tab-in {
@@ -386,6 +403,62 @@
     dialog[data-slot='modal'][open]::backdrop {
       opacity: 0;
       backdrop-filter: blur(0);
+    }
+  }
+}
+
+@layer components {
+  /*
+   * Notebook-tree accordion: collapsed subtrees mount only for the duration of
+   * the animation, so the opening pass is a first render. @starting-style
+   * supplies the collapsed 0fr row so growth still animates.
+   */
+  @starting-style {
+    [data-tree-children] {
+      grid-template-rows: 0fr;
+      opacity: 0;
+    }
+  }
+}
+
+@layer components {
+  /*
+   * Mobile list ↔ editor handoff. Below md the panes stack as overlays so the
+   * leaving pane can animate out while the entering one slides in (same
+   * [data-*]+@starting-style+allow-discrete pattern as the modal above).
+   * Desktop renders both panes in flow; the attributes are inert there.
+   */
+  @media (max-width: 767px) {
+    [data-pane] {
+      position: absolute;
+      inset: 0;
+      transition:
+        opacity var(--duration-base) var(--ease-standard),
+        transform var(--duration-base) var(--ease-emphasized),
+        display var(--duration-base) allow-discrete;
+    }
+    [data-pane='list'] {
+      opacity: 0;
+      transform: translateX(-14px);
+    }
+    [data-pane='editor'] {
+      opacity: 0;
+      transform: translateX(14px);
+    }
+    [data-pane][data-visible='true'] {
+      z-index: 1;
+      opacity: 1;
+      transform: none;
+    }
+    @starting-style {
+      [data-pane='list'][data-visible='true'] {
+        opacity: 0;
+        transform: translateX(-14px);
+      }
+      [data-pane='editor'][data-visible='true'] {
+        opacity: 0;
+        transform: translateX(14px);
+      }
     }
   }
 }

@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button'
 import { Menu } from '@/components/ui/menu'
 import { Modal } from '@/components/ui/modal'
 import { cn } from '@/lib/utils'
+import { motionMs } from '@/shared/exitMotion'
 import {
   childFolders,
   FOLDER_COLORS,
@@ -74,7 +75,7 @@ function SectionTitle({ children }: { children: ReactNode }) {
   )
 }
 
-/** Sidebar row: quiet hover, filled accent + growing left rail when active. */
+/** Sidebar row: quiet hover, solid accent fill when active. */
 function NavItem({
   icon,
   label,
@@ -94,15 +95,15 @@ function NavItem({
       onClick={onClick}
       aria-current={active}
       className={cn(
-        'group/nav relative flex w-full items-center gap-2.5 overflow-hidden rounded-lg px-2.5 py-1.5 text-left text-sm transition-all duration-200',
+        'group/nav relative flex w-full items-center gap-2.5 overflow-hidden rounded-lg px-2.5 py-1.5 text-left text-sm transition-[background-color,color,transform] duration-[var(--duration-base)]',
         active
-          ? 'bg-gradient-to-r from-primary/15 via-accent to-accent/30 font-medium text-accent-foreground'
-          : 'text-foreground/90 hover:bg-muted hover:pl-3',
+          ? 'bg-accent font-medium text-accent-foreground ring-1 ring-primary/10'
+          : 'text-foreground/90 hover:translate-x-0.5 hover:bg-muted',
       )}
     >
       <span
         className={cn(
-          'shrink-0 transition-transform duration-200',
+          'shrink-0 transition-transform duration-[var(--duration-base)]',
           active ? 'text-accent-foreground' : 'text-muted-foreground group-hover/nav:scale-110',
         )}
       >
@@ -161,6 +162,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
   const applyView = useViewStore((s) => s.apply)
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [collapsing, setCollapsing] = useState<Set<string>>(new Set())
   const [dialog, setDialog] = useState<DialogState | null>(null)
   const [pendingDelete, setPendingDelete] = useState<Folder | null>(null)
   const [dragId, setDragId] = useState<string | null>(null)
@@ -201,12 +203,32 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
   const tags = useMemo(() => collectTags(notes), [notes])
 
   function toggle(id: string) {
+    const willOpen = !expanded.has(id)
     setExpanded((current) => {
       const next = new Set(current)
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
     })
+    // Collapsed subtrees unmount, but only after the collapse animation ends.
+    if (willOpen) {
+      setCollapsing((current) => {
+        if (!current.has(id)) return current
+        const next = new Set(current)
+        next.delete(id)
+        return next
+      })
+    } else {
+      setCollapsing((current) => new Set(current).add(id))
+      window.setTimeout(() => {
+        setCollapsing((latest) => {
+          if (!latest.has(id)) return latest
+          const done = new Set(latest)
+          done.delete(id)
+          return done
+        })
+      }, motionMs('--duration-base'))
+    }
   }
 
   /** A folder may be dropped onto a parent that is neither itself, its subtree, nor its current parent. */
@@ -229,13 +251,14 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
   function renderFolder(folder: Folder, depth: number): ReactNode {
     const children = childFolders(folders, folder.id)
     const isOpen = expanded.has(folder.id)
+    const showChildren = children.length > 0 && (isOpen || collapsing.has(folder.id))
     const active = view === 'all' && folderId === folder.id
     const isDropTarget = overId === folder.id
     return (
       <li key={folder.id}>
         <div
           className={cn(
-            'group relative rounded-lg transition-all duration-200',
+            'group relative rounded-lg transition-[box-shadow,transform,opacity] duration-[var(--duration-base)]',
             isDropTarget && 'scale-[1.01] ring-2 ring-primary/60',
             dragId === folder.id && 'opacity-50',
           )}
@@ -272,7 +295,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
             onClick={() => go(() => setFolderFilter(folder.id))}
             aria-current={active}
             className={cn(
-              'flex w-full items-center gap-1.5 rounded-lg py-1.5 pr-8 text-left text-sm transition-all duration-200',
+              'flex w-full items-center gap-1.5 rounded-lg py-1.5 pr-8 text-left text-sm transition-colors duration-[var(--duration-base)]',
               active
                 ? 'bg-accent font-medium text-accent-foreground'
                 : 'text-foreground/90 hover:bg-muted',
@@ -287,7 +310,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
                 toggle(folder.id)
               }}
               className={cn(
-                'shrink-0 rounded p-0.5 text-muted-foreground transition-transform duration-200',
+                'shrink-0 rounded p-0.5 text-muted-foreground transition-transform duration-[var(--duration-base)]',
                 children.length === 0 && 'opacity-0',
                 isOpen && 'rotate-90',
               )}
@@ -296,7 +319,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
             </span>
             <FolderIcon
               className={cn(
-                'size-4 shrink-0 transition-transform duration-200',
+                'size-4 shrink-0 transition-transform duration-[var(--duration-base)]',
                 !folder.color && 'text-muted-foreground',
               )}
               style={folder.color ? { color: folderColorVar(folder.color) } : undefined}
@@ -324,10 +347,19 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
             />
           </div>
         </div>
-        {isOpen && children.length > 0 && (
-          <ul className="ml-5 space-y-0.5 border-l border-border/70 pl-1.5">
-            {children.map((child) => renderFolder(child, depth + 1))}
-          </ul>
+        {showChildren && (
+          <div
+            data-tree-children=""
+            inert={!isOpen}
+            className={cn(
+              'grid transition-[grid-template-rows,opacity] duration-[var(--duration-base)] ease-[var(--ease-emphasized)]',
+              isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+            )}
+          >
+            <ul className="ml-5 min-h-0 space-y-0.5 overflow-hidden border-l border-border/70 pl-1.5">
+              {children.map((child) => renderFolder(child, depth + 1))}
+            </ul>
+          </div>
         )}
       </li>
     )
@@ -398,7 +430,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
                         onClick={() => go(() => applyView(item.id))}
                         aria-current={active}
                         className={cn(
-                          'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 pr-8 text-left text-sm transition-all duration-200',
+                          'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 pr-8 text-left text-sm transition-colors duration-[var(--duration-base)]',
                           active
                             ? 'bg-accent font-medium text-accent-foreground'
                             : 'text-foreground/90 hover:bg-muted',
@@ -456,7 +488,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
             onDropInto(undefined)
           }}
           className={cn(
-            'rounded-lg transition-all duration-200',
+            'rounded-lg transition-[background-color,box-shadow] duration-[var(--duration-base)]',
             overRoot && 'bg-accent/50 ring-2 ring-primary/40',
           )}
         >
@@ -489,7 +521,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
                 type="button"
                 onClick={() => go(() => setTagFilter(undefined))}
                 className={cn(
-                  'rounded-full px-2.5 py-0.5 text-xs font-medium transition-all duration-200 hover:scale-[1.04] active:scale-95',
+                  'rounded-full px-2.5 py-0.5 text-xs font-medium transition-[background-color,color,transform] duration-[var(--duration-base)] hover:scale-[1.04] active:scale-95',
                   !tagFilter
                     ? 'bg-primary text-primary-foreground shadow-e1'
                     : 'bg-surface text-muted-foreground shadow-e1 hover:text-foreground',
@@ -503,7 +535,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
                   type="button"
                   onClick={() => go(() => setTagFilter(tagFilter === tag ? undefined : tag))}
                   className={cn(
-                    'rounded-full px-2.5 py-0.5 text-xs font-medium transition-all duration-200 hover:scale-[1.04] active:scale-95',
+                    'rounded-full px-2.5 py-0.5 text-xs font-medium transition-[background-color,color,transform] duration-[var(--duration-base)] hover:scale-[1.04] active:scale-95',
                     tagFilter === tag
                       ? 'bg-primary text-primary-foreground shadow-e1'
                       : 'bg-surface text-muted-foreground shadow-e1 hover:text-foreground',
@@ -586,7 +618,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
               setDialog(null)
             }}
             className={cn(
-              'grid size-8 place-items-center rounded-full border text-muted-foreground transition-transform duration-200 hover:scale-110',
+              'grid size-8 place-items-center rounded-full border text-muted-foreground transition-transform duration-[var(--duration-base)] hover:scale-110',
               dialog?.folder?.color === undefined && 'ring-2 ring-foreground ring-offset-2 ring-offset-popover',
             )}
           >
@@ -603,7 +635,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
               }}
               style={{ background: folderColorVar(color) }}
               className={cn(
-                'size-8 rounded-full shadow-e1 transition-transform duration-200 hover:scale-110',
+                'size-8 rounded-full shadow-e1 transition-transform duration-[var(--duration-base)] hover:scale-110',
                 dialog?.folder?.color === color && 'ring-2 ring-foreground ring-offset-2 ring-offset-popover',
               )}
             />

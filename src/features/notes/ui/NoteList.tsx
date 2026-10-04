@@ -36,6 +36,13 @@ const GROUP_LABELS: Record<DateBucket, MessageKey> = {
 }
 const GROUP_ORDER: DateBucket[] = ['today', 'yesterday', 'week', 'older']
 
+/** Rows past this index all share the last delay so long lists never feel slow. */
+const STAGGER_LAST = 7
+
+function staggerDelay(index: number): string {
+  return `calc(var(--stagger-step) * ${Math.min(index, STAGGER_LAST)})`
+}
+
 function preview(body: string): string {
   return body
     .split('\n')
@@ -84,7 +91,7 @@ function RowAction({
         onClick()
       }}
       className={cn(
-        'grid size-7 place-items-center rounded-md text-muted-foreground transition-all duration-150 hover:scale-110 hover:bg-surface hover:text-foreground hover:shadow-e1 active:scale-95',
+        'grid size-7 place-items-center rounded-md text-muted-foreground transition-[background-color,color,box-shadow,transform] duration-[var(--duration-fast)] hover:scale-110 hover:bg-surface hover:text-foreground hover:shadow-e1 active:scale-95',
         destructive && 'hover:text-destructive',
         className,
       )}
@@ -105,6 +112,7 @@ function NoteRow({
   onOpenBeside,
   onRestore,
   onDestroy,
+  staggerIndex,
 }: {
   note: DecryptedNote
   active: boolean
@@ -116,6 +124,8 @@ function NoteRow({
   onOpenBeside?: (id: string) => void
   onRestore?: (id: string) => void
   onDestroy?: (id: string) => void
+  /** Row position for the entrance stagger; capped by staggerDelay(). */
+  staggerIndex: number
 }) {
   const t = useT()
   const info = query.trim() ? matchInfo(note, query) : null
@@ -123,15 +133,15 @@ function NoteRow({
   const alwaysShowActions = view === 'trash' || view === 'archive'
 
   return (
-    <li className="group relative animate-slide-in-left">
+    <li className="group relative animate-slide-in-left" style={{ animationDelay: staggerDelay(staggerIndex) }}>
       <button
         type="button"
         onClick={() => onSelect(note.id)}
         aria-current={active}
         className={cn(
-          'w-full rounded-xl px-3 py-2.5 pr-16 text-left transition-all duration-200 md:pr-24',
+          'w-full rounded-xl px-3 py-2.5 pr-16 text-left transition-[background-color,color,box-shadow] duration-[var(--duration-base)] md:pr-24',
           active
-            ? 'bg-gradient-to-r from-primary/15 via-accent to-accent/20 text-accent-foreground shadow-e2 ring-1 ring-primary/10'
+            ? 'bg-accent text-accent-foreground shadow-e2 ring-1 ring-primary/10'
             : 'hover:bg-muted/60 hover:shadow-e1',
         )}
       >
@@ -167,7 +177,7 @@ function NoteRow({
 
       <div
         className={cn(
-          'absolute top-1.5 right-1.5 flex items-center gap-0.5 rounded-lg bg-surface/80 backdrop-blur-sm transition-all duration-200',
+          'absolute top-1.5 right-1.5 flex items-center gap-0.5 rounded-lg bg-surface/80 backdrop-blur-sm transition-[opacity,transform] duration-[var(--duration-base)]',
           alwaysShowActions
             ? 'opacity-100'
             : active
@@ -269,6 +279,8 @@ export function NoteList({
   }
 
   const rowProps = { query, view, onSelect, onTogglePin, onArchive, onOpenBeside, onRestore, onDestroy }
+  // Stagger index runs across all sections so the cascade reads as one continuous list.
+  let shown = 0
 
   return (
     <div className="animate-fade-in px-2 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
@@ -277,7 +289,7 @@ export function NoteList({
           <GroupHeader>{t('notes.view.pinned')}</GroupHeader>
           <ul className="space-y-1">
             {pinned.map((note) => (
-              <NoteRow key={note.id} note={note} active={note.id === selectedId} {...rowProps} />
+              <NoteRow key={note.id} note={note} active={note.id === selectedId} staggerIndex={shown++} {...rowProps} />
             ))}
           </ul>
         </section>
@@ -288,7 +300,7 @@ export function NoteList({
             <GroupHeader>{t(GROUP_LABELS[group.key])}</GroupHeader>
             <ul className="space-y-1">
               {group.items.map((note) => (
-                <NoteRow key={note.id} note={note} active={note.id === selectedId} {...rowProps} />
+                <NoteRow key={note.id} note={note} active={note.id === selectedId} staggerIndex={shown++} {...rowProps} />
               ))}
             </ul>
           </section>
@@ -296,7 +308,7 @@ export function NoteList({
       ) : (
         <ul className="space-y-1">
           {rest.map((note) => (
-            <NoteRow key={note.id} note={note} active={note.id === selectedId} {...rowProps} />
+            <NoteRow key={note.id} note={note} active={note.id === selectedId} staggerIndex={shown++} {...rowProps} />
           ))}
         </ul>
       )}

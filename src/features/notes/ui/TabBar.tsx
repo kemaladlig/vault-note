@@ -102,7 +102,7 @@ export function TabBar() {
                   closeTab(id)
                 }}
                 className={cn(
-                  'mr-1 grid size-5 shrink-0 place-items-center rounded-md text-muted-foreground transition-all duration-150 hover:bg-muted hover:text-foreground',
+                  'mr-1 grid size-5 shrink-0 place-items-center rounded-md text-muted-foreground transition-[background-color,color,opacity] duration-[var(--duration-fast)] hover:bg-muted hover:text-foreground',
                   active
                     ? 'opacity-100'
                     : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100',

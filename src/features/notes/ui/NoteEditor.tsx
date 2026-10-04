@@ -247,7 +247,7 @@ export function NoteEditor({ note, initialSearch, onBack }: NoteEditorProps) {
   ]
 
   return (
-    <div className="flex h-full flex-col animate-fade-in">
+    <div className="flex h-full flex-col animate-slide-up">
       <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-border/70 px-2">
         {onBack && (
           <Button
@@ -273,7 +273,7 @@ export function NoteEditor({ note, initialSearch, onBack }: NoteEditorProps) {
         <span
           aria-live="polite"
           className={cn(
-            'hidden shrink-0 items-center gap-1.5 rounded-full bg-muted/70 px-2.5 py-1 text-xs text-muted-foreground transition-opacity duration-200 sm:flex',
+            'hidden shrink-0 items-center gap-1.5 rounded-full bg-muted/70 px-2.5 py-1 text-xs text-muted-foreground transition-opacity duration-[var(--duration-base)] sm:flex',
             dirty ? 'opacity-100' : 'opacity-0',
           )}
         >

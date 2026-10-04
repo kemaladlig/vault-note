@@ -40,7 +40,8 @@ src/
     trash.ts                  trash retention preference + isTrashExpired predicate
     revisions.ts              version-history retention preference (10/25/50/unlimited)
     boot.ts                   dismisses the inline boot splash once the first screen is up
-    toast.ts                  imperative toast store
+    toast.ts                  imperative toast store (leaving phase drives the exit animation)
+    exitMotion.ts             motionMs()/exitMotionMs() (JS timings read from CSS tokens) + useExitMotion() for portals
   index.css                  design tokens (single source of truth) + Tailwind theme
   features/
     shell/                    app chrome (spans vault + notes + sync)
