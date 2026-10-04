@@ -14,6 +14,7 @@ import { toast } from '@/shared/toast'
 import { downloadNoteMarkdown } from '../export'
 import { backlinksFor, buildLinkIndex, resolveLinks, resolveTarget } from '../links'
 import type { DecryptedNote, NoteContent } from '../model'
+import { countWords } from '../stats'
 import { useNotesStore } from '../store/notesStore'
 import { useTemplateStore } from '../store/templateStore'
 import type { CodeEditorHandle, LinkTarget } from './CodeEditor'
@@ -531,6 +532,10 @@ export function NoteEditor({ note, initialSearch, onBack }: NoteEditorProps) {
           }}
         />
       )}
+
+      <footer className="flex shrink-0 items-center justify-end border-t border-border/70 px-4 py-1.5 text-[11px] text-muted-foreground tabular-nums">
+        {t('notes.editor.stats', { words: countWords(body), chars: body.length })}
+      </footer>
 
       <Modal
         open={confirmDelete}

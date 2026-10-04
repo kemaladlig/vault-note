@@ -9,6 +9,7 @@ import {
   PanelLeft,
   Pin,
   Plus,
+  Search,
   SearchX,
   Trash2,
   X,
@@ -16,6 +17,7 @@ import {
 import { useDeferredValue, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Menu, type MenuItem } from '@/components/ui/menu'
 import { Modal } from '@/components/ui/modal'
 import { useShellStore } from '@/features/shell/store/shellStore'
@@ -317,6 +319,30 @@ export function NotesShell() {
             triggerClassName="size-7"
           />
         </header>
+
+        {/* Mobile search: the top-bar field is desktop-only, so the list owns search below sm. */}
+        <div className="shrink-0 border-b border-border/70 px-2.5 py-1.5 sm:hidden">
+          <div className="relative">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              placeholder={t('shell.search.placeholder')}
+              aria-label={t('shell.search.label')}
+              className="h-9 rounded-full bg-muted/60 pr-8 pl-9 text-sm shadow-none"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            {query && (
+              <button
+                type="button"
+                aria-label={t('notes.empty.clearFilters')}
+                onClick={() => setQuery('')}
+                className="absolute top-1/2 right-2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
 
         {(filtering || (view === 'trash' && filtered.length > 0)) && (
           <div className="flex shrink-0 items-center gap-1 border-b border-border/70 bg-sidebar/60 px-3 py-1.5 text-xs text-muted-foreground">
