@@ -39,6 +39,8 @@ declare global {
 let accessToken: string | undefined
 let expiresAt = 0
 let gisLoaded: Promise<void> | undefined
+/** In-flight silent restore, so concurrent polls share one attempt. */
+let silent: Promise<boolean> | undefined
 
 function loadGis(): Promise<void> {
   gisLoaded ??= new Promise<void>((resolve, reject) => {
@@ -53,43 +55,59 @@ function loadGis(): Promise<void> {
   return gisLoaded
 }
 
-/** Interactive sign-in. Resolves once an access token is in memory. */
-export async function signIn(): Promise<void> {
-  if (!GOOGLE_CLIENT_ID) {
-    throw new Error('VITE_GOOGLE_CLIENT_ID ayarlı değil.')
-  }
+function applyToken(response: TokenResponse): boolean {
+  if (response.error || !response.access_token) return false
+  accessToken = response.access_token
+  const ttl = Number(response.expires_in ?? 3600)
+  expiresAt = Date.now() + Math.max(ttl - 60, 0) * 1000
+  return true
+}
+
+/** Request a token. `prompt` omitted = let Google decide (may show UI); `''` = silent. */
+async function requestToken(prompt?: string): Promise<boolean> {
+  if (!GOOGLE_CLIENT_ID) throw new Error('VITE_GOOGLE_CLIENT_ID ayarlı değil.')
   await loadGis()
   const oauth2 = window.google?.accounts?.oauth2
   if (!oauth2) throw new Error('Google Identity Services kullanılamıyor')
 
-  const client = oauth2.initTokenClient({
-    client_id: GOOGLE_CLIENT_ID,
-    scope: SCOPES,
-    callback: () => {},
+  return new Promise<boolean>((resolve) => {
+    const client = oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID as string,
+      scope: SCOPES,
+      callback: () => {},
+    })
+    client.callback = (response) => resolve(applyToken(response))
+    client.requestAccessToken(prompt === undefined ? undefined : { prompt })
   })
+}
 
-  await new Promise<void>((resolve, reject) => {
-    client.callback = (response) => {
-      if (response.error || !response.access_token) {
-        reject(new Error(response.error ?? 'Erişim tokenı alınamadı'))
-        return
-      }
-      accessToken = response.access_token
-      const ttl = Number(response.expires_in ?? 3600)
-      expiresAt = Date.now() + Math.max(ttl - 60, 0) * 1000
-      resolve()
-    }
-    client.requestAccessToken()
-  })
+/** Interactive sign-in. Resolves once an access token is in memory. */
+export async function signIn(): Promise<void> {
+  if (!(await requestToken())) throw new Error('Erişim tokenı alınamadı')
+}
+
+/**
+ * Silent session restore: reuses the browser's existing Google session with no UI. Resolves
+ * `false` when consent or interaction is needed, so background sync can no-op quietly.
+ */
+export function restoreSession(): Promise<boolean> {
+  if (hasSession()) return Promise.resolve(true)
+  if (!GOOGLE_CLIENT_ID) return Promise.resolve(false)
+  silent ??= requestToken('')
+    .catch(() => false)
+    .finally(() => {
+      silent = undefined
+    })
+  return silent
 }
 
 export function hasSession(): boolean {
   return Boolean(accessToken) && Date.now() < expiresAt
 }
 
-/** Returns a valid token, refreshing interactively if it expired. */
+/** Returns a valid token: silent restore when possible, otherwise an interactive prompt. */
 export async function getAccessToken(): Promise<string> {
-  if (!hasSession()) await signIn()
+  if (!hasSession() && !(await restoreSession())) await signIn()
   return accessToken as string
 }
 

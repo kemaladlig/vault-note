@@ -33,6 +33,14 @@ export function hasSession(): boolean {
   return Boolean(accessToken) && Date.now() < expiresAt
 }
 
+/**
+ * No silent restore on native: PKCE issues no refresh token, so a new session needs the user.
+ * Present so background sync can share one code path with the web flow.
+ */
+export function restoreSession(): Promise<boolean> {
+  return Promise.resolve(hasSession())
+}
+
 interface TokenResponse {
   access_token: string
   expires_in: number

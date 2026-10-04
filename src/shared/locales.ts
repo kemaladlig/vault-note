@@ -2,6 +2,8 @@
  * Message catalog. `tr` is the source of truth for the key set; `en` must cover every key.
  * Placeholders use `{name}` and are filled by `interpolate` in `shared/i18n.ts`.
  * Keep values plain strings — no JSX. Split a sentence around markup into separate keys.
+ *
+ * Tone: plain, concise and neutral. Descriptions state the consequence, not filler.
  */
 export const tr = {
   'common.cancel': 'Vazgeç',
@@ -30,8 +32,8 @@ export const tr = {
   'notes.sidebar.smartViews': 'Akıllı görünümler',
   'notes.sidebar.notebooks': 'Not defterleri',
   'notes.sidebar.tags': 'Etiketler',
-  'notes.sidebar.saveViewHint': 'Bir arama veya filtreyi kaydet, hızlı eriş.',
-  'notes.sidebar.noNotebooks': 'Henüz not defteri yok. Sürükleyip bırakarak da düzenleyebilirsin.',
+  'notes.sidebar.saveViewHint': 'Arama veya filtreyi kaydet, tek dokunuşla geri dön.',
+  'notes.sidebar.noNotebooks': 'Henüz not defteri yok. Defterleri sürükleyip bırakarak düzenle.',
   'notes.sidebar.saveView': 'Görünümü kaydet',
   'notes.sidebar.addNotebook': 'Not defteri ekle',
   'notes.sidebar.allTags': 'Tümü',
@@ -46,12 +48,12 @@ export const tr = {
   'notes.folder.rename': 'Yeniden adlandır',
   'notes.folder.newTitle': 'Yeni not defteri',
   'notes.folder.colorTitle': 'Not defteri rengi',
-  'notes.folder.colorDesc': 'Not defterine bir renk ver.',
+  'notes.folder.colorDesc': 'Not defterine bir renk seç.',
   'notes.folder.colorNone': 'Renk yok',
   'notes.folder.colorName': 'Renk {color}',
   'notes.folder.deleteTitle': 'Not defterini sil',
   'notes.folder.deleteDesc':
-    'Bu not defteri ve alt defterleri silinir. İçindeki notlar üst deftere taşınır.',
+    'Not defteri ve alt defterleri silinir; içindeki notlar üst düzeye taşınır.',
 
   // Smart views
   'notes.view.saveTitle': 'Görünümü kaydet',
@@ -81,7 +83,7 @@ export const tr = {
   'notes.editor.moveToFolder': 'Not defterine taşı…',
   'notes.editor.deleteTitle': 'Notu sil',
   'notes.editor.deleteDesc':
-    'Bu not bu cihazdan silinecek. Senkronize edilmiş cihazlardan da kaldırılır.',
+    'Not bu cihazdan silinir ve senkronize edilmiş cihazlardan da kaldırılır.',
   'notes.editor.tags': 'Etiketler',
   'notes.editor.addTag': 'Etiket ekle',
   'notes.editor.addTagShort': 'Ekle…',
@@ -113,19 +115,19 @@ export const tr = {
   // Templates (device-local)
   'templates.save': 'Şablon olarak kaydet',
   'templates.saveDesc':
-    'Bu notun başlığı, gövdesi ve etiketleri şablon olarak saklanır (yalnızca bu cihazda).',
+    'Başlık, gövde ve etiketler şablon olarak kaydedilir (yalnızca bu cihazda).',
   'templates.namePlaceholder': 'Şablon adı',
   'templates.saved': 'Şablon kaydedildi.',
   'templates.newFromTemplate': 'Şablondan yeni not',
   'templates.pick': 'Bir şablon seç',
   'templates.pickerEmpty':
-    'Henüz şablon yok. Bir notu açıp "Şablon olarak kaydet" ile oluşturun.',
-  'templates.sectionNote': 'Şablonlar bu cihazda şifreli saklanır ve senkronize edilmez.',
+    'Henüz şablon yok. Bir notu açıp “Şablon olarak kaydet” ile oluştur.',
+  'templates.sectionNote': 'Şablonlar bu cihazda şifreli saklanır; senkronlanmaz.',
   'templates.empty': 'Şablon yok.',
   'templates.rename': 'Yeniden adlandır',
   'templates.renamed': 'Şablon yeniden adlandırıldı.',
   'templates.deleteTitle': 'Şablonu sil',
-  'templates.deleteDesc': '"{name}" şablonu silinsin mi?',
+  'templates.deleteDesc': '“{name}” şablonu silinsin mi?',
   'templates.deleted': 'Şablon silindi.',
 
   // Import
@@ -134,7 +136,7 @@ export const tr = {
     'Markdown (.md) veya VaultNote JSON yedeği. Aktarılan notlar bu cihazda şifrelenir.',
   'import.title': 'İçe aktarma',
   'import.description':
-    'Dosyaları seçin; önce özet gösterilir, siz onaylamadan hiçbir şey yazılmaz.',
+    'Dosyaları seç. Önce özet gösterilir; onaylamadan hiçbir şey yazılmaz.',
   'import.choose': 'Dosya seç',
   'import.filesChosen': '{count} dosya seçildi',
   'import.summary': '{total} not bulundu: {fresh} yeni, {duplicates} yinelenen.',
@@ -159,7 +161,7 @@ export const tr = {
   'notes.moveNote.none': 'Kategorisiz',
   'notes.moveNote.empty': 'Henüz not defteri yok. Kenar çubuğundan oluştur.',
   'notes.moveFolder.title': 'Not defterini taşı',
-  'notes.moveFolder.desc': 'Bu not defterini başka bir not defterinin altına taşı.',
+  'notes.moveFolder.desc': 'Bu not defterini başka bir defterin altına taşı.',
   'notes.moveFolder.root': 'En üst düzey',
   'notes.moveFolder.empty': 'Başka not defteri yok.',
 
@@ -180,7 +182,7 @@ export const tr = {
   'notes.shell.closeSplit': 'Bölmeyi kapat',
   'notes.shell.createNote': 'Not oluştur',
   'notes.shell.destroyTitle': 'Kalıcı sil',
-  'notes.shell.destroyDesc': 'Bu not bu cihazdan kalıcı olarak silinir. Bu işlem geri alınamaz.',
+  'notes.shell.destroyDesc': 'Not bu cihazdan kalıcı olarak silinir. Bu işlem geri alınamaz.',
   'notes.shell.emptyTrashDesc': 'Çöpteki tüm notlar bu cihazdan kalıcı olarak silinir.',
 
   // Tabs
@@ -203,7 +205,7 @@ export const tr = {
   'shell.sync': 'Senkronize',
   'shell.syncNow': 'Senkronize et',
   'shell.syncAria': 'Drive ile senkronize et',
-  'shell.syncNoClient': 'Google istemci kimliği ayarlı değil',
+  'shell.syncNoClient': 'Google istemci kimliği tanımlı değil',
   'shell.newNote': 'Yeni not',
   'shell.lock': 'Kilitle',
   'shell.appMenu': 'Uygulama menüsü',
@@ -219,7 +221,7 @@ export const tr = {
 
   // Settings
   'settings.title': 'Ayarlar',
-  'settings.description': 'Görünüm, güvenlik ve veriler.',
+  'settings.description': 'Görünüm, güvenlik ve veri ayarları.',
   'settings.appearance': 'Görünüm',
   'settings.theme': 'Tema',
   'settings.theme.system': 'Sistem',
@@ -236,14 +238,14 @@ export const tr = {
   'settings.disabled': 'Kapalı',
   'settings.forget': 'Unut',
   'settings.forgotten': 'Bu cihaz unutuldu.',
-  'settings.deviceModeNote': 'Parolasız mod: kurtarma yoktur ve başka cihazda açılamaz.',
+  'settings.deviceModeNote': 'Parolasız mod: kurtarma yolu yoktur, başka cihazda açılamaz.',
   'settings.appLock': 'Uygulama açılışı',
   'settings.appLockDesc':
-    'Bu cihazda uygulamanın nasıl açılacağını seç. Yalnızca bu cihazda geçerlidir, senkronlanmaz.',
+    'Uygulamanın bu cihazdaki açılış biçimini seç. Yalnızca bu cihazda geçerlidir; senkronlanmaz.',
   'settings.lockNone': 'Kilit yok',
   'settings.lockPin': 'PIN',
   'settings.lockBiometric': 'Biyometrik',
-  'settings.lockNoneNote': 'Açılışta hiçbir şey sorulmaz; uygulama direkt açılır.',
+  'settings.lockNoneNote': 'Açılışta doğrulama istenmez; uygulama doğrudan açılır.',
   'settings.lockBiometricNote': 'Açılışta biyometrik doğrulama istenir.',
   'settings.appLockFailed': 'Açılış ayarı değiştirilemedi.',
   'settings.pinAdd': 'PIN ekle',
@@ -264,56 +266,56 @@ export const tr = {
   'settings.syncSection': 'Senkronizasyon',
   'settings.syncNow': 'Şimdi senkronize et',
   'settings.disconnect': 'Bağlantıyı kes',
-  'settings.syncNotConfigured': 'Google istemci kimliği ayarlı değil (bkz. .env.example).',
+  'settings.syncNotConfigured': 'Google istemci kimliği tanımlı değil (.env.example).',
   'settings.syncLast': 'Son senkron: {time}',
   'settings.syncNever':
-    'Henüz senkronize edilmedi. Yalnızca şifreli veri Drive appDataFolder’a gider.',
+    'Henüz senkronize edilmedi. Drive appDataFolder’a yalnızca şifreli veri gönderilir.',
   'settings.data': 'Veri',
   'settings.exportedJson': 'JSON indirildi (şifresiz).',
   'settings.exportedMd': 'Markdown indirildi (şifresiz).',
   'settings.exportWarnA': 'Dışa aktarılan dosya ',
   'settings.exportWarnStrong': 'şifresizdir',
-  'settings.exportWarnB': '; güvenli bir yerde saklayın.',
+  'settings.exportWarnB': '; güvenli bir yerde sakla.',
   'settings.trashRetention': 'Çöpü otomatik boşalt',
   'settings.retention.days': '{days} gün',
   'settings.retention.never': 'Asla',
   'settings.trashNote':
-    'Çöpteki notlar bu süre sonunda uygulama açıldığında kalıcı silinir. “Asla” seçiliyse yalnızca elle boşaltılır.',
+    'Çöpteki notlar bu süre sonunda, uygulama açıldığında kalıcı silinir. “Asla” seçiliyse yalnızca elle boşaltılır.',
   'settings.purged': '{count} not çöpten kalıcı olarak silindi.',
   'settings.templatesSection': 'Şablonlar',
   'settings.revisionsSection': 'Sürüm geçmişi',
   'settings.revisionsNote':
-    'Her not için saklanan en fazla sürüm sayısı. Geçmiş yalnızca bu cihazda tutulur, senkronize edilmez.',
+    'Not başına saklanan en fazla sürüm sayısı. Geçmiş yalnızca bu cihazda tutulur; senkronlanmaz.',
   'settings.revisions.count': '{count} sürüm',
   'settings.revisions.unlimited': 'Sınırsız',
   'settings.danger': 'Tehlikeli alan',
-  'settings.resetConfirm': 'Tüm notlar ve vault bu cihazdan silinecek. Bu işlem geri alınamaz.',
+  'settings.resetConfirm': 'Tüm notlar ve vault bu cihazdan silinir. Bu işlem geri alınamaz.',
   'settings.resetDo': 'Kalıcı olarak sil',
   'settings.reset': 'Vault’u sıfırla',
 
   // Vault — create / unlock
   'vault.create.title': 'Vault oluştur',
   'vault.create.descPass':
-    'Notların bu parolayla şifrelenir. Parolayı kaybedersen verilerine kimse erişemez — biz dahil. Kurtarma yolu yok.',
+    'Notların bu parola ile şifrelenir. Parolayı kaybedersen verilere kimse erişemez; kurtarma yolu yoktur.',
   'vault.create.descDevice':
-    'Bu cihazda parolasız çalışır. Kurtarma yolu yoktur ve başka cihazlarda açılamaz.',
+    'Bu cihazda parolasız çalışır. Kurtarma yolu yoktur, başka cihazda açılamaz.',
   'vault.create.withPassphrase': 'Parola ile',
   'vault.create.passwordless': 'Parolasız',
   'vault.create.passphrase': 'Ana parola',
   'vault.create.confirm': 'Parolayı doğrula',
   'vault.create.openLabel': 'Bu cihazda açılış',
   'vault.create.openNone': 'Kilit yok',
-  'vault.create.openNoneHint': 'Açılışta hiçbir şey sorulmaz; uygulama direkt açılır.',
+  'vault.create.openNoneHint': 'Açılışta doğrulama istenmez; uygulama doğrudan açılır.',
   'vault.create.openBiometric': 'Biyometrik',
-  'vault.create.openBiometricHint': 'Açılışta parmak izi / yüz doğrulaması istenir.',
+  'vault.create.openBiometricHint': 'Açılışta parmak izi veya yüz doğrulaması istenir.',
   'vault.create.openPassphrase': 'Her seferinde parola',
   'vault.create.openPassphraseHint': 'Uygulama her açılışta ana parolayı sorar.',
   'vault.create.acknowledge': 'Riski anladım',
-  'vault.create.acknowledgeLabel': 'Riski anladım, parolasız kurulumu istiyorum.',
+  'vault.create.acknowledgeLabel': 'Riski anladım; parolasız kurulum istiyorum.',
   'vault.create.noRecovery': 'Kurtarma yok',
-  'vault.create.noRecovery1': 'Parola belirlemezsin; anahtar yalnızca bu cihazda tutulur.',
-  'vault.create.noRecovery2': 'Bu cihazı sıfırlar, tarayıcı verilerini silersen notlar gider.',
-  'vault.create.noRecovery3': "Drive'a yedeklensen bile başka cihazda açılamaz.",
+  'vault.create.noRecovery1': 'Parola belirlenmez; anahtar yalnızca bu cihazda tutulur.',
+  'vault.create.noRecovery2': 'Cihaz sıfırlanır veya tarayıcı verileri silinirse notlar kaybolur.',
+  'vault.create.noRecovery3': "Drive'a yedeklense bile başka cihazda açılamaz.",
   'vault.create.ackRequired': 'Devam etmek için uyarıyı onayla.',
   'vault.create.passShort': 'Ana parola en az {n} karakter olmalı.',
   'vault.create.passMismatch': 'Parolalar eşleşmiyor.',
@@ -322,11 +324,11 @@ export const tr = {
   'vault.create.deviceSubmit': 'Parolasız oluştur',
   'vault.create.submit': 'Vault oluştur',
   'vault.unlock.title': 'Kilidi aç',
-  'vault.unlock.brokenDesc': 'Bu parolasız vault bu cihazda açılamıyor.',
+  'vault.unlock.brokenDesc': 'Parolasız vault bu cihazda açılamıyor.',
   'vault.unlock.quickDesc': 'Bu cihazda hızlı açma etkin.',
   'vault.unlock.passDesc': 'Notlarına erişmek için ana parolanı gir.',
   'vault.unlock.brokenNote':
-    "Cihaz anahtarı bulunamadı. Parolasız modda kurtarma yolu yoktur: vault'u sıfırlayıp yeniden başlaman gerekir. Drive'daki yedek de bu cihazda açılamaz.",
+    'Cihaz anahtarı bulunamadı. Parolasız modda kurtarma yolu yoktur; vault’un sıfırlanması gerekir. Drive yedeği de bu cihazda açılamaz.',
   'vault.unlock.reset': "Vault'u sıfırla",
   'vault.unlock.quick': 'Hızlı aç',
   'vault.unlock.opening': 'Açılıyor…',
@@ -338,7 +340,7 @@ export const tr = {
   'vault.unlock.wrongPass': 'Parola hatalı.',
   'vault.unlock.failed': 'Kilit açılamadı.',
   'vault.unlock.quickFailed': 'Hızlı açma başarısız.',
-  'vault.unlock.pinDesc': 'Bu cihazda açılış PIN ile korunuyor.',
+  'vault.unlock.pinDesc': 'Bu cihazdaki açılış PIN ile korunuyor.',
   'vault.unlock.pinLabel': 'PIN',
   'vault.unlock.pinWrong': 'PIN hatalı.',
   'vault.unlock.pinLocked': 'Çok fazla yanlış deneme. {s} saniye sonra tekrar dene.',
@@ -347,11 +349,11 @@ export const tr = {
 
   // PIN dialog
   'pin.set.title': 'PIN ekle',
-  'pin.set.desc': 'Bu cihazda açılışı koruyacak 4–8 haneli bir PIN belirle.',
+  'pin.set.desc': 'Bu cihazdaki açılışı koruyacak 4–8 haneli bir PIN belirle.',
   'pin.change.title': "PIN'i değiştir",
-  'pin.change.desc': "Mevcut PIN'ini gir, ardından yeni PIN'i belirle.",
+  'pin.change.desc': "Mevcut PIN'i gir, ardından yenisini belirle.",
   'pin.remove.title': "PIN'i kaldır",
-  'pin.remove.desc': 'PIN kaldırıldığında bu cihazda açılış yeniden PIN sormaz.',
+  'pin.remove.desc': 'PIN kaldırıldığında bu cihazdaki açılış artık PIN sormaz.',
   'pin.current': 'Mevcut PIN',
   'pin.new': 'Yeni PIN',
   'pin.confirm': 'Yeni PIN (tekrar)',
@@ -360,7 +362,9 @@ export const tr = {
   'pin.wrong': 'PIN hatalı.',
   'pin.locked': 'Çok fazla yanlış deneme. {s} saniye sonra tekrar dene.',
 
-  // Sync — restore
+  // Sync
+  'sync.failedTitle': 'Senkronizasyon tamamlanamadı.',
+  'sync.failedHint': 'Bağlantını ve Google Drive izinlerini kontrol et.',
   'sync.restore.notFound': "Bu Drive hesabında bir VaultNote vault'u bulunamadı.",
   'sync.restore.button': "Drive'dan geri yükle",
 } as const
@@ -391,8 +395,8 @@ export const en: Record<MessageKey, string> = {
   'notes.sidebar.smartViews': 'Smart views',
   'notes.sidebar.notebooks': 'Notebooks',
   'notes.sidebar.tags': 'Tags',
-  'notes.sidebar.saveViewHint': 'Save a search or filter for quick access.',
-  'notes.sidebar.noNotebooks': 'No notebooks yet. You can also drag and drop to organize.',
+  'notes.sidebar.saveViewHint': 'Save a search or filter and return to it in one tap.',
+  'notes.sidebar.noNotebooks': 'No notebooks yet. Drag and drop to organize them.',
   'notes.sidebar.saveView': 'Save view',
   'notes.sidebar.addNotebook': 'Add notebook',
   'notes.sidebar.allTags': 'All',
@@ -406,12 +410,12 @@ export const en: Record<MessageKey, string> = {
   'notes.folder.rename': 'Rename',
   'notes.folder.newTitle': 'New notebook',
   'notes.folder.colorTitle': 'Notebook color',
-  'notes.folder.colorDesc': 'Give the notebook a color.',
+  'notes.folder.colorDesc': 'Pick a color for the notebook.',
   'notes.folder.colorNone': 'No color',
   'notes.folder.colorName': 'Color {color}',
   'notes.folder.deleteTitle': 'Delete notebook',
   'notes.folder.deleteDesc':
-    'This notebook and its sub-notebooks are deleted. Notes inside move up a level.',
+    'The notebook and its sub-notebooks are deleted; notes inside move up a level.',
 
   'notes.view.saveTitle': 'Save view',
   'notes.view.renameTitle': 'Rename view',
@@ -437,7 +441,7 @@ export const en: Record<MessageKey, string> = {
   'notes.editor.moveToFolder': 'Move to notebook…',
   'notes.editor.deleteTitle': 'Delete note',
   'notes.editor.deleteDesc':
-    'This note is deleted from this device. It is removed from synced devices too.',
+    'The note is deleted from this device and removed from synced devices.',
   'notes.editor.tags': 'Tags',
   'notes.editor.addTag': 'Add tag',
   'notes.editor.addTagShort': 'Add…',
@@ -454,42 +458,38 @@ export const en: Record<MessageKey, string> = {
   'notes.editor.links': 'Links',
   'notes.editor.linksEmpty': 'No links in this note.',
 
-  // Wiki links + backlinks
   'notes.links.backlinks': 'Linked from',
   'notes.links.broken': 'Broken links',
   'notes.links.unresolvedHint': 'No note with that title.',
 
-  // Version history (device-local)
   'notes.editor.history': 'Version history',
   'notes.history.empty': 'No saved versions yet.',
   'notes.history.version': 'Version {n}',
   'notes.history.restore': 'Restore this version',
   'notes.history.restored': 'Version restored.',
 
-  // Templates (device-local)
   'templates.save': 'Save as template',
   'templates.saveDesc':
-    'This note\u2019s title, body and tags are stored as a template (on this device only).',
+    'Title, body and tags are saved as a template (on this device only).',
   'templates.namePlaceholder': 'Template name',
   'templates.saved': 'Template saved.',
   'templates.newFromTemplate': 'New note from template',
   'templates.pick': 'Pick a template',
   'templates.pickerEmpty':
-    'No templates yet. Open a note and use "Save as template" to create one.',
-  'templates.sectionNote': 'Templates are stored encrypted on this device and never synced.',
+    'No templates yet. Open a note and use “Save as template” to create one.',
+  'templates.sectionNote': 'Templates are stored encrypted on this device; never synced.',
   'templates.empty': 'No templates.',
   'templates.rename': 'Rename',
   'templates.renamed': 'Template renamed.',
   'templates.deleteTitle': 'Delete template',
-  'templates.deleteDesc': 'Delete the "{name}" template?',
+  'templates.deleteDesc': 'Delete the “{name}” template?',
   'templates.deleted': 'Template deleted.',
 
-  // Import
   'settings.import': 'Import…',
   'settings.importHint': 'Markdown (.md) or a VaultNote JSON backup. Imported notes are encrypted here.',
   'import.title': 'Import',
   'import.description':
-    'Choose files; a summary is shown first, nothing is written until you confirm.',
+    'Choose files. A summary is shown first; nothing is written until you confirm.',
   'import.choose': 'Choose files',
   'import.filesChosen': '{count} files selected',
   'import.summary': '{total} notes found: {fresh} new, {duplicates} duplicates.',
@@ -533,7 +533,7 @@ export const en: Record<MessageKey, string> = {
   'notes.shell.createNote': 'Create note',
   'notes.shell.destroyTitle': 'Delete permanently',
   'notes.shell.destroyDesc':
-    'This note is permanently deleted from this device. This cannot be undone.',
+    'The note is permanently deleted from this device. This cannot be undone.',
   'notes.shell.emptyTrashDesc': 'All notes in the trash are permanently deleted from this device.',
 
   'notes.tabs.aria': 'Open notes',
@@ -588,11 +588,11 @@ export const en: Record<MessageKey, string> = {
   'settings.deviceModeNote': 'Passwordless mode: no recovery and it cannot open on another device.',
   'settings.appLock': 'App opening',
   'settings.appLockDesc':
-    'Choose how the app opens on this device. Device-local, never synced.',
+    'Choose how the app opens on this device. Device-local; never synced.',
   'settings.lockNone': 'No lock',
   'settings.lockPin': 'PIN',
   'settings.lockBiometric': 'Biometric',
-  'settings.lockNoneNote': 'Nothing is asked on open; the app opens directly.',
+  'settings.lockNoneNote': 'No verification on open; the app opens directly.',
   'settings.lockBiometricNote': 'Biometric verification is required on open.',
   'settings.appLockFailed': 'Could not change the opening setting.',
   'settings.pinAdd': 'Add PIN',
@@ -613,7 +613,7 @@ export const en: Record<MessageKey, string> = {
   'settings.syncSection': 'Sync',
   'settings.syncNow': 'Sync now',
   'settings.disconnect': 'Disconnect',
-  'settings.syncNotConfigured': 'Google client id not configured (see .env.example).',
+  'settings.syncNotConfigured': 'Google client id not configured (.env.example).',
   'settings.syncLast': 'Last sync: {time}',
   'settings.syncNever': 'Not synced yet. Only encrypted data goes to Drive appDataFolder.',
   'settings.data': 'Data',
@@ -631,34 +631,35 @@ export const en: Record<MessageKey, string> = {
   'settings.templatesSection': 'Templates',
   'settings.revisionsSection': 'Version history',
   'settings.revisionsNote':
-    'How many versions to keep per note. History is stored on this device only and never synced.',
+    'Versions kept per note. History is stored on this device only; never synced.',
   'settings.revisions.count': '{count} versions',
   'settings.revisions.unlimited': 'Unlimited',
   'settings.danger': 'Danger zone',
-  'settings.resetConfirm': 'All notes and the vault will be deleted from this device. This cannot be undone.',
+  'settings.resetConfirm': 'All notes and the vault are deleted from this device. This cannot be undone.',
   'settings.resetDo': 'Delete permanently',
   'settings.reset': 'Reset vault',
 
   'vault.create.title': 'Create vault',
   'vault.create.descPass':
-    'Your notes are encrypted with this passphrase. If you lose it, no one can reach your data — not even us. There is no recovery.',
-  'vault.create.descDevice': 'Runs without a passphrase on this device. No recovery and it cannot open on other devices.',
+    'Your notes are encrypted with this passphrase. If you lose it, no one can reach your data; there is no recovery.',
+  'vault.create.descDevice':
+    'Runs without a passphrase on this device. No recovery and it cannot open on other devices.',
   'vault.create.withPassphrase': 'With passphrase',
   'vault.create.passwordless': 'Passwordless',
   'vault.create.passphrase': 'Master passphrase',
   'vault.create.confirm': 'Confirm passphrase',
   'vault.create.openLabel': 'Open on this device',
   'vault.create.openNone': 'No lock',
-  'vault.create.openNoneHint': 'Nothing is asked on open; the app opens directly.',
+  'vault.create.openNoneHint': 'No verification on open; the app opens directly.',
   'vault.create.openBiometric': 'Biometric',
-  'vault.create.openBiometricHint': 'Fingerprint / face verification is required on open.',
+  'vault.create.openBiometricHint': 'Fingerprint or face verification is required on open.',
   'vault.create.openPassphrase': 'Passphrase every time',
   'vault.create.openPassphraseHint': 'The app asks for the master passphrase on every open.',
   'vault.create.acknowledge': 'I understand the risk',
   'vault.create.acknowledgeLabel': 'I understand the risk and want a passwordless setup.',
   'vault.create.noRecovery': 'No recovery',
-  'vault.create.noRecovery1': 'You set no passphrase; the key is kept only on this device.',
-  'vault.create.noRecovery2': 'Resetting this device or clearing browser data loses your notes.',
+  'vault.create.noRecovery1': 'No passphrase is set; the key is kept only on this device.',
+  'vault.create.noRecovery2': 'Resetting the device or clearing browser data loses your notes.',
   'vault.create.noRecovery3': 'Even if you back it up to Drive, it cannot open on another device.',
   'vault.create.ackRequired': 'Acknowledge the warning to continue.',
   'vault.create.passShort': 'Master passphrase must be at least {n} characters.',
@@ -672,7 +673,7 @@ export const en: Record<MessageKey, string> = {
   'vault.unlock.quickDesc': 'Quick unlock is on for this device.',
   'vault.unlock.passDesc': 'Enter your master passphrase to access your notes.',
   'vault.unlock.brokenNote':
-    'Device key not found. Passwordless mode has no recovery: you must reset the vault and start over. The Drive backup cannot open on this device either.',
+    'Device key not found. Passwordless mode has no recovery; the vault must be reset. The Drive backup cannot open on this device either.',
   'vault.unlock.reset': 'Reset vault',
   'vault.unlock.quick': 'Quick unlock',
   'vault.unlock.opening': 'Unlocking…',
@@ -705,6 +706,8 @@ export const en: Record<MessageKey, string> = {
   'pin.wrong': 'Wrong PIN.',
   'pin.locked': 'Too many wrong attempts. Try again in {s} seconds.',
 
+  'sync.failedTitle': 'Sync could not complete.',
+  'sync.failedHint': 'Check your connection and Google Drive permissions.',
   'sync.restore.notFound': 'No VaultNote vault was found in this Drive account.',
   'sync.restore.button': 'Restore from Drive',
 }

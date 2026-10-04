@@ -85,6 +85,7 @@ export function SettingsDialog() {
 
   const configured = useSyncStore((s) => s.configured)
   const syncStatus = useSyncStore((s) => s.status)
+  const syncError = useSyncStore((s) => s.error)
   const lastSyncedAt = useSyncStore((s) => s.lastSyncedAt)
   const sync = useSyncStore((s) => s.sync)
   const disconnect = useSyncStore((s) => s.disconnect)
@@ -439,6 +440,11 @@ export function SettingsDialog() {
                 ? t('settings.syncLast', { time: relativeTime(lastSyncedAt) })
                 : t('settings.syncNever')}
           </p>
+          {syncStatus === 'error' && (
+            <p className="text-xs text-destructive" title={syncError}>
+              {t('sync.failedTitle')} {t('sync.failedHint')}
+            </p>
+          )}
         </Section>
 
         <Section title={t('settings.data')}>

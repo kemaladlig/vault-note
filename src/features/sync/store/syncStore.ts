@@ -1,9 +1,17 @@
 import { create } from 'zustand'
 
 import { useVaultStore } from '@/features/vault/store/vaultStore'
+import { t } from '@/shared/i18n'
 import { now } from '@/shared/time'
+import { toast } from '@/shared/toast'
 
-import { getAccessToken, hasSession, isAuthConfigured, signOut } from '../auth/googleAuth'
+import {
+  getAccessToken,
+  hasSession,
+  isAuthConfigured,
+  restoreSession,
+  signOut,
+} from '../auth/googleAuth'
 import { downloadBootstrap, uploadBootstrap } from '../bootstrap'
 import { createGoogleDriveClient } from '../drive/googleDrive'
 import { syncNotes } from '../engine'
@@ -41,7 +49,9 @@ export const useSyncStore = create<SyncState>((set, get) => ({
 
   sync: async (options) => {
     const interactive = options?.interactive ?? true
-    if (!interactive && !hasSession()) return
+    // Background sync must never open the OAuth popup: proceed only with a live session or a
+    // silent restore. The interactive path below is allowed to prompt.
+    if (!interactive && !hasSession() && !(await restoreSession())) return
 
     const { dek, header, settings } = useVaultStore.getState()
     if (!dek || !header || !settings) throw new Error('Önce vault kilidini aç.')
@@ -96,7 +106,11 @@ export const useSyncStore = create<SyncState>((set, get) => ({
         manifestModifiedTime: result.manifestModifiedTime,
       })
     } catch (err) {
-      set({ status: 'error', error: err instanceof Error ? err.message : 'Senkron başarısız' })
+      const detail = err instanceof Error ? err.message : undefined
+      set({ status: 'error', error: detail ?? t('sync.failedTitle') })
+      // A user-triggered sync should say why it failed; background polls stay quiet (the error
+      // is still stored and surfaced in Settings).
+      if (interactive) toast(`${t('sync.failedTitle')} ${t('sync.failedHint')}`, 'error')
     }
   },
 
