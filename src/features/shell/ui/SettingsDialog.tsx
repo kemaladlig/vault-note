@@ -88,6 +88,10 @@ export function SettingsDialog() {
   const syncStatus = useSyncStore((s) => s.status)
   const syncError = useSyncStore((s) => s.error)
   const lastSyncedAt = useSyncStore((s) => s.lastSyncedAt)
+  const pending = useSyncStore((s) => s.pending)
+  const lastPulled = useSyncStore((s) => s.lastPulled)
+  const lastPushed = useSyncStore((s) => s.lastPushed)
+  const lastConflicts = useSyncStore((s) => s.lastConflicts)
   const sync = useSyncStore((s) => s.sync)
   const disconnect = useSyncStore((s) => s.disconnect)
 
@@ -470,6 +474,22 @@ export function SettingsDialog() {
                 ? t('settings.syncLast', { time: relativeTime(lastSyncedAt) })
                 : t('settings.syncNever')}
           </p>
+          {configured && pending > 0 && (
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              {t('sync.pending', { n: pending })}
+            </p>
+          )}
+          {configured && lastSyncedAt && pending === 0 && lastConflicts === 0 && syncStatus !== 'error' && (
+            <p className="text-xs text-muted-foreground">
+              {t('sync.upToDate')}
+              {(lastPulled > 0 || lastPushed > 0) && ` ${t('sync.summary', { pulled: lastPulled, pushed: lastPushed })}`}
+            </p>
+          )}
+          {lastConflicts > 0 && (
+            <p className="text-xs text-destructive">
+              {t('sync.conflict', { n: lastConflicts })}
+            </p>
+          )}
           {syncStatus === 'error' && (
             <p className="text-xs text-destructive" title={syncError}>
               {t('sync.failedTitle')} {t('sync.failedHint')}

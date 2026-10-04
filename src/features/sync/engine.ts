@@ -24,6 +24,8 @@ export interface SyncDeps {
 export interface SyncResult {
   pulled: number
   pushed: number
+  /** Ids where the remote won over an unsynced local edit (LWW overwrote a dirty row). */
+  conflicts: string[]
   /** Current manifest `modifiedTime` to cache for the next poll. */
   manifestModifiedTime?: string
 }
@@ -68,7 +70,7 @@ export async function syncNotes(deps: SyncDeps): Promise<SyncResult> {
 
   // 0. Fast path — remote untouched since our last sync and no local edits pending.
   if (manifestFile && deps.manifestModifiedTime === manifestFile.modifiedTime && !hasLocalChanges) {
-    return { pulled: 0, pushed: 0, manifestModifiedTime: manifestFile.modifiedTime }
+    return { pulled: 0, pushed: 0, conflicts: [], manifestModifiedTime: manifestFile.modifiedTime }
   }
 
   const remote = await readRemoteManifest(deps, manifestFile?.id)
@@ -76,12 +78,16 @@ export async function syncNotes(deps: SyncDeps): Promise<SyncResult> {
 
   let pulled = 0
   let pushed = 0
+  const conflicts: string[] = []
 
   // 1. Pull.
   const localById = new Map(localRows.map((row) => [row.id, row]))
   for (const [id, entry] of Object.entries(remoteNotes)) {
     const local = localById.get(id)
     if (local && !remoteWins(entry, local)) continue
+
+    // Remote overwrites an unsynced local edit: record it so the UI can warn (LWW).
+    if (local?.dirty) conflicts.push(id)
 
     if (entry.deleted) {
       // Remote tombstone: mirror it locally without downloading a body.
@@ -134,5 +140,5 @@ export async function syncNotes(deps: SyncDeps): Promise<SyncResult> {
     manifestModifiedTime = saved.modifiedTime
   }
 
-  return { pulled, pushed, manifestModifiedTime }
+  return { pulled, pushed, conflicts, manifestModifiedTime }
 }

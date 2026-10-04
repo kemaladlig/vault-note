@@ -90,6 +90,7 @@ export const tr = {
   'notes.editor.removeTag': '{tag} etiketini kaldır',
   'notes.editor.saving': 'Kaydediliyor…',
   'notes.editor.searchInNote': 'Notta ara',
+  'notes.editor.stats': '{words} kelime · {chars} karakter',
   'notes.editor.more': 'Diğer işlemler',
   'notes.editor.back': 'Notlara dön',
   'notes.editor.downloaded': 'Markdown indirildi (şifresiz).',
@@ -372,6 +373,10 @@ export const tr = {
   'sync.failedHint': 'Bağlantını ve Google Drive izinlerini kontrol et.',
   'sync.restore.notFound': "Bu Drive hesabında bir VaultNote vault'u bulunamadı.",
   'sync.restore.button': "Drive'dan geri yükle",
+  'sync.summary': '{pulled} alındı, {pushed} gönderildi.',
+  'sync.pending': '{n} bekleyen değişiklik.',
+  'sync.conflict': 'Çakışma: {n} yerde Drive sürümü kazandı, yerel taslak üzerine yazıldı.',
+  'sync.upToDate': 'Her şey senkronize.',
 } as const
 
 export type MessageKey = keyof typeof tr
@@ -453,6 +458,7 @@ export const en: Record<MessageKey, string> = {
   'notes.editor.removeTag': 'Remove tag {tag}',
   'notes.editor.saving': 'Saving…',
   'notes.editor.searchInNote': 'Search in note',
+  'notes.editor.stats': '{words} words · {chars} characters',
   'notes.editor.more': 'More actions',
   'notes.editor.back': 'Back to notes',
   'notes.editor.downloaded': 'Markdown downloaded (unencrypted).',
@@ -720,6 +726,10 @@ export const en: Record<MessageKey, string> = {
   'sync.failedHint': 'Check your connection and Google Drive permissions.',
   'sync.restore.notFound': 'No VaultNote vault was found in this Drive account.',
   'sync.restore.button': 'Restore from Drive',
+  'sync.summary': '{pulled} pulled, {pushed} pushed.',
+  'sync.pending': '{n} pending changes.',
+  'sync.conflict': 'Conflict: Drive version won in {n} places, overwriting local drafts.',
+  'sync.upToDate': 'Everything is synced.',
 }
 
 export const messages = { tr, en } as const

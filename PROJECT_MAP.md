@@ -314,7 +314,9 @@ src/
 - **Engine** (`syncNotes`): fast-path when the remote manifest is unchanged and nothing is local
   dirty; otherwise pull newer/missing remote rows → push local rows the remote lacks → rewrite
   the manifest (only on change). Conflicts resolve last-write-wins (updatedAt, version tie-break);
-  remote tombstones propagate.
+  remote tombstones propagate. When the remote overwrites a dirty local row, its id lands in
+  `SyncResult.conflicts` so the UI can warn (the local draft is lost); a pulled notebook tree
+  over dirty local folders counts as one folder conflict.
 - **Notebook tree:** `syncFolders` (`features/sync/folders.ts`) syncs `vaultnote.folders.json` as
   one sealed doc — last-write-wins on its `updatedAt`, skipped when the file `modifiedTime` is
   unchanged and nothing is locally dirty. It runs right after `syncNotes` in the same pass.

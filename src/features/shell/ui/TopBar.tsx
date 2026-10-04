@@ -23,6 +23,7 @@ import { useVaultStore } from '@/features/vault/store/vaultStore'
 import { cn } from '@/lib/utils'
 import { useT } from '@/shared/i18n'
 import { promptInstall, useCanInstall } from '@/shared/pwaInstall'
+import { relativeTime } from '@/shared/time'
 import { useThemeStore } from '@/shared/theme'
 
 import { useShellStore } from '../store/shellStore'
@@ -43,6 +44,9 @@ export function TopBar() {
   const syncStatus = useSyncStore((s) => s.status)
   const configured = useSyncStore((s) => s.configured)
   const syncError = useSyncStore((s) => s.error)
+  const pending = useSyncStore((s) => s.pending)
+  const lastSyncedAt = useSyncStore((s) => s.lastSyncedAt)
+  const lastConflicts = useSyncStore((s) => s.lastConflicts)
   const sync = useSyncStore((s) => s.sync)
   const disconnect = useSyncStore((s) => s.disconnect)
 
@@ -97,7 +101,12 @@ export function TopBar() {
     <Cloud className="size-4" />
   )
 
-  const syncTitle = syncError ?? (configured ? t('shell.syncNow') : t('shell.syncNoClient'))
+  const syncTitle = syncError
+    ?? (lastConflicts > 0 ? t('sync.conflict', { n: lastConflicts }) : undefined)
+    ?? (pending > 0 ? t('sync.pending', { n: pending }) : undefined)
+    ?? (configured
+      ? (lastSyncedAt ? t('settings.syncLast', { time: relativeTime(lastSyncedAt) }) : t('shell.syncNow'))
+      : t('shell.syncNoClient'))
 
   return (
     <header className="relative z-30 flex h-14 shrink-0 items-center gap-2 px-3 md:px-4">
@@ -151,12 +160,12 @@ export function TopBar() {
           onClick={() => void sync()}
         >
           {syncIcon}
-          <span className="hidden md:inline">{t('shell.sync')}</span>
+          <span className="hidden md:inline">{t('shell.sync')}{pending > 0 ? ` · ${pending}` : ''}</span>
           <span
             aria-hidden
             className={cn(
               'hidden size-1.5 rounded-full md:block',
-              syncing ? 'animate-pulse bg-primary' : syncError ? 'bg-destructive' : 'bg-success/70',
+              syncing ? 'animate-pulse bg-primary' : syncError || lastConflicts > 0 ? 'bg-destructive' : pending > 0 ? 'bg-amber-500' : 'bg-success/70',
             )}
           />
         </Button>

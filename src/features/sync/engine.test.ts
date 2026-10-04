@@ -107,6 +107,18 @@ describe('syncNotes', () => {
     expect(local!.dirty).toBe(0)
   })
 
+  it('reports a conflict when remote overwrites a dirty local edit', async () => {
+    await db.notes.put(await makeRow('c2', payload('yerel-taslak'), { updatedAt: 500, dirty: 1 }))
+    await seedRemote([
+      await makeRow('c2', payload('uzak-kazanir'), { updatedAt: 2000, version: 2, dirty: 0 }),
+    ])
+
+    const result = await syncNotes({ drive, dek })
+
+    expect(result.conflicts).toEqual(['c2'])
+    expect((await db.notes.get('c2'))!.updatedAt).toBe(2000)
+  })
+
   it('propagates a remote tombstone', async () => {
     await db.notes.put(await makeRow('d1', payload('silinecek'), { updatedAt: 1000, dirty: 0 }))
     await seedRemote([

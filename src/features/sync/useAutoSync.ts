@@ -18,6 +18,7 @@ const PUSH_DEBOUNCE_MS = 1_500
  */
 export function useAutoSync(): void {
   const sync = useSyncStore((s) => s.sync)
+  const refreshPending = useSyncStore((s) => s.refreshPending)
   const revision = useNotesStore((s) => s.revision)
   const foldersUpdatedAt = useFolderStore((s) => s.updatedAt)
 
@@ -47,7 +48,8 @@ export function useAutoSync(): void {
       mounted.current = true
       return
     }
+    void refreshPending()
     const id = window.setTimeout(() => void sync({ interactive: false }), PUSH_DEBOUNCE_MS)
     return () => window.clearTimeout(id)
-  }, [revision, foldersUpdatedAt, sync])
+  }, [revision, foldersUpdatedAt, sync, refreshPending])
 }
