@@ -1,4 +1,5 @@
 import { markdown } from '@codemirror/lang-markdown'
+import type { CompletionContext, CompletionResult } from '@codemirror/autocomplete'
 import {
   findNext as cmFindNext,
   findPrevious as cmFindPrevious,
@@ -20,6 +21,12 @@ export interface CodeEditorHandle {
   setValue: (text: string) => void
 }
 
+/** One `[[` autocomplete entry: `label` shows in the list, `insert` replaces the query. */
+export interface LinkTarget {
+  label: string
+  insert: string
+}
+
 interface CodeEditorProps {
   /** Initial document. Change notes by remounting via `key`. */
   value: string
@@ -30,6 +37,8 @@ interface CodeEditorProps {
   onRequestSearch?: () => void
   /** Applied once on mount (the host seeds this from its global search). */
   initialQuery?: string
+  /** Candidates offered after `[[`. Read live, so it can change while editing. */
+  linkTargets?: LinkTarget[]
   className?: string
 }
 
@@ -75,7 +84,7 @@ function countMatches(state: EditorState, query: SearchQuery): number {
  * to avoid clobbering the cursor while typing. Search is driven imperatively through the ref.
  */
 export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function CodeEditor(
-  { value, onChange, onMatchCount, onRequestSearch, initialQuery, className },
+  { value, onChange, onMatchCount, onRequestSearch, initialQuery, linkTargets, className },
   ref,
 ) {
   const host = useRef<HTMLDivElement>(null)
@@ -85,6 +94,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
   const changeRef = useRef(onChange)
   const matchRef = useRef(onMatchCount)
   const requestRef = useRef(onRequestSearch)
+  const linkRef = useRef<LinkTarget[]>(linkTargets ?? [])
   // True while we dispatch a programmatic doc change, so it is not reported as a user edit.
   const applying = useRef(false)
 
@@ -92,6 +102,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
     changeRef.current = onChange
     matchRef.current = onMatchCount
     requestRef.current = onRequestSearch
+    linkRef.current = linkTargets ?? []
   })
 
   useImperativeHandle(ref, () => ({
@@ -120,9 +131,27 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
 
   useEffect(() => {
     if (!host.current) return
+    // Offer `[[` note completion through CodeMirror's language-data channel, so it rides
+    // basicSetup's existing autocompletion instead of adding a second one.
+    const linkSource = (context: CompletionContext): CompletionResult | null => {
+      const before = context.matchBefore(/\[\[[^[\]\n]*$/)
+      if (!before) return null
+      const targets = linkRef.current
+      if (targets.length === 0) return null
+      return {
+        from: before.from + 2,
+        options: targets.map((target) => ({
+          label: target.label,
+          apply: target.insert,
+          type: 'text',
+        })),
+        validFor: /^[^[\]\n]*$/,
+      }
+    }
     const extensions: Extension[] = [
       basicSetup,
       markdown(),
+      EditorState.languageData.of(() => [{ autocomplete: linkSource }]),
       EditorView.lineWrapping,
       theme,
       search(),

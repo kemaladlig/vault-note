@@ -1,4 +1,4 @@
-import Dexie, { type EntityTable } from 'dexie'
+import Dexie, { type EntityTable, type Table } from 'dexie'
 
 import type { Sealed } from '@/features/vault/crypto'
 
@@ -23,12 +23,34 @@ export interface NoteRow {
   sealed: Sealed
 }
 
+/**
+ * A prior sealed note snapshot, kept locally for version history. Stored exactly as the note
+ * row was at the time (same `sealed`/AAD), so it can be decrypted with `openNote`. Never synced.
+ */
+export interface RevisionRow {
+  noteId: string
+  /** The note version this snapshot captured. */
+  version: number
+  /** The note's `updatedAt` when it was snapshot, for the history UI. */
+  updatedAt: number
+  sealed: Sealed
+}
+
 export const db = new Dexie('vaultnote') as Dexie & {
   meta: EntityTable<MetaRow, 'key'>
   notes: EntityTable<NoteRow, 'id'>
+  revisions: Table<RevisionRow, [string, number]>
 }
 
 db.version(1).stores({
   meta: 'key',
   notes: 'id, updatedAt, dirty, deleted',
+})
+
+// v2: local, device-only version history. Forward-only; rollback = drop the `revisions` store
+// (see PROJECT_MAP.md), which discards history but leaves all notes intact.
+db.version(2).stores({
+  meta: 'key',
+  notes: 'id, updatedAt, dirty, deleted',
+  revisions: '[noteId+version], noteId',
 })

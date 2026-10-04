@@ -20,12 +20,14 @@ import { useNotesStore } from '@/features/notes/store/notesStore'
 import { useSyncStore } from '@/features/sync/store/syncStore'
 import { useVaultStore } from '@/features/vault/store/vaultStore'
 import { cn } from '@/lib/utils'
+import { useT } from '@/shared/i18n'
 import { useThemeStore } from '@/shared/theme'
 
 import { useShellStore } from '../store/shellStore'
 
 /** Floating command bar over the gradient shell: brand, search, sync, primary action. */
 export function TopBar() {
+  const t = useT()
   const lock = useVaultStore((s) => s.lock)
 
   const query = useNotesStore((s) => s.query)
@@ -48,18 +50,28 @@ export function TopBar() {
   const syncing = syncStatus === 'syncing'
 
   const menuItems: MenuItem[] = [
-    { label: 'Ayarlar', icon: <Settings />, onSelect: () => setSettingsOpen(true) },
+    { label: t('shell.settings'), icon: <Settings />, onSelect: () => setSettingsOpen(true) },
     { type: 'separator' },
     {
-      label: 'Sistem teması',
+      label: t('shell.theme.system'),
       icon: <Monitor />,
       selected: mode === 'system',
       onSelect: () => setMode('system'),
     },
-    { label: 'Açık tema', icon: <Sun />, selected: mode === 'light', onSelect: () => setMode('light') },
-    { label: 'Koyu tema', icon: <Moon />, selected: mode === 'dark', onSelect: () => setMode('dark') },
+    {
+      label: t('shell.theme.light'),
+      icon: <Sun />,
+      selected: mode === 'light',
+      onSelect: () => setMode('light'),
+    },
+    {
+      label: t('shell.theme.dark'),
+      icon: <Moon />,
+      selected: mode === 'dark',
+      onSelect: () => setMode('dark'),
+    },
     { type: 'separator' },
-    { label: 'Drive bağlantısını kes', icon: <CloudOff />, onSelect: disconnect },
+    { label: t('shell.disconnect'), icon: <CloudOff />, onSelect: disconnect },
   ]
 
   async function onNewNote() {
@@ -75,35 +87,37 @@ export function TopBar() {
     <Cloud className="size-4" />
   )
 
-  const syncTitle = syncError ?? (configured ? 'Senkronize et' : 'Google istemci kimliği ayarlı değil')
+  const syncTitle = syncError ?? (configured ? t('shell.syncNow') : t('shell.syncNoClient'))
 
   return (
     <header className="relative z-30 flex h-14 shrink-0 items-center gap-2 px-3 md:px-4">
-      <div className="flex items-center gap-2.5 pr-1 animate-slide-in-left">
-        <VaultNoteIcon className="size-8 shadow-e1" />
-        <span className="hidden text-[15px] font-semibold tracking-tight sm:block">
-          Vault<span className="text-primary">Note</span>
-        </span>
-      </div>
-
-      <div className="group/search relative mx-1 hidden min-w-0 flex-1 sm:block lg:max-w-xl">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within/search:text-primary" />
-        <Input
-          value={query}
-          placeholder="Notlarda ara…"
-          aria-label="Tüm notlarda ara"
-          className="h-9 rounded-full border-transparent bg-surface/80 shadow-e1 pr-20 pl-9 backdrop-blur-sm transition-all duration-200 hover:shadow-e2 focus-visible:border-primary/40 focus-visible:bg-surface focus-visible:shadow-e2 focus-visible:ring-4 focus-visible:ring-primary/10"
-          onChange={(event) => setQuery(event.target.value)}
-        />
-        <button
-          type="button"
-          aria-label="Komut paletini aç"
-          onClick={() => setCommandOpen(true)}
-          className="absolute top-1/2 right-2 flex -translate-y-1/2 items-center gap-0.5 rounded-md px-1 py-0.5 transition-colors hover:bg-muted"
-        >
-          <Kbd>Ctrl</Kbd>
-          <Kbd>K</Kbd>
-        </button>
+      <div className="group/dock flex min-w-0 flex-1 items-center gap-1.5 rounded-full border border-border/60 bg-surface/70 p-1 pr-2 shadow-e1 backdrop-blur-md transition-all duration-200 animate-fade-in hover:shadow-e2 focus-within:border-primary/40 focus-within:shadow-e2 focus-within:ring-4 focus-within:ring-primary/10 max-sm:border-transparent max-sm:bg-transparent max-sm:p-0 max-sm:shadow-none max-sm:backdrop-blur-none lg:max-w-xl">
+        <div className="flex min-w-0 items-center gap-2 pl-0.5">
+          <VaultNoteIcon className="size-8 shrink-0 shadow-e1" />
+          <span className="hidden text-[15px] font-semibold tracking-tight md:block">
+            Vault<span className="text-primary">Note</span>
+          </span>
+        </div>
+        <span aria-hidden className="hidden h-5 w-px shrink-0 bg-border/70 md:block" />
+        <div className="group/search relative hidden min-w-0 flex-1 sm:block">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within/search:text-primary" />
+          <Input
+            value={query}
+            placeholder={t('shell.search.placeholder')}
+            aria-label={t('shell.search.label')}
+            className="h-9 rounded-full border-transparent bg-transparent pl-9 pr-16 shadow-none focus-visible:border-transparent focus-visible:ring-0"
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          <button
+            type="button"
+            aria-label={t('shell.openPalette')}
+            onClick={() => setCommandOpen(true)}
+            className="absolute top-1/2 right-1.5 flex -translate-y-1/2 items-center gap-0.5 rounded-md px-1 py-0.5 transition-colors hover:bg-muted"
+          >
+            <Kbd>Ctrl</Kbd>
+            <Kbd>K</Kbd>
+          </button>
+        </div>
       </div>
 
       <div className="ml-auto flex items-center gap-1.5">
@@ -111,7 +125,7 @@ export function TopBar() {
           size="icon-sm"
           variant="ghost"
           className="bg-surface/70 backdrop-blur-sm sm:hidden"
-          aria-label="Ara"
+          aria-label={t('shell.search')}
           onClick={() => setCommandOpen(true)}
         >
           <Search />
@@ -121,13 +135,13 @@ export function TopBar() {
           size="sm"
           variant="ghost"
           className="hidden gap-1.5 rounded-full border border-border/60 bg-surface/70 px-3 shadow-e1 backdrop-blur-sm transition-all hover:shadow-e2 sm:inline-flex"
-          aria-label="Drive ile senkronize et"
+          aria-label={t('shell.syncAria')}
           title={syncTitle}
           disabled={!configured || syncing}
           onClick={() => void sync()}
         >
           {syncIcon}
-          <span className="hidden md:inline">Senkronize</span>
+          <span className="hidden md:inline">{t('shell.sync')}</span>
           <span
             aria-hidden
             className={cn(
@@ -140,7 +154,7 @@ export function TopBar() {
           size="icon-sm"
           variant="ghost"
           className="bg-surface/70 backdrop-blur-sm sm:hidden"
-          aria-label="Drive ile senkronize et"
+          aria-label={t('shell.syncAria')}
           title={syncTitle}
           disabled={!configured || syncing}
           onClick={() => void sync()}
@@ -152,26 +166,26 @@ export function TopBar() {
           size="sm"
           variant="cta"
           className="h-8 gap-1.5 px-3.5"
-          aria-label="Yeni not"
+          aria-label={t('shell.newNote')}
           onClick={() => void onNewNote()}
         >
           <Plus className="size-4" />
-          <span className="hidden md:inline">Yeni not</span>
+          <span className="hidden md:inline">{t('shell.newNote')}</span>
         </Button>
 
         <Button
           size="icon-sm"
           variant="ghost"
           className="bg-transparent text-muted-foreground hover:bg-surface/70"
-          aria-label="Kilitle"
-          title="Kilitle"
+          aria-label={t('shell.lock')}
+          title={t('shell.lock')}
           onClick={lock}
         >
           <Lock />
         </Button>
 
         <Menu
-          label="Uygulama menüsü"
+          label={t('shell.appMenu')}
           icon={<Settings />}
           align="end"
           items={menuItems}

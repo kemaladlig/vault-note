@@ -2,11 +2,13 @@ import { CloudDownload, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { useT } from '@/shared/i18n'
 
 import { useSyncStore } from '../store/syncStore'
 
 /** New-device entry point: pull an existing vault header from the user's Drive. */
 export function RestoreFromDrive() {
+  const t = useT()
   const configured = useSyncStore((s) => s.configured)
   const restore = useSyncStore((s) => s.restore)
   const [busy, setBusy] = useState(false)
@@ -17,14 +19,14 @@ export function RestoreFromDrive() {
     setNotice(undefined)
     const restored = await restore()
     setBusy(false)
-    if (!restored) setNotice("Bu Drive hesabında bir VaultNote vault'u bulunamadı.")
+    if (!restored) setNotice(t('sync.restore.notFound'))
   }
 
   return (
     <div className="mt-6 space-y-3">
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <span className="h-px flex-1 bg-border" />
-        veya
+        {t('common.or')}
         <span className="h-px flex-1 bg-border" />
       </div>
       <Button
@@ -35,12 +37,10 @@ export function RestoreFromDrive() {
         onClick={() => void onClick()}
       >
         {busy ? <Loader2 className="animate-spin" /> : <CloudDownload />}
-        Drive'dan geri yükle
+        {t('sync.restore.button')}
       </Button>
       {!configured && (
-        <p className="text-xs text-muted-foreground">
-          Google istemci kimliği ayarlı değil (bkz. .env.example).
-        </p>
+        <p className="text-xs text-muted-foreground">{t('settings.syncNotConfigured')}</p>
       )}
       {notice && <p className="text-xs text-muted-foreground">{notice}</p>}
     </div>

@@ -11,11 +11,14 @@ Google Drive `appDataFolder`; only ciphertext leaves the device. Local-first.
 | Native shell   | Capacitor (Android / iOS), same code also ships as PWA        |
 | Styling        | Tailwind v4 + shadcn/Base UI + Material-3-inspired tokens     |
 | State          | Zustand                                                       |
-| Local storage  | IndexedDB (Dexie) — encrypt-at-rest implemented                    |
-| Editor         | CodeMirror 6 — basic wiring implemented                        |
+| Local storage  | IndexedDB (Dexie) — encrypt-at-rest; v2 adds device-local note history |
+| Editor         | CodeMirror 6 — editing + sanitized Markdown preview            |
+| Markdown       | `marked` + `DOMPurify` (preview only; never raw user HTML)     |
 | Crypto         | WebCrypto AES-256-GCM + HKDF; Argon2id via `hash-wasm`        |
 | Sync           | Google Drive REST v3, `drive.appdata` — client + engine implemented |
-| Tests          | Vitest (37 unit) + Playwright e2e (10 flows, real Chromium)   |
+| Tests          | Vitest (66 unit) + Playwright e2e (17 flows, real Chromium)   |
+| PWA / offline  | `vite-plugin-pwa` (Workbox) — installable shell + offline assets |
+| Localization   | hand-rolled `shared/i18n.ts` + `shared/locales.ts` (tr default, en) |
 
 ## Layout
 
@@ -27,25 +30,29 @@ src/
                               spinner, toaster
   lib/utils.ts               cn() class merger
   shared/                     cross-feature infrastructure
-    db.ts                     Dexie schema: meta, notes (row contracts)
+    db.ts                     Dexie schema: meta, notes, revisions (v2) — row contracts
     folders.ts                Folder/FoldersDoc, tree helpers, sealed-doc crypto
-    ids.ts, time.ts           now() + relativeTime() + bucketOf() (tr)
+    ids.ts, time.ts           now() + relativeTime() (locale-aware Intl) + bucketOf()
     theme.ts                  persisted theme mode (system/light/dark) + init
+    i18n.ts                   persisted locale (tr/en) + t()/useT() + init
+    locales.ts                message catalog (tr is the key source of truth; en must cover it)
     scale.ts                  persisted UI scale (compact/normal/comfortable) + init
+    trash.ts                  trash retention preference + isTrashExpired predicate
+    revisions.ts              version-history retention preference (10/25/50/unlimited)
     boot.ts                   dismisses the inline boot splash once the first screen is up
     toast.ts                  imperative toast store
   index.css                  design tokens (single source of truth) + Tailwind theme
   features/
     shell/                    app chrome (spans vault + notes + sync)
-      store/shellStore.ts     overlay state + mobile list/editor pane + split-view note
+      store/shellStore.ts     overlay state + nav-drawer open flag + mobile list/editor pane + split-view note + template-picker/import dialogs
       useBoot.ts              hands the screen from the inline boot splash to the first screen
       useShortcuts.ts         Ctrl/Cmd+K palette, Ctrl/Cmd+N new note
       ui/
-        AppShell.tsx          top bar + notes surface + global overlays
+        AppShell.tsx          top bar + notes surface + global overlays (palette, template picker, import, settings)
         Splash.tsx            brand screen for the vault-loading phase
         TopBar.tsx            brand, global search, sync, new note, lock, app menu
         CommandPalette.tsx    search + actions: note hits with match snippet, mobile search surface
-        SettingsDialog.tsx    theme, rekey, quick-unlock, sync, export, reset
+        SettingsDialog.tsx    theme, rekey, quick-unlock, sync, export/import, templates, reset
     vault/
       crypto/                cryptographic core (implemented, 11 tests)
         types.ts             Sealed, KdfParams, VaultHeader, CreatedVault
@@ -66,33 +73,46 @@ src/
         vaultRepo.test.ts
       ui/
         VaultGate.tsx        routes app by vault lifecycle
+        VaultFrame.tsx       shared branded stage for the auth screens
         CreateVaultForm.tsx, UnlockForm.tsx
     notes/
       model.ts               DecryptedNote, NoteContent (incl. pinned/folderId/archived), NotesView
       search.ts              selectNotes: scope (view/folder subtree) + tag + Turkish-aware text
+      sort.ts                SortField/SortDir + sortNotes + groupFieldFor (date vs flat)
+      links.ts               [[wiki links]]: parse, resolve (title→id), backlinks, preview transform
       views.ts               SavedView (smart view) + sealed local doc (name/filters encrypted)
+      templates.ts           NoteTemplate + sealed local doc (name/title/body/tags encrypted)
+      import.ts              Markdown/JSON parsing, frontmatter, content-hash dedupe, dry-run plan
       export.ts              markdown/JSON export (plaintext — UI warns)
       store/
-        noteRepo.ts          encrypt-at-rest CRUD over Dexie (soft-delete, restore, destroy)
-        notesStore.ts        Zustand: decrypted notes in RAM, scope/view/query, org actions
+        noteRepo.ts          encrypt-at-rest CRUD over Dexie (+ device-local revision snapshots)
+        notesStore.ts        Zustand: decrypted notes in RAM, scope/view/query, sort, org actions, bulk import, revision history
         folderRepo.ts        notebook tree as one sealed doc in meta
         folderStore.ts       Zustand: folders + local dirty flag, adopt/markSynced
         viewRepo.ts          smart views as one sealed doc in meta (device-local)
         viewStore.ts         Zustand: saved views + apply-to-filters
+        templateRepo.ts      templates as one sealed doc in meta (device-local)
+        templateStore.ts     Zustand: CRUD for note templates
         noteRepo.test.ts
       ui/
-        NotesShell.tsx       list + tabs + editor (+ optional split pane), responsive
+        NotesShell.tsx       3-pane (nav sidebar | list | editor) + split; nav is a slide-over drawer below xl
         SidebarNav.tsx       scope + smart views, notebook tree (drag-to-reparent, colors), tags
-        TabBar.tsx           open-note tabs; fixed width; bulk close; split indicator
-        NoteList.tsx         pinned section + date groups; row actions (pin/archive/restore/delete/open-beside)
-        NoteEditor.tsx       title + tag popover + note menu (pin/archive/move/export/delete)
+        TabBar.tsx           open-note tabs; content-width tabs joined into the editor; bulk close; split indicator
+        NoteList.tsx         pinned section + date groups (or flat when title-sorted); row actions
+        NoteEditor.tsx       title + tag popover + links panel (backlinks/broken) + note menu (incl. save-as-template)
         MoveNoteDialog.tsx   notebook picker for "Not defterine taşı"
         MoveFolderDialog.tsx notebook picker for "Taşı…" (reparent fallback)
-        PromptDialog.tsx     single-field dialog for notebook create/rename
+        PromptDialog.tsx     single-field dialog for notebook/template create/rename
+        TemplatePickerDialog.tsx  pick a template to create a note from
+        ImportDialog.tsx     file picker + dry-run summary + target notebook, then bulk import
+        NoteHistory.tsx      version-history panel: list snapshots, read-only preview, restore
         SearchBar.tsx        in-note search controls (count, next/prev)
         Highlight.tsx        Turkish-aware substring highlight (list + palette)
-        CodeEditor.tsx       CodeMirror 6 wrapper: markdown, search, token theme
+        CodeEditor.tsx       CodeMirror 6 wrapper: markdown, search, [[ completion, token theme
+        MarkdownPreview.tsx  read-only preview: marked + sanitized HTML; wiki links navigate in-app
       search.test.ts
+      links.test.ts
+      import.test.ts
     sync/
       drive/types.ts         DriveClient interface (list/download/create/update/remove)
       drive/googleDrive.ts   real REST v3 client (appDataFolder)
@@ -160,8 +180,12 @@ src/
   Changing the passphrase re-wraps the DEK only; notes are never re-encrypted.
 - **Notes:** per-note key = `HKDF-SHA256(DEK, info="vaultnote:note:<id>")`, AES-256-GCM.
 - **Auxiliary sealed docs:** notebook tree = `HKDF(DEK, "vaultnote:folders")` (also synced as a
-  Drive file); smart views = `HKDF(DEK, "vaultnote:views")` (device-local, never synced). Each is
-  one AES-GCM document, so folder names and saved-view names/queries stay encrypted at rest.
+  Drive file); smart views = `HKDF(DEK, "vaultnote:views")` (device-local, never synced);
+  templates = `HKDF(DEK, "vaultnote:templates")` (device-local, like views). Each is
+  one AES-GCM document, so folder names, saved-view names/queries and template bodies stay
+  encrypted at rest. **Version history** adds no key: each snapshot is a copy of the note's
+  already-sealed `NoteRow` (same `HKDF(DEK, "vaultnote:note:<id>")` key and AAD), kept in the
+  `revisions` table and never synced.
 - **AAD binds context** (`vaultnote:v1:note:<id>:<version>`) → blocks ciphertext swapping
   between notes and version rollback.
 - **Every seal uses a fresh 12-byte IV.** `Sealed = { v, alg, iv, ct }`, all base64.
@@ -191,7 +215,17 @@ src/
 - Vault lifecycle: create (passphrase or passwordless), unlock (passphrase, quick-unlock,
   biometric on native), lock, reset, forget device.
 - Notes: create/edit (debounced encrypted save), delete with confirmation, tags, search.
-  The list is grouped by date (Bugün / Dün / Bu hafta / Daha eski) with a two-line preview.
+  The editor toggles a **sanitized Markdown preview** (rendered with `marked` + `DOMPurify`,
+  loaded lazily; the body never leaves the device). The list is grouped by date
+  (Bugün / Dün / Bu hafta / Daha eski) with a two-line preview, and can be re-sorted from the
+  list header — by last-updated or creation date (kept grouped), or by title (flat, A→Z);
+  the choice is a device preference (`localStorage`, `notesStore`).
+- **Links & backlinks:** `[[Note title]]` (and `[[title|alias]]`) links notes together.
+  Typing `[[` suggests matching note titles in the editor; in the **preview** a resolved link
+  is clickable and opens the target note in-app, while an unresolvable one is styled as broken
+  rather than dropped. A header toggle opens a panel listing **backlinks** (notes linking here)
+  and **broken** outgoing links. Resolution is by title then id, derived from the decrypted
+  notes in RAM — nothing extra is persisted (`features/notes/links.ts`).
 - **Tabs & split:** notes open as fixed-width tabs (persisted by opaque id, so tabs survive a
   reload); switching updates the editor, closing picks the neighbour. A tab-end menu does bulk
   close ("Diğerlerini kapat" / "Tüm sekmeleri kapat"). On desktop a second note can be opened
@@ -200,17 +234,53 @@ src/
 - **Smart views:** save the current filter set (query + tag + notebook + scope) under a name and
   re-apply it from the sidebar ("Akıllı görünümler"). Names and filters are stored **sealed** in
   local meta (`vaultnote:views`), device-local and never synced. Rename/delete per view.
+- **Templates:** any note can be saved as a **template** ("Şablon olarak kaydet" in the note
+  menu) capturing its title, body, tags and notebook. "Yeni not" → **Şablondan yeni not**
+  (command palette) opens a picker that pre-fills a fresh note from a template. Templates are
+  stored **sealed** in local meta (`vaultnote:templates`), device-local and never synced, and
+  are managed (rename/delete) under Settings → Şablonlar.
+- **Import:** Settings → Veri → **İçe aktar…** accepts Markdown files (optional `---`
+  frontmatter for `title`/`tags`; a leading `# H1` and a standalone `#tag` line are also
+  recognized) and the app's own JSON export. Files are parsed, then a **dry-run** shows how many
+  notes are new vs. duplicates (content-hash match against the vault) with an optional target
+  notebook; nothing is written until the user confirms. Imported notes are re-sealed under fresh
+  ids (`features/notes/import.ts`).
+- **Version history:** every genuine content edit snapshots the note's *prior* content before
+  overwriting it (metadata-only changes like pin/move/archive do not). A header toggle opens a
+  **history panel** listing snapshots by version and time; selecting one shows a read-only
+  preview and **Restore** re-applies its title/body/tags as a **new head version** (the current
+  notebook/pin/archive are preserved). History is **device-local and never synced**; the
+  retention limit (10/25/50/unlimited) is a device preference under Settings → Sürüm geçmişi.
 - **Organization:** pin ("Sabitlenenler"), nested **notebooks** (folders, sealed at rest),
   archive, and a trash with restore / permanent delete / "Çöpü boşalt". The sidebar exposes
   scope views, the notebook tree (per-folder counts, rename/delete, sub-notebooks), an optional
   per-notebook **accent color** (theme-aware) and **drag-to-reparent** (drop a notebook onto
   another to nest it, or onto the section header for top level; a "Taşı…" dialog is the
   keyboard/mobile fallback). A note's notebook is changed from its header menu ("Not defterine taşı…").
+- **Trash auto-purge:** trashed notes are swept on unlock and after each sync once they pass the
+  retention window (7/30/90 days or "Asla"), hard-deleting them locally. The window is a
+  non-sensitive device preference (`localStorage`, `shared/trash.ts`) set under Settings → Veri;
+  the trash timestamp is the note's `updatedAt` at delete time, so no extra sealed field is needed.
 - Chrome: top-bar global search (desktop field; mobile magnifier opens the palette, which also
   shows *where* each note matched via a highlighted snippet), sidebar tag filter, command palette
   (Ctrl/Cmd+K), app menu + Settings (theme, rekey, sync, export, reset), toasts, dark mode.
 - Export: per-note Markdown, all notes Markdown/JSON (plaintext, warned).
 - Sync: manual + background Google Drive sync (see below).
+
+## Version history & migrations
+
+- **Dexie v2** adds a `revisions` table (`[noteId+version]` index) holding the prior sealed
+  `NoteRow` snapshot (same `sealed`/AAD) taken before each content-changing `updateNote`.
+  `noteRepo` prunes to the configured limit and drops history on `destroyNote`/`emptyTrash`.
+- **Rollback:** the migration is forward-only. To revert, drop the store — delete
+  `db.revisions` (or `Dexie.delete('vaultnote')` only as a last resort) and remove the
+  `db.version(2)` block. All notes remain intact; only local history is lost. Re-applying v2
+  recreates an empty history.
+- History is **device-local**: the sync engine only reads/writes `db.notes`, so revisions never
+  reach Drive. A pulled remote revision overwrites the note row directly (no snapshot), so
+  history reflects *local* edits.
+- `shared/revisions.ts` stores the retention limit in `localStorage` (like theme/scale/trash);
+  changing it prunes every note's history immediately.
 
 ## Sync & auth
 
@@ -282,11 +352,38 @@ src/
 - **Export:** `features/notes/export.ts` downloads a note/all notes as Markdown or all as JSON.
   Export is **plaintext**; the UI states this before offering it.
 
+## Localization (i18n)
+
+- `shared/locales.ts` holds the catalog: `tr` is the key source of truth and `en` is typed as
+  `Record<MessageKey, string>`, so a missing English string is a compile error. No JSX in
+  values — split a sentence around markup into separate keys (`settings.exportWarnA/Strong/B`).
+- `shared/i18n.ts` persists the locale (`vaultnote.locale`, like theme/scale), exposes `t()`
+  for non-React code (stores, toasts, `export.ts`) and `useT()` for components (re-renders on
+  switch). `initI18n()` runs on boot in `main.tsx` and sets `<html lang>`. Locale is **not**
+  persisted per vault — it is a device preference.
+- Turkish stays the default; the language switch is in Settings → Görünüm. `relativeTime`
+  (`shared/time.ts`) builds its `Intl.RelativeTimeFormat` per locale on demand.
+- Never hardcode user-facing copy in a component; add a key to both `tr` and `en`.
+
+## PWA & offline
+
+- `vite-plugin-pwa` (Workbox `generateSW`) builds `dist/sw.js` + `dist/manifest.webmanifest`
+  on every `npm run build`. Config lives in `vite.config.ts`; `src/main.tsx` calls
+  `registerSW({ immediate: true })` (a no-op in dev — `devOptions.enabled` is false).
+- Precaching covers only built same-origin assets (js/css/html/svg/png/woff). Drive and
+  Google auth origins are explicit `NetworkOnly` rules, so the service worker never caches
+  ciphertext or API traffic; offline data stays the app's concern, not the SW's.
+- Icons: `public/pwa-192.png`, `public/pwa-512.png` (any) and `public/pwa-maskable-512.png`
+  (maskable, full-bleed dark) are generated from `public/vaultnote-icon.png`. Regenerate
+  them when the brand mark changes.
+- Browser chrome tint comes from two `<meta name="theme-color">` entries in `index.html`
+  (light/dark), mirroring `--background`.
+
 ## Commands
 
 - `npm run dev` — Vite dev server
 - `npm run build` — typecheck + production build
-- `npm test` — Vitest (crypto)
+- `npm test` — Vitest unit suite
 - `npm run test:e2e` — Playwright smoke test in Chromium (needs a prior `npx playwright install chromium`)
 - `npm run lint` — oxlint
 - `npx cap sync` — copy web build into native projects (after adding platforms)

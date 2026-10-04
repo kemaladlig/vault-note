@@ -1,6 +1,7 @@
 import {
   Cloud,
   FileText,
+  LayoutTemplate,
   Lock,
   Monitor,
   Moon,
@@ -13,11 +14,14 @@ import { useMemo, useState, type ReactNode } from 'react'
 
 import { Kbd } from '@/components/ui/kbd'
 import { activeNotes, filterNotes, matchInfo } from '@/features/notes/search'
+import { sortNotes } from '@/features/notes/sort'
 import { useNotesStore } from '@/features/notes/store/notesStore'
+import { useTemplateStore } from '@/features/notes/store/templateStore'
 import { Highlight } from '@/features/notes/ui/Highlight'
 import { useSyncStore } from '@/features/sync/store/syncStore'
 import { useVaultStore } from '@/features/vault/store/vaultStore'
 import { cn } from '@/lib/utils'
+import { useT } from '@/shared/i18n'
 import { relativeTime } from '@/shared/time'
 import { useThemeStore } from '@/shared/theme'
 
@@ -47,6 +51,7 @@ export function CommandPalette() {
 }
 
 function Palette({ onClose }: { onClose: () => void }) {
+  const t = useT()
   const setSettingsOpen = useShellStore((s) => s.setSettingsOpen)
   const setListOpen = useShellStore((s) => s.setListOpen)
 
@@ -54,10 +59,14 @@ function Palette({ onClose }: { onClose: () => void }) {
   const select = useNotesStore((s) => s.select)
   const create = useNotesStore((s) => s.create)
   const setQuery = useNotesStore((s) => s.setQuery)
+  const sortBy = useNotesStore((s) => s.sortBy)
+  const sortDir = useNotesStore((s) => s.sortDir)
 
   const lock = useVaultStore((s) => s.lock)
   const sync = useSyncStore((s) => s.sync)
   const setMode = useThemeStore((s) => s.setMode)
+  const setTemplatePickerOpen = useShellStore((s) => s.setTemplatePickerOpen)
+  const templates = useTemplateStore((s) => s.templates)
 
   const [term, setTerm] = useState('')
   const [active, setActive] = useState(0)
@@ -66,10 +75,10 @@ function Palette({ onClose }: { onClose: () => void }) {
     () => [
       {
         id: 'new',
-        label: 'Yeni not',
-        hint: 'Not oluştur',
+        label: t('shell.newNote'),
+        hint: t('shell.palette.newNoteHint'),
         icon: <Plus />,
-        group: 'Eylemler',
+        group: t('shell.palette.groupActions'),
         run: () => {
           onClose()
           void create().then(() => setListOpen(false))
@@ -77,19 +86,33 @@ function Palette({ onClose }: { onClose: () => void }) {
       },
       {
         id: 'settings',
-        label: 'Ayarlar',
+        label: t('shell.settings'),
         icon: <Settings />,
-        group: 'Eylemler',
+        group: t('shell.palette.groupActions'),
         run: () => {
           onClose()
           setSettingsOpen(true)
         },
       },
+      ...(templates.length > 0
+        ? [
+            {
+              id: 'new-from-template',
+              label: t('templates.newFromTemplate'),
+              icon: <LayoutTemplate />,
+              group: t('shell.palette.groupActions'),
+              run: () => {
+                onClose()
+                setTemplatePickerOpen(true)
+              },
+            } satisfies Command,
+          ]
+        : []),
       {
         id: 'sync',
-        label: 'Drive ile senkronize et',
+        label: t('shell.syncAria'),
         icon: <Cloud />,
-        group: 'Eylemler',
+        group: t('shell.palette.groupActions'),
         run: () => {
           onClose()
           void sync()
@@ -97,9 +120,9 @@ function Palette({ onClose }: { onClose: () => void }) {
       },
       {
         id: 'theme-light',
-        label: 'Açık tema',
+        label: t('shell.theme.light'),
         icon: <Sun />,
-        group: 'Eylemler',
+        group: t('shell.palette.groupActions'),
         run: () => {
           setMode('light')
           onClose()
@@ -107,9 +130,9 @@ function Palette({ onClose }: { onClose: () => void }) {
       },
       {
         id: 'theme-dark',
-        label: 'Koyu tema',
+        label: t('shell.theme.dark'),
         icon: <Moon />,
-        group: 'Eylemler',
+        group: t('shell.palette.groupActions'),
         run: () => {
           setMode('dark')
           onClose()
@@ -117,9 +140,9 @@ function Palette({ onClose }: { onClose: () => void }) {
       },
       {
         id: 'theme-system',
-        label: 'Sistem teması',
+        label: t('shell.theme.system'),
         icon: <Monitor />,
-        group: 'Eylemler',
+        group: t('shell.palette.groupActions'),
         run: () => {
           setMode('system')
           onClose()
@@ -127,16 +150,16 @@ function Palette({ onClose }: { onClose: () => void }) {
       },
       {
         id: 'lock',
-        label: 'Kilitle',
+        label: t('shell.lock'),
         icon: <Lock />,
-        group: 'Eylemler',
+        group: t('shell.palette.groupActions'),
         run: () => {
           onClose()
           lock()
         },
       },
     ],
-    [create, lock, onClose, setListOpen, setMode, setSettingsOpen, sync],
+    [create, lock, onClose, setListOpen, setMode, setSettingsOpen, setTemplatePickerOpen, sync, t, templates.length],
   )
 
   const needle = term.trim().toLocaleLowerCase('tr')
@@ -145,10 +168,15 @@ function Palette({ onClose }: { onClose: () => void }) {
     const matchingCommands = commands.filter(
       (command) => !needle || command.label.toLocaleLowerCase('tr').includes(needle),
     )
-    const matchingNotes = filterNotes(activeNotes(notes), term)
+    const baseNotes = activeNotes(notes)
+    // With a query, keep relevance ranking; when idle, show the user's list order.
+    const orderedNotes = term.trim()
+      ? filterNotes(baseNotes, term)
+      : sortNotes(baseNotes, sortBy, sortDir)
+    const matchingNotes = orderedNotes
       .slice(0, MAX_NOTES)
       .map<Command>((note) => {
-        const title = note.title || 'Başlıksız'
+        const title = note.title || t('common.untitled')
         const info = matchInfo(note, term)
         return {
           id: `note:${note.id}`,
@@ -157,7 +185,7 @@ function Palette({ onClose }: { onClose: () => void }) {
           detail: info?.snippet ? <Highlight text={info.snippet} query={term} /> : undefined,
           hint: relativeTime(note.updatedAt),
           icon: <FileText />,
-          group: 'Notlar',
+          group: t('shell.palette.groupNotes'),
           run: () => {
             if (term.trim()) setQuery(term.trim())
             select(note.id)
@@ -167,7 +195,7 @@ function Palette({ onClose }: { onClose: () => void }) {
         }
       })
     return [...matchingCommands, ...matchingNotes]
-  }, [commands, needle, notes, onClose, select, setListOpen, setQuery, term])
+  }, [commands, needle, notes, onClose, select, setListOpen, setQuery, sortBy, sortDir, term, t])
 
   const activeIndex = Math.min(active, Math.max(items.length - 1, 0))
 
@@ -185,7 +213,7 @@ function Palette({ onClose }: { onClose: () => void }) {
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Komut paleti"
+        aria-label={t('shell.palette.aria')}
         className="w-full max-w-xl overflow-hidden rounded-2xl border border-border/70 bg-popover text-popover-foreground shadow-pop animate-pop-in"
       >
         <div className="flex items-center gap-2.5 border-b border-border/70 px-4">
@@ -193,8 +221,8 @@ function Palette({ onClose }: { onClose: () => void }) {
           <input
             autoFocus
             value={term}
-            aria-label="Komut ara"
-            placeholder="Ara veya komut çalıştır…"
+            aria-label={t('shell.palette.searchLabel')}
+            placeholder={t('shell.palette.placeholder')}
             className="h-12 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground"
             onChange={(event) => {
               setTerm(event.target.value)
@@ -221,7 +249,9 @@ function Palette({ onClose }: { onClose: () => void }) {
 
         <div className="max-h-[72vh] overflow-y-auto p-2 sm:max-h-[52vh]">
           {items.length === 0 ? (
-            <p className="px-3 py-8 text-center text-sm text-muted-foreground">Sonuç yok.</p>
+            <p className="px-3 py-8 text-center text-sm text-muted-foreground">
+              {t('shell.palette.noResults')}
+            </p>
           ) : (
             items.map((item, index) => {
               const showHeader = index === 0 || items[index - 1].group !== item.group

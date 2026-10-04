@@ -2,6 +2,7 @@ import { Archive, ArchiveRestore, Columns2, Pin, RotateCcw, Trash2 } from 'lucid
 import { useMemo, type ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
+import { useT, type MessageKey } from '@/shared/i18n'
 import { bucketOf, relativeTime, type DateBucket } from '@/shared/time'
 
 import type { DecryptedNote, NotesView } from '../model'
@@ -16,6 +17,10 @@ interface NoteListProps {
   view: NotesView
   /** Show a pinned section above the date groups (main view only). */
   groupPinned?: boolean
+  /** Group under date headers. `false` renders one flat list (e.g. title sort). */
+  grouped?: boolean
+  /** Which timestamp the date buckets use. */
+  dateField?: 'updatedAt' | 'createdAt'
   onTogglePin?: (id: string) => void
   onArchive?: (id: string, archived: boolean) => void
   onOpenBeside?: (id: string) => void
@@ -23,11 +28,11 @@ interface NoteListProps {
   onDestroy?: (id: string) => void
 }
 
-const GROUP_LABELS: Record<DateBucket, string> = {
-  today: 'Bugün',
-  yesterday: 'Dün',
-  week: 'Bu hafta',
-  older: 'Daha eski',
+const GROUP_LABELS: Record<DateBucket, MessageKey> = {
+  today: 'notes.group.today',
+  yesterday: 'notes.group.yesterday',
+  week: 'notes.group.week',
+  older: 'notes.group.older',
 }
 const GROUP_ORDER: DateBucket[] = ['today', 'yesterday', 'week', 'older']
 
@@ -45,10 +50,10 @@ interface NoteGroup {
   items: DecryptedNote[]
 }
 
-function groupByDate(notes: DecryptedNote[]): NoteGroup[] {
+function groupByDate(notes: DecryptedNote[], field: 'updatedAt' | 'createdAt'): NoteGroup[] {
   const map = new Map<DateBucket, DecryptedNote[]>()
   for (const note of notes) {
-    const key = bucketOf(note.updatedAt)
+    const key = bucketOf(note[field])
     const list = map.get(key)
     if (list) list.push(note)
     else map.set(key, [note])
@@ -112,6 +117,7 @@ function NoteRow({
   onRestore?: (id: string) => void
   onDestroy?: (id: string) => void
 }) {
+  const t = useT()
   const info = query.trim() ? matchInfo(note, query) : null
   const bodyPreview = info ? info.snippet : preview(note.body)
   const alwaysShowActions = view === 'trash' || view === 'archive'
@@ -123,21 +129,15 @@ function NoteRow({
         onClick={() => onSelect(note.id)}
         aria-current={active}
         className={cn(
-          'w-full rounded-xl px-3 py-2.5 text-left transition-all duration-200 md:pr-24',
+          'w-full rounded-xl px-3 py-2.5 pr-16 text-left transition-all duration-200 md:pr-24',
           active
-            ? 'bg-accent text-accent-foreground shadow-e1'
+            ? 'bg-gradient-to-r from-primary/15 via-accent to-accent/20 text-accent-foreground shadow-e2 ring-1 ring-primary/10'
             : 'hover:bg-muted/60 hover:shadow-e1',
         )}
       >
-        {active && (
-          <span
-            aria-hidden
-            className="absolute top-1/2 left-0 h-7 w-[3px] -translate-y-1/2 rounded-r-full bg-primary animate-fade-in"
-          />
-        )}
         <span className="flex items-baseline gap-2">
           <span className="min-w-0 flex-1 truncate text-sm font-medium">
-            {note.title ? <Highlight text={note.title} query={query} /> : 'Başlıksız'}
+            {note.title ? <Highlight text={note.title} query={query} /> : t('common.untitled')}
           </span>
           <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
             {relativeTime(note.updatedAt)}
@@ -172,18 +172,18 @@ function NoteRow({
             ? 'opacity-100'
             : active
               ? 'opacity-100'
-              : 'translate-x-1 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:opacity-100',
+              : 'md:translate-x-1 md:opacity-0 md:group-hover:translate-x-0 md:group-hover:opacity-100 md:group-focus-within:translate-x-0 md:group-focus-within:opacity-100',
         )}
       >
         {view === 'trash' ? (
           <>
             {onRestore && (
-              <RowAction label="Geri yükle" onClick={() => onRestore(note.id)}>
+              <RowAction label={t('notes.list.restore')} onClick={() => onRestore(note.id)}>
                 <RotateCcw className="size-4" />
               </RowAction>
             )}
             {onDestroy && (
-              <RowAction label="Kalıcı sil" destructive onClick={() => onDestroy(note.id)}>
+              <RowAction label={t('notes.list.destroy')} destructive onClick={() => onDestroy(note.id)}>
                 <Trash2 className="size-4" />
               </RowAction>
             )}
@@ -191,12 +191,12 @@ function NoteRow({
         ) : view === 'archive' ? (
           <>
             {onArchive && (
-              <RowAction label="Arşivden çıkar" onClick={() => onArchive(note.id, false)}>
+              <RowAction label={t('notes.list.unarchive')} onClick={() => onArchive(note.id, false)}>
                 <ArchiveRestore className="size-4" />
               </RowAction>
             )}
             {onDestroy && (
-              <RowAction label="Kalıcı sil" destructive onClick={() => onDestroy(note.id)}>
+              <RowAction label={t('notes.list.destroy')} destructive onClick={() => onDestroy(note.id)}>
                 <Trash2 className="size-4" />
               </RowAction>
             )}
@@ -205,7 +205,7 @@ function NoteRow({
           <>
             {onOpenBeside && (
               <RowAction
-                label="Yan tarafta aç"
+                label={t('notes.list.openBeside')}
                 className="hidden md:grid"
                 onClick={() => onOpenBeside(note.id)}
               >
@@ -213,12 +213,12 @@ function NoteRow({
               </RowAction>
             )}
             {onTogglePin && (
-              <RowAction label={note.pinned ? 'Sabitlemeyi kaldır' : 'Sabitle'} onClick={() => onTogglePin(note.id)}>
+              <RowAction label={note.pinned ? t('notes.list.unpin') : t('notes.list.pin')} onClick={() => onTogglePin(note.id)}>
                 <Pin className={cn('size-4', note.pinned && 'fill-primary text-primary')} />
               </RowAction>
             )}
             {onArchive && (
-              <RowAction label="Arşivle" onClick={() => onArchive(note.id, true)}>
+              <RowAction label={t('notes.list.archive')} onClick={() => onArchive(note.id, true)}>
                 <Archive className="size-4" />
               </RowAction>
             )}
@@ -244,20 +244,26 @@ export function NoteList({
   query = '',
   view,
   groupPinned,
+  grouped = true,
+  dateField = 'updatedAt',
   onTogglePin,
   onArchive,
   onOpenBeside,
   onRestore,
   onDestroy,
 }: NoteListProps) {
+  const t = useT()
   const pinned = groupPinned ? notes.filter((note) => note.pinned) : []
   const rest = groupPinned ? notes.filter((note) => !note.pinned) : notes
-  const groups = useMemo(() => groupByDate(rest), [rest])
+  const groups = useMemo(
+    () => (grouped ? groupByDate(rest, dateField) : []),
+    [grouped, rest, dateField],
+  )
 
   if (notes.length === 0) {
     return (
       <p className="px-4 py-8 text-center text-sm text-muted-foreground animate-fade-in">
-        Eşleşen not yok.
+        {t('notes.list.empty')}
       </p>
     )
   }
@@ -265,10 +271,10 @@ export function NoteList({
   const rowProps = { query, view, onSelect, onTogglePin, onArchive, onOpenBeside, onRestore, onDestroy }
 
   return (
-    <div className="animate-fade-in px-2 pb-3">
+    <div className="animate-fade-in px-2 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
       {pinned.length > 0 && (
         <section className="mb-1">
-          <GroupHeader>Sabitlenenler</GroupHeader>
+          <GroupHeader>{t('notes.view.pinned')}</GroupHeader>
           <ul className="space-y-1">
             {pinned.map((note) => (
               <NoteRow key={note.id} note={note} active={note.id === selectedId} {...rowProps} />
@@ -276,16 +282,24 @@ export function NoteList({
           </ul>
         </section>
       )}
-      {groups.map((group) => (
-        <section key={group.key} className="mb-1">
-          <GroupHeader>{GROUP_LABELS[group.key]}</GroupHeader>
-          <ul className="space-y-1">
-            {group.items.map((note) => (
-              <NoteRow key={note.id} note={note} active={note.id === selectedId} {...rowProps} />
-            ))}
-          </ul>
-        </section>
-      ))}
+      {grouped ? (
+        groups.map((group) => (
+          <section key={group.key} className="mb-1">
+            <GroupHeader>{t(GROUP_LABELS[group.key])}</GroupHeader>
+            <ul className="space-y-1">
+              {group.items.map((note) => (
+                <NoteRow key={note.id} note={note} active={note.id === selectedId} {...rowProps} />
+              ))}
+            </ul>
+          </section>
+        ))
+      ) : (
+        <ul className="space-y-1">
+          {rest.map((note) => (
+            <NoteRow key={note.id} note={note} active={note.id === selectedId} {...rowProps} />
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

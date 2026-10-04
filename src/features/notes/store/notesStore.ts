@@ -4,6 +4,13 @@ import { useVaultStore } from '@/features/vault/store/vaultStore'
 import { getTrashRetentionDays, isTrashExpired } from '@/shared/trash'
 
 import { EMPTY_NOTE, type DecryptedNote, type NoteContent, type NotesView } from '../model'
+import {
+  DEFAULT_SORT_DIR,
+  DEFAULT_SORT_FIELD,
+  defaultDirFor,
+  type SortDir,
+  type SortField,
+} from '../sort'
 import * as repo from './noteRepo'
 
 interface NotesState {
@@ -18,6 +25,9 @@ interface NotesState {
   folderId?: string
   query: string
   tagFilter?: string
+  /** Note-list ordering. A device preference (localStorage), not vault data. */
+  sortBy: SortField
+  sortDir: SortDir
   /** Bumped on every local mutation; the auto-sync hook watches it to push soon after edits. */
   revision: number
   load: () => Promise<void>
@@ -35,9 +45,19 @@ interface NotesState {
   setFolderFilter: (folderId?: string) => void
   setQuery: (query: string) => void
   setTagFilter: (tag?: string) => void
+  /** Set the list ordering explicitly. */
+  setSort: (field: SortField, dir: SortDir) => void
+  /** Pick a field: re-picking the active one flips its direction. */
+  chooseSort: (field: SortField) => void
   /** Apply a saved smart view's filters in one shot. */
   applyView: (filters: { query: string; tag?: string; folderId?: string; view: NotesView }) => void
-  create: () => Promise<void>
+  create: (content?: NoteContent) => Promise<DecryptedNote>
+  /** Bulk-insert parsed imports in one revision; returns how many were created. */
+  importNotes: (contents: NoteContent[]) => Promise<number>
+  /** Decrypted local version history for one note, newest first (device-only). */
+  listRevisions: (noteId: string) => Promise<repo.NoteRevision[]>
+  /** Re-apply the revision retention limit across every note. */
+  pruneRevisions: () => Promise<void>
   update: (id: string, content: NoteContent) => Promise<DecryptedNote | undefined>
   togglePin: (id: string) => Promise<void>
   setArchived: (id: string, archived: boolean) => Promise<void>
@@ -105,6 +125,39 @@ function writeTabs(openIds: string[], activeId?: string): void {
   }
 }
 
+/* List ordering is a viewing preference, so it lives with theme/scale, not in the vault. */
+const SORT_KEY = 'vaultnote.sort'
+
+function readSort(): { field: SortField; dir: SortDir } {
+  if (typeof localStorage === 'undefined') return { field: DEFAULT_SORT_FIELD, dir: DEFAULT_SORT_DIR }
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SORT_KEY) ?? '{}') as Partial<{
+      field: SortField
+      dir: SortDir
+    }>
+    const field =
+      parsed.field === 'updatedAt' || parsed.field === 'createdAt' || parsed.field === 'title'
+        ? parsed.field
+        : DEFAULT_SORT_FIELD
+    const dir =
+      parsed.dir === 'asc' || parsed.dir === 'desc'
+        ? parsed.dir
+        : defaultDirFor(field)
+    return { field, dir }
+  } catch {
+    return { field: DEFAULT_SORT_FIELD, dir: DEFAULT_SORT_DIR }
+  }
+}
+
+function writeSort(field: SortField, dir: SortDir): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.setItem(SORT_KEY, JSON.stringify({ field, dir }))
+  } catch {
+    /* storage unavailable — ordering just falls back to the default next launch */
+  }
+}
+
 export const useNotesStore = create<NotesState>((set, get) => ({
   notes: [],
   selectedId: undefined,
@@ -114,6 +167,10 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   folderId: undefined,
   query: '',
   tagFilter: undefined,
+  ...(() => {
+    const sort = readSort()
+    return { sortBy: sort.field, sortDir: sort.dir }
+  })(),
   revision: 0,
 
   load: async () => {
@@ -176,6 +233,16 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   setFolderFilter: (folderId) => set({ folderId, view: 'all' }),
   setQuery: (query) => set({ query }),
   setTagFilter: (tagFilter) => set({ tagFilter }),
+  setSort: (sortBy, sortDir) => {
+    writeSort(sortBy, sortDir)
+    set({ sortBy, sortDir })
+  },
+  chooseSort: (field) => {
+    const { sortBy, sortDir } = get()
+    const nextDir: SortDir = field === sortBy ? (sortDir === 'asc' ? 'desc' : 'asc') : defaultDirFor(field)
+    writeSort(field, nextDir)
+    set({ sortBy: field, sortDir: nextDir })
+  },
   applyView: (filters) =>
     set({
       query: filters.query,
@@ -184,8 +251,8 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       view: filters.view,
     }),
 
-  create: async () => {
-    const note = await repo.createNote(requireDek(), EMPTY_NOTE)
+  create: async (content = EMPTY_NOTE) => {
+    const note = await repo.createNote(requireDek(), content)
     const openIds = [...get().openIds, note.id]
     set((state) => ({
       notes: [note, ...state.notes],
@@ -194,7 +261,25 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       revision: state.revision + 1,
     }))
     writeTabs(openIds, note.id)
+    return note
   },
+
+  importNotes: async (contents) => {
+    const created: DecryptedNote[] = []
+    for (const content of contents) {
+      created.push(await repo.createNote(requireDek(), content))
+    }
+    if (created.length === 0) return 0
+    set((state) => ({
+      notes: [...created, ...state.notes],
+      revision: state.revision + 1,
+    }))
+    return created.length
+  },
+
+  listRevisions: (noteId) => repo.listRevisions(requireDek(), noteId),
+
+  pruneRevisions: () => repo.pruneAllRevisions(),
 
   update: async (id, content) => {
     const note = get().notes.find((n) => n.id === id)

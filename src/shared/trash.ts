@@ -5,16 +5,19 @@
 const STORAGE_KEY = 'vaultnote.trashRetentionDays'
 const DEFAULT_DAYS = 30
 
+import type { MessageKey } from './i18n'
+
 export interface TrashRetentionOption {
   days: number
-  label: string
+  labelKey: MessageKey
+  params?: Record<string, number>
 }
 
 export const TRASH_RETENTION_OPTIONS: readonly TrashRetentionOption[] = [
-  { days: 7, label: '7 gün' },
-  { days: 30, label: '30 gün' },
-  { days: 90, label: '90 gün' },
-  { days: 0, label: 'Asla' },
+  { days: 7, labelKey: 'settings.retention.days', params: { days: 7 } },
+  { days: 30, labelKey: 'settings.retention.days', params: { days: 30 } },
+  { days: 90, labelKey: 'settings.retention.days', params: { days: 90 } },
+  { days: 0, labelKey: 'settings.retention.never' },
 ]
 
 export const DEFAULT_TRASH_RETENTION_DAYS = DEFAULT_DAYS

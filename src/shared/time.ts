@@ -1,9 +1,22 @@
+import { useI18nStore } from './i18n'
+
 /** Epoch milliseconds. Centralised so a single clock source can be swapped in later. */
 export function now(): number {
   return Date.now()
 }
 
-const RELATIVE = new Intl.RelativeTimeFormat('tr', { numeric: 'auto' })
+// One formatter per locale, created lazily so a language switch is picked up on the next call.
+const RELATIVE = new Map<string, Intl.RelativeTimeFormat>()
+
+function relativeFormatter(): Intl.RelativeTimeFormat {
+  const locale = useI18nStore.getState().locale
+  let formatter = RELATIVE.get(locale)
+  if (!formatter) {
+    formatter = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
+    RELATIVE.set(locale, formatter)
+  }
+  return formatter
+}
 
 const UNITS: ReadonlyArray<readonly [Intl.RelativeTimeFormatUnit, number]> = [
   ['year', 31_536_000_000],
@@ -14,13 +27,14 @@ const UNITS: ReadonlyArray<readonly [Intl.RelativeTimeFormatUnit, number]> = [
   ['minute', 60_000],
 ]
 
-/** "3 dk önce" style label. Falls back to seconds for very recent timestamps. */
+/** "3 dk önce" / "3 min ago" style label. Falls back to seconds for very recent timestamps. */
 export function relativeTime(ts: number, from = Date.now()): string {
   const diff = ts - from
+  const formatter = relativeFormatter()
   for (const [unit, ms] of UNITS) {
-    if (Math.abs(diff) >= ms) return RELATIVE.format(Math.round(diff / ms), unit)
+    if (Math.abs(diff) >= ms) return formatter.format(Math.round(diff / ms), unit)
   }
-  return RELATIVE.format(Math.round(diff / 1000), 'second')
+  return formatter.format(Math.round(diff / 1000), 'second')
 }
 
 export type DateBucket = 'today' | 'yesterday' | 'week' | 'older'

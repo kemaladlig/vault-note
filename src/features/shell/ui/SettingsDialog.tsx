@@ -1,4 +1,4 @@
-import { Check, CloudOff, Download, KeyRound, Monitor, Moon, ShieldCheck, Sun } from 'lucide-react'
+import { Check, CloudOff, Download, KeyRound, LayoutTemplate, Monitor, Moon, Pencil, ShieldCheck, Sun, Trash2, Upload } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 
 import { Badge } from '@/components/ui/badge'
@@ -8,13 +8,22 @@ import { Label } from '@/components/ui/label'
 import { Modal } from '@/components/ui/modal'
 import { Spinner } from '@/components/ui/spinner'
 import { downloadAllJson, downloadAllMarkdown } from '@/features/notes/export'
+import { PromptDialog } from '@/features/notes/ui/PromptDialog'
 import { useNotesStore } from '@/features/notes/store/notesStore'
+import { useTemplateStore } from '@/features/notes/store/templateStore'
+import type { NoteTemplate } from '@/features/notes/templates'
 import { useSyncStore } from '@/features/sync/store/syncStore'
 import { WrongPassphraseError } from '@/features/vault/crypto'
 import { useVaultStore } from '@/features/vault/store/vaultStore'
+import { useI18nStore, useT, LOCALES, type MessageKey } from '@/shared/i18n'
 import { cn } from '@/lib/utils'
 import { relativeTime } from '@/shared/time'
 import { SCALES, useScaleStore } from '@/shared/scale'
+import {
+  getRevisionLimit,
+  REVISION_LIMIT_OPTIONS,
+  setRevisionLimit,
+} from '@/shared/revisions'
 import { useThemeStore, type ThemeMode } from '@/shared/theme'
 import {
   getTrashRetentionDays,
@@ -25,10 +34,10 @@ import { toast } from '@/shared/toast'
 
 import { useShellStore } from '../store/shellStore'
 
-const THEMES: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
-  { value: 'system', label: 'Sistem', icon: Monitor },
-  { value: 'light', label: 'Açık', icon: Sun },
-  { value: 'dark', label: 'Koyu', icon: Moon },
+const THEMES: { value: ThemeMode; labelKey: MessageKey; icon: typeof Sun }[] = [
+  { value: 'system', labelKey: 'settings.theme.system', icon: Monitor },
+  { value: 'light', labelKey: 'settings.theme.light', icon: Sun },
+  { value: 'dark', labelKey: 'settings.theme.dark', icon: Moon },
 ]
 
 const MIN_LENGTH = 8
@@ -45,6 +54,9 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export function SettingsDialog() {
+  const t = useT()
+  const locale = useI18nStore((s) => s.locale)
+  const setLocale = useI18nStore((s) => s.setLocale)
   const open = useShellStore((s) => s.settingsOpen)
   const setOpen = useShellStore((s) => s.setSettingsOpen)
 
@@ -67,6 +79,12 @@ export function SettingsDialog() {
   const sync = useSyncStore((s) => s.sync)
   const disconnect = useSyncStore((s) => s.disconnect)
 
+  const setImportOpen = useShellStore((s) => s.setImportOpen)
+  const pruneRevisions = useNotesStore((s) => s.pruneRevisions)
+  const templates = useTemplateStore((s) => s.templates)
+  const renameTemplate = useTemplateStore((s) => s.rename)
+  const removeTemplate = useTemplateStore((s) => s.remove)
+
   const [rekeying, setRekeying] = useState(false)
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
@@ -75,6 +93,9 @@ export function SettingsDialog() {
   const [rekeyBusy, setRekeyBusy] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [retention, setRetention] = useState(() => getTrashRetentionDays())
+  const [revisionLimit, setRevisionLimitState] = useState(() => getRevisionLimit())
+  const [renameTarget, setRenameTarget] = useState<NoteTemplate | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<NoteTemplate | null>(null)
 
   const isDevice = vaultMode === 'device'
   const syncing = syncStatus === 'syncing'
@@ -93,23 +114,29 @@ export function SettingsDialog() {
     setRetention(days)
     setTrashRetentionDays(days)
     const purged = await purgeTrash()
-    if (purged > 0) toast(`${purged} not çöpten kalıcı olarak silindi.`, 'success')
+    if (purged > 0) toast(t('settings.purged', { count: purged }), 'success')
+  }
+
+  async function onRevisionLimit(limit: number) {
+    setRevisionLimitState(limit)
+    setRevisionLimit(limit)
+    await pruneRevisions()
   }
 
   async function onRekey() {
     if (next.length < MIN_LENGTH) {
-      setRekeyError(`Yeni parola en az ${MIN_LENGTH} karakter olmalı.`)
+      setRekeyError(t('settings.passphraseShort', { n: MIN_LENGTH }))
       return
     }
     if (next !== confirm) {
-      setRekeyError('Yeni parolalar eşleşmiyor.')
+      setRekeyError(t('settings.passphraseMismatch'))
       return
     }
     setRekeyBusy(true)
     setRekeyError(undefined)
     try {
       await changePassphrase(current, next)
-      toast('Parola güncellendi.', 'success')
+      toast(t('settings.passphraseUpdated'), 'success')
       setRekeying(false)
       setCurrent('')
       setNext('')
@@ -117,10 +144,10 @@ export function SettingsDialog() {
     } catch (err) {
       setRekeyError(
         err instanceof WrongPassphraseError
-          ? 'Mevcut parola hatalı.'
+          ? t('settings.passphraseWrong')
           : err instanceof Error
             ? err.message
-            : 'Parola güncellenemedi.',
+            : t('settings.passphraseFailed'),
       )
     } finally {
       setRekeyBusy(false)
@@ -131,16 +158,16 @@ export function SettingsDialog() {
     <Modal
       open={open}
       onClose={close}
-      title="Ayarlar"
-      description="Görünüm, güvenlik ve veriler."
+      title={t('settings.title')}
+      description={t('settings.description')}
       className="w-[min(94vw,34rem)]"
     >
       <div className="max-h-[70vh] space-y-5 overflow-y-auto pr-1">
-        <Section title="Görünüm">
+        <Section title={t('settings.appearance')}>
           <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">Tema</p>
+            <p className="text-sm text-muted-foreground">{t('settings.theme')}</p>
             <div className="grid grid-cols-3 gap-1 rounded-xl bg-muted p-1 text-sm">
-              {THEMES.map(({ value, label, icon: Icon }) => (
+              {THEMES.map(({ value, labelKey, icon: Icon }) => (
                 <button
                   key={value}
                   type="button"
@@ -154,15 +181,15 @@ export function SettingsDialog() {
                   )}
                 >
                   <Icon className="size-4" />
-                  {label}
+                  {t(labelKey)}
                 </button>
               ))}
             </div>
           </div>
           <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">Yazı boyutu</p>
+            <p className="text-sm text-muted-foreground">{t('settings.fontSize')}</p>
             <div className="grid grid-cols-3 gap-1 rounded-xl bg-muted p-1 text-sm">
-              {SCALES.map(({ id, label }) => (
+              {SCALES.map(({ id, labelKey }) => (
                 <button
                   key={id}
                   type="button"
@@ -175,6 +202,27 @@ export function SettingsDialog() {
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
+                  {t(labelKey)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">{t('settings.language')}</p>
+            <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1 text-sm">
+              {LOCALES.map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={locale === id}
+                  onClick={() => setLocale(id)}
+                  className={cn(
+                    'rounded-lg px-3 py-1.5 transition-colors',
+                    locale === id
+                      ? 'bg-background shadow-e1'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
                   {label}
                 </button>
               ))}
@@ -182,15 +230,15 @@ export function SettingsDialog() {
           </div>
         </Section>
 
-        <Section title="Güvenlik">
+        <Section title={t('settings.security')}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm">
               <ShieldCheck className="size-4 text-muted-foreground" />
-              <span>Bu cihazda hızlı açma</span>
+              <span>{t('settings.quickUnlock')}</span>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant={quickAvailable ? 'success' : 'default'}>
-                {quickAvailable ? 'Etkin' : 'Kapalı'}
+                {quickAvailable ? t('settings.enabled') : t('settings.disabled')}
               </Badge>
               {quickAvailable && !isDevice && (
                 <Button
@@ -198,19 +246,17 @@ export function SettingsDialog() {
                   variant="ghost"
                   onClick={() => {
                     void forgetDevice()
-                    toast('Bu cihaz unutuldu.', 'success')
+                    toast(t('settings.forgotten'), 'success')
                   }}
                 >
-                  Unut
+                  {t('settings.forget')}
                 </Button>
               )}
             </div>
           </div>
 
           {isDevice ? (
-            <p className="text-xs text-muted-foreground">
-              Parolasız mod: kurtarma yoktur ve başka cihazda açılamaz.
-            </p>
+            <p className="text-xs text-muted-foreground">{t('settings.deviceModeNote')}</p>
           ) : rekeying ? (
             <form
               className="space-y-3 rounded-xl border p-3"
@@ -220,7 +266,7 @@ export function SettingsDialog() {
               }}
             >
               <div className="space-y-1.5">
-                <Label htmlFor="rekey-current">Mevcut parola</Label>
+                <Label htmlFor="rekey-current">{t('settings.currentPassphrase')}</Label>
                 <Input
                   id="rekey-current"
                   type="password"
@@ -230,7 +276,7 @@ export function SettingsDialog() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="rekey-next">Yeni parola</Label>
+                <Label htmlFor="rekey-next">{t('settings.newPassphrase')}</Label>
                 <Input
                   id="rekey-next"
                   type="password"
@@ -240,7 +286,7 @@ export function SettingsDialog() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="rekey-confirm">Yeni parolayı doğrula</Label>
+                <Label htmlFor="rekey-confirm">{t('settings.confirmPassphrase')}</Label>
                 <Input
                   id="rekey-confirm"
                   type="password"
@@ -252,59 +298,73 @@ export function SettingsDialog() {
               {rekeyError && <p className="text-sm text-destructive">{rekeyError}</p>}
               <div className="flex justify-end gap-2">
                 <Button size="sm" variant="ghost" type="button" onClick={() => setRekeying(false)}>
-                  İptal
+                  {t('common.cancel')}
                 </Button>
                 <Button size="sm" type="submit" disabled={rekeyBusy}>
                   {rekeyBusy ? <Spinner /> : <Check />}
-                  Kaydet
+                  {t('common.save')}
                 </Button>
               </div>
             </form>
           ) : (
             <Button size="sm" variant="outline" onClick={() => setRekeying(true)}>
               <KeyRound />
-              Parolayı değiştir
+              {t('settings.changePassphrase')}
             </Button>
           )}
         </Section>
 
-        <Section title="Senkronizasyon">
+        <Section title={t('settings.syncSection')}>
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="outline" disabled={!configured || syncing} onClick={() => void sync()}>
               {syncing ? <Spinner /> : <CloudOff />}
-              Şimdi senkronize et
+              {t('settings.syncNow')}
             </Button>
             <Button size="sm" variant="ghost" onClick={disconnect}>
-              Bağlantıyı kes
+              {t('settings.disconnect')}
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
             {!configured
-              ? 'Google istemci kimliği ayarlı değil (bkz. .env.example).'
+              ? t('settings.syncNotConfigured')
               : lastSyncedAt
-                ? `Son senkron: ${relativeTime(lastSyncedAt)}`
-                : 'Henüz senkronize edilmedi. Yalnızca şifreli veri Drive appDataFolder’a gider.'}
+                ? t('settings.syncLast', { time: relativeTime(lastSyncedAt) })
+                : t('settings.syncNever')}
           </p>
         </Section>
 
-        <Section title="Veri">
+        <Section title={t('settings.data')}>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={() => { downloadAllJson(notes); toast('JSON indirildi (şifresiz).', 'success') }}>
+            <Button size="sm" variant="outline" onClick={() => { downloadAllJson(notes); toast(t('settings.exportedJson'), 'success') }}>
               <Download />
               JSON
             </Button>
-            <Button size="sm" variant="outline" onClick={() => { downloadAllMarkdown(notes); toast('Markdown indirildi (şifresiz).', 'success') }}>
+            <Button size="sm" variant="outline" onClick={() => { downloadAllMarkdown(notes); toast(t('settings.exportedMd'), 'success') }}>
               <Download />
               Markdown
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                close()
+                setImportOpen(true)
+              }}
+            >
+              <Upload />
+              {t('settings.import')}
+            </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Dışa aktarılan dosya <strong>şifresizdir</strong>; güvenli bir yerde saklayın.
+            {t('settings.exportWarnA')}
+            <strong>{t('settings.exportWarnStrong')}</strong>
+            {t('settings.exportWarnB')}
           </p>
+          <p className="text-xs text-muted-foreground">{t('settings.importHint')}</p>
           <div className="space-y-2 border-t pt-3">
-            <p className="text-sm text-muted-foreground">Çöpü otomatik boşalt</p>
+            <p className="text-sm text-muted-foreground">{t('settings.trashRetention')}</p>
             <div className="grid grid-cols-4 gap-1 rounded-xl bg-muted p-1 text-sm">
-              {TRASH_RETENTION_OPTIONS.map(({ days, label }) => (
+              {TRASH_RETENTION_OPTIONS.map(({ days, labelKey, params }) => (
                 <button
                   key={days}
                   type="button"
@@ -317,24 +377,80 @@ export function SettingsDialog() {
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
-                  {label}
+                  {t(labelKey, params)}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Çöpteki notlar bu süre sonunda uygulama açıldığında kalıcı silinir. “Asla” seçiliyse
-              yalnızca elle boşaltılır.
-            </p>
+            <p className="text-xs text-muted-foreground">{t('settings.trashNote')}</p>
           </div>
         </Section>
 
-        <Section title="Tehlikeli alan">
+        <Section title={t('settings.revisionsSection')}>
+          <div className="grid grid-cols-4 gap-1 rounded-xl bg-muted p-1 text-sm">
+            {REVISION_LIMIT_OPTIONS.map(({ limit, labelKey, params }) => (
+              <button
+                key={limit}
+                type="button"
+                aria-pressed={revisionLimit === limit}
+                onClick={() => void onRevisionLimit(limit)}
+                className={cn(
+                  'rounded-lg px-3 py-1.5 transition-colors',
+                  revisionLimit === limit
+                    ? 'bg-background shadow-e1'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {t(labelKey, params)}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">{t('settings.revisionsNote')}</p>
+        </Section>
+
+        <Section title={t('settings.templatesSection')}>
+          <p className="text-xs text-muted-foreground">{t('templates.sectionNote')}</p>
+          {templates.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('templates.empty')}</p>
+          ) : (
+            <ul className="space-y-1">
+              {templates.map((template) => (
+                <li
+                  key={template.id}
+                  className="flex items-center gap-2 rounded-lg border border-border/70 px-2.5 py-1.5"
+                >
+                  <LayoutTemplate className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate text-sm">{template.name}</span>
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label={t('templates.rename')}
+                    title={t('templates.rename')}
+                    onClick={() => setRenameTarget(template)}
+                  >
+                    <Pencil />
+                  </Button>
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label={t('templates.deleteTitle')}
+                    title={t('templates.deleteTitle')}
+                    onClick={() => setDeleteTarget(template)}
+                  >
+                    <Trash2 />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+
+        <Section title={t('settings.danger')}>
           {confirmReset ? (
             <div className="space-y-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3">
-              <p className="text-sm">Tüm notlar ve vault bu cihazdan silinecek. Bu işlem geri alınamaz.</p>
+              <p className="text-sm">{t('settings.resetConfirm')}</p>
               <div className="flex gap-2">
                 <Button size="sm" variant="ghost" onClick={() => setConfirmReset(false)}>
-                  Vazgeç
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   size="sm"
@@ -344,17 +460,61 @@ export function SettingsDialog() {
                     close()
                   }}
                 >
-                  Kalıcı olarak sil
+                  {t('settings.resetDo')}
                 </Button>
               </div>
             </div>
           ) : (
             <Button size="sm" variant="destructive" onClick={() => setConfirmReset(true)}>
-              Vault’u sıfırla
+              {t('settings.reset')}
             </Button>
           )}
         </Section>
       </div>
+
+      <PromptDialog
+        open={Boolean(renameTarget)}
+        title={t('templates.rename')}
+        initialValue={renameTarget?.name ?? ''}
+        placeholder={t('templates.namePlaceholder')}
+        confirmLabel={t('common.save')}
+        onConfirm={(name) => {
+          if (renameTarget) {
+            void renameTemplate(renameTarget.id, name).then(() =>
+              toast(t('templates.renamed'), 'success'),
+            )
+          }
+        }}
+        onClose={() => setRenameTarget(null)}
+      />
+
+      <Modal
+        open={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        title={t('templates.deleteTitle')}
+        description={deleteTarget ? t('templates.deleteDesc', { name: deleteTarget.name }) : undefined}
+        icon={<Trash2 />}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setDeleteTarget(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (deleteTarget) {
+                  void removeTemplate(deleteTarget.id).then(() =>
+                    toast(t('templates.deleted'), 'success'),
+                  )
+                }
+                setDeleteTarget(null)
+              }}
+            >
+              {t('common.delete')}
+            </Button>
+          </>
+        }
+      />
     </Modal>
   )
 }

@@ -10,6 +10,7 @@ export {
   deriveManifestKey,
   deriveFoldersKey,
   deriveViewsKey,
+  deriveTemplatesKey,
 } from './aead'
 export {
   createVault,

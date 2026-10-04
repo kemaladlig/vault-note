@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { cn } from '@/lib/utils'
 import { flattenFolders, folderColorVar, folderSubtree, type Folder } from '@/shared/folders'
+import { useT } from '@/shared/i18n'
 
 import { useFolderStore } from '../store/folderStore'
 
@@ -16,6 +17,7 @@ interface MoveFolderDialogProps {
 
 /** Pick a new parent for a notebook (a mobile/keyboard-friendly fallback to drag-and-drop). */
 export function MoveFolderDialog({ open, folder, onMove, onClose }: MoveFolderDialogProps) {
+  const t = useT()
   const folders = useFolderStore((s) => s.folders)
   // Never offer the folder's own subtree as a destination.
   const excluded = folder ? folderSubtree(folders, folder.id) : new Set<string>()
@@ -30,11 +32,11 @@ export function MoveFolderDialog({ open, folder, onMove, onClose }: MoveFolderDi
     <Modal
       open={open}
       onClose={onClose}
-      title="Not defterini taşı"
-      description="Bu not defterini başka bir not defterinin altına taşı."
+      title={t('notes.moveFolder.title')}
+      description={t('notes.moveFolder.desc')}
       footer={
         <Button variant="ghost" onClick={onClose}>
-          Vazgeç
+          {t('common.cancel')}
         </Button>
       }
     >
@@ -48,7 +50,7 @@ export function MoveFolderDialog({ open, folder, onMove, onClose }: MoveFolderDi
           )}
         >
           <Inbox className="size-4 shrink-0 text-muted-foreground" />
-          <span className="flex-1">En üst düzey</span>
+          <span className="flex-1">{t('notes.moveFolder.root')}</span>
           {folder?.parentId === undefined && <Check className="size-4 shrink-0" />}
         </button>
         {rows.map(({ folder: item, depth }) => {
@@ -74,7 +76,7 @@ export function MoveFolderDialog({ open, folder, onMove, onClose }: MoveFolderDi
           )
         })}
         {rows.length === 0 && (
-          <p className="px-2.5 py-3 text-sm text-muted-foreground">Başka not defteri yok.</p>
+          <p className="px-2.5 py-3 text-sm text-muted-foreground">{t('notes.moveFolder.empty')}</p>
         )}
       </div>
     </Modal>

@@ -1,14 +1,31 @@
-import { Archive, PanelLeft, Pin, Plus, SearchX, Trash2, X } from 'lucide-react'
+import {
+  Archive,
+  ArrowDown,
+  ArrowDownAZ,
+  ArrowUp,
+  ArrowUpDown,
+  CalendarDays,
+  Clock,
+  PanelLeft,
+  Pin,
+  Plus,
+  SearchX,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { Menu, type MenuItem } from '@/components/ui/menu'
 import { Modal } from '@/components/ui/modal'
 import { useShellStore } from '@/features/shell/store/shellStore'
 import { cn } from '@/lib/utils'
 import { folderSubtree } from '@/shared/folders'
+import { useT, type MessageKey } from '@/shared/i18n'
 
 import type { NotesView } from '../model'
 import { selectNotes } from '../search'
+import { groupFieldFor, sortNotes } from '../sort'
 import { useFolderStore } from '../store/folderStore'
 import { useNotesStore } from '../store/notesStore'
 import { NoteEditor } from './NoteEditor'
@@ -16,11 +33,11 @@ import { NoteList } from './NoteList'
 import { SidebarNav } from './SidebarNav'
 import { TabBar } from './TabBar'
 
-const VIEW_LABELS: Record<NotesView, string> = {
-  all: 'Notlar',
-  pinned: 'Sabitlenenler',
-  archive: 'Arşiv',
-  trash: 'Çöp',
+const VIEW_LABELS: Record<NotesView, MessageKey> = {
+  all: 'notes.view.all',
+  pinned: 'notes.view.pinned',
+  archive: 'notes.view.archive',
+  trash: 'notes.view.trash',
 }
 
 function SkeletonList() {
@@ -47,6 +64,7 @@ function EmptyState({
   onCreate: () => void
   onClear: () => void
 }) {
+  const t = useT()
   if (hasNotes) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-5 px-8 text-center animate-fade-in">
@@ -54,21 +72,21 @@ function EmptyState({
           <SearchX className="size-7" />
         </span>
         <div className="space-y-1">
-          <p className="font-medium">Eşleşen not yok</p>
-          <p className="text-sm text-muted-foreground">Arama veya filtreyi değiştir.</p>
+          <p className="font-medium">{t('notes.empty.searchTitle')}</p>
+          <p className="text-sm text-muted-foreground">{t('notes.empty.searchDesc')}</p>
         </div>
         <Button variant="outline" onClick={onClear}>
-          Filtreleri temizle
+          {t('notes.empty.clearFilters')}
         </Button>
       </div>
     )
   }
 
-  const message: Record<NotesView, string> = {
-    all: 'Notların uçtan uca şifrelenir ve yalnızca sende kalır.',
-    pinned: 'Sabitlediğin notlar burada toplanır.',
-    archive: 'Arşivlediğin notlar burada saklanır.',
-    trash: 'Çöp kutusu boş.',
+  const message: Record<NotesView, MessageKey> = {
+    all: 'notes.empty.allMsg',
+    pinned: 'notes.empty.pinnedMsg',
+    archive: 'notes.empty.archiveMsg',
+    trash: 'notes.empty.trashMsg',
   }
   const icon: Record<NotesView, ReactNode> = {
     all: <Plus className="size-7" />,
@@ -84,14 +102,14 @@ function EmptyState({
       </span>
       <div className="max-w-xs space-y-1">
         <p className="text-base font-medium">
-          {view === 'all' ? 'İlk notunu oluştur' : VIEW_LABELS[view]}
+          {view === 'all' ? t('notes.empty.allTitle') : t(VIEW_LABELS[view])}
         </p>
-        <p className="text-sm text-muted-foreground">{message[view]}</p>
+        <p className="text-sm text-muted-foreground">{t(message[view])}</p>
       </div>
       {view === 'all' && (
         <Button size="lg" variant="cta" onClick={onCreate}>
           <Plus />
-          Bir not oluştur
+          {t('notes.empty.createButton')}
         </Button>
       )}
     </div>
@@ -103,6 +121,7 @@ function EmptyState({
  * the note list, and the editor. On mobile the list and editor swap via shell state.
  */
 export function NotesShell() {
+  const t = useT()
   const notes = useNotesStore((s) => s.notes)
   const selectedId = useNotesStore((s) => s.selectedId)
   const loading = useNotesStore((s) => s.loading)
@@ -110,6 +129,10 @@ export function NotesShell() {
   const folderId = useNotesStore((s) => s.folderId)
   const query = useNotesStore((s) => s.query)
   const tagFilter = useNotesStore((s) => s.tagFilter)
+  const sortBy = useNotesStore((s) => s.sortBy)
+  const sortDir = useNotesStore((s) => s.sortDir)
+  const chooseSort = useNotesStore((s) => s.chooseSort)
+  const setSort = useNotesStore((s) => s.setSort)
   const load = useNotesStore((s) => s.load)
   const create = useNotesStore((s) => s.create)
   const select = useNotesStore((s) => s.select)
@@ -157,14 +180,21 @@ export function NotesShell() {
     () => selectNotes(notes, { query, tag: tagFilter, view, folderIds }),
     [notes, query, tagFilter, view, folderIds],
   )
+  const sorted = useMemo(
+    () => sortNotes(filtered, sortBy, sortDir),
+    [filtered, sortBy, sortDir],
+  )
+  const groupField = groupFieldFor(sortBy)
   const selected = notes.find((note) => note.id === selectedId)
   const splitNote = notes.find((note) => note.id === splitId && note.id !== selectedId)
   const searching = query.trim().length > 0
   const filtering = searching || Boolean(tagFilter)
+  // Mobile: with no note selected (empty view, closed tabs…) the list is always the surface.
+  const showList = listOpen || !selected
 
   const scopeName = folderId
-    ? (folders.find((folder) => folder.id === folderId)?.name ?? VIEW_LABELS.all)
-    : VIEW_LABELS[view]
+    ? (folders.find((folder) => folder.id === folderId)?.name ?? t(VIEW_LABELS.all))
+    : t(VIEW_LABELS[view])
 
   function onSelect(id: string) {
     select(id)
@@ -181,6 +211,40 @@ export function NotesShell() {
     setTagFilter(undefined)
   }
 
+  const sortItems: MenuItem[] = [
+    {
+      label: t('notes.sort.updated'),
+      icon: <Clock />,
+      selected: sortBy === 'updatedAt',
+      onSelect: () => chooseSort('updatedAt'),
+    },
+    {
+      label: t('notes.sort.created'),
+      icon: <CalendarDays />,
+      selected: sortBy === 'createdAt',
+      onSelect: () => chooseSort('createdAt'),
+    },
+    {
+      label: t('notes.sort.title'),
+      icon: <ArrowDownAZ />,
+      selected: sortBy === 'title',
+      onSelect: () => chooseSort('title'),
+    },
+    { type: 'separator' },
+    {
+      label: t('notes.sort.asc'),
+      icon: <ArrowUp />,
+      selected: sortDir === 'asc',
+      onSelect: () => setSort(sortBy, 'asc'),
+    },
+    {
+      label: t('notes.sort.desc'),
+      icon: <ArrowDown />,
+      selected: sortDir === 'desc',
+      onSelect: () => setSort(sortBy, 'desc'),
+    },
+  ]
+
   return (
     <div className="relative flex h-full">
       {/* Scrim under the drawer (below xl). */}
@@ -193,20 +257,35 @@ export function NotesShell() {
       )}
 
       <aside
-        aria-label="Gezinme"
+        aria-label={t('notes.shell.nav')}
         className={cn(
-          'absolute inset-y-0 left-0 z-40 w-[280px] shrink-0 flex-col border-r border-border/70 bg-sidebar shadow-e3 transition-transform duration-300 ease-[var(--ease-emphasized)]',
-          'xl:static xl:z-auto xl:translate-x-0 xl:shadow-none',
+          'absolute inset-y-0 left-0 z-40 w-[min(280px,85vw)] shrink-0 flex-col border-r border-border/70 bg-sidebar shadow-e3 transition-transform duration-300 ease-[var(--ease-emphasized)]',
+          'xl:static xl:z-auto xl:w-[280px] xl:translate-x-0 xl:shadow-none',
           navOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        <SidebarNav onNavigate={() => setNavOpen(false)} />
+        <header className="flex h-12 shrink-0 items-center justify-between border-b border-border/70 px-3 xl:hidden">
+          <span className="text-[15px] font-semibold tracking-tight">
+            Vault<span className="text-primary">Note</span>
+          </span>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={t('notes.shell.closeMenu')}
+            onClick={() => setNavOpen(false)}
+          >
+            <X />
+          </Button>
+        </header>
+        <div className="min-h-0 flex-1">
+          <SidebarNav onNavigate={() => setNavOpen(false)} />
+        </div>
       </aside>
 
       <aside
         className={cn(
           'w-full shrink-0 flex-col bg-surface md:w-80 xl:w-[340px]',
-          listOpen ? 'flex' : 'hidden md:flex',
+          showList ? 'flex' : 'hidden md:flex',
         )}
       >
         <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border/70 px-2.5">
@@ -214,18 +293,24 @@ export function NotesShell() {
             size="icon-sm"
             variant="ghost"
             className="xl:hidden"
-            aria-label="Menü"
-            title="Menü"
+            aria-label={t('notes.shell.menu')}
+            title={t('notes.shell.menu')}
             onClick={() => setNavOpen(true)}
           >
             <PanelLeft />
           </Button>
-          <span className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight">
+          <span className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-tight">
             {scopeName}
           </span>
           <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums text-muted-foreground">
             {filtered.length}
           </span>
+          <Menu
+            label={t('notes.sort.label')}
+            icon={<ArrowUpDown />}
+            items={sortItems}
+            triggerClassName="size-7"
+          />
         </header>
 
         {(filtering || (view === 'trash' && filtered.length > 0)) && (
@@ -239,7 +324,7 @@ export function NotesShell() {
                 </span>
                 <button
                   type="button"
-                  aria-label="Filtreleri temizle"
+                  aria-label={t('notes.empty.clearFilters')}
                   className="rounded p-0.5 transition-colors hover:bg-muted"
                   onClick={clearFilters}
                 >
@@ -253,7 +338,7 @@ export function NotesShell() {
                 onClick={() => setConfirmEmpty(true)}
               >
                 <Trash2 className="size-3.5" />
-                Çöpü boşalt
+                {t('notes.shell.emptyTrash')}
               </button>
             )}
           </div>
@@ -264,12 +349,15 @@ export function NotesShell() {
             <SkeletonList />
           ) : (
             <NoteList
-              notes={filtered}
+              key={`${view}:${folderId ?? ''}:${tagFilter ?? ''}`}
+              notes={sorted}
               selectedId={selectedId}
               onSelect={onSelect}
               query={query}
               view={view}
               groupPinned={view === 'all' && !folderId}
+              grouped={groupField !== null}
+              dateField={groupField ?? 'updatedAt'}
               onTogglePin={(id) => void togglePin(id)}
               onArchive={(id, archived) => void setArchived(id, archived)}
               onOpenBeside={onOpenBeside}
@@ -283,7 +371,7 @@ export function NotesShell() {
       <section
         className={cn(
           'min-w-0 flex-1 flex-col border-l border-border/70 bg-surface',
-          listOpen ? 'hidden md:flex' : 'flex',
+          showList ? 'hidden md:flex' : 'flex',
         )}
       >
         <TabBar />
@@ -311,12 +399,12 @@ export function NotesShell() {
               <header className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border/70 bg-surface-variant px-3">
                 <span className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
                   <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-hidden />
-                  <span className="truncate">{splitNote.title.trim() || 'Başlıksız'}</span>
+                  <span className="truncate">{splitNote.title.trim() || t('common.untitled')}</span>
                 </span>
                 <button
                   type="button"
-                  aria-label="Bölmeyi kapat"
-                  title="Bölmeyi kapat"
+                  aria-label={t('notes.shell.closeSplit')}
+                  title={t('notes.shell.closeSplit')}
                   onClick={() => setSplitId(undefined)}
                   className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
@@ -331,16 +419,31 @@ export function NotesShell() {
         </div>
       </section>
 
+      {/* Mobile floating action: create from anywhere in the list. */}
+      {showList && (
+        <button
+          type="button"
+          aria-label={t('notes.shell.createNote')}
+          onClick={() => {
+            void create()
+            setListOpen(false)
+          }}
+          className="absolute right-5 bottom-[max(env(safe-area-inset-bottom),1.25rem)] z-20 grid size-14 place-items-center rounded-2xl bg-[image:linear-gradient(180deg,var(--brand-from),var(--brand-to))] text-primary-foreground shadow-glow transition-transform duration-200 animate-pop-in hover:scale-105 active:scale-95 md:hidden"
+        >
+          <Plus className="size-6" />
+        </button>
+      )}
+
       <Modal
         open={Boolean(pendingDestroy)}
         onClose={() => setPendingDestroy(null)}
-        title="Kalıcı sil"
-        description="Bu not bu cihazdan kalıcı olarak silinir. Bu işlem geri alınamaz."
+        title={t('notes.shell.destroyTitle')}
+        description={t('notes.shell.destroyDesc')}
         icon={<Trash2 />}
         footer={
           <>
             <Button variant="ghost" onClick={() => setPendingDestroy(null)}>
-              Vazgeç
+              {t('common.cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -349,7 +452,7 @@ export function NotesShell() {
                 setPendingDestroy(null)
               }}
             >
-              Kalıcı sil
+              {t('notes.list.destroy')}
             </Button>
           </>
         }
@@ -358,13 +461,13 @@ export function NotesShell() {
       <Modal
         open={confirmEmpty}
         onClose={() => setConfirmEmpty(false)}
-        title="Çöpü boşalt"
-        description="Çöpteki tüm notlar bu cihazdan kalıcı olarak silinir."
+        title={t('notes.shell.emptyTrash')}
+        description={t('notes.shell.emptyTrashDesc')}
         icon={<Trash2 />}
         footer={
           <>
             <Button variant="ghost" onClick={() => setConfirmEmpty(false)}>
-              Vazgeç
+              {t('common.cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -373,7 +476,7 @@ export function NotesShell() {
                 setConfirmEmpty(false)
               }}
             >
-              Çöpü boşalt
+              {t('notes.shell.emptyTrash')}
             </Button>
           </>
         }

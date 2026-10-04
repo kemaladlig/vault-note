@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { cn } from '@/lib/utils'
 import { flattenFolders, folderColorVar } from '@/shared/folders'
+import { useT } from '@/shared/i18n'
 
 import { useFolderStore } from '../store/folderStore'
 
@@ -16,6 +17,7 @@ interface MoveNoteDialogProps {
 
 /** Pick which notebook a note belongs to. */
 export function MoveNoteDialog({ open, currentFolderId, onSelect, onClose }: MoveNoteDialogProps) {
+  const t = useT()
   const folders = useFolderStore((s) => s.folders)
   const rows = flattenFolders(folders)
 
@@ -28,11 +30,11 @@ export function MoveNoteDialog({ open, currentFolderId, onSelect, onClose }: Mov
     <Modal
       open={open}
       onClose={onClose}
-      title="Not defterine taşı"
-      description="Bu notu bir not defterine taşı."
+      title={t('notes.moveNote.title')}
+      description={t('notes.moveNote.desc')}
       footer={
         <Button variant="ghost" onClick={onClose}>
-          Vazgeç
+          {t('common.cancel')}
         </Button>
       }
     >
@@ -46,7 +48,7 @@ export function MoveNoteDialog({ open, currentFolderId, onSelect, onClose }: Mov
           )}
         >
           <Inbox className="size-4 shrink-0 text-muted-foreground" />
-          <span className="flex-1">Kategorisiz</span>
+          <span className="flex-1">{t('notes.moveNote.none')}</span>
           {!currentFolderId && <Check className="size-4 shrink-0" />}
         </button>
         {rows.map(({ folder, depth }) => {
@@ -73,7 +75,7 @@ export function MoveNoteDialog({ open, currentFolderId, onSelect, onClose }: Mov
         })}
         {rows.length === 0 && (
           <p className="px-2.5 py-3 text-sm text-muted-foreground">
-            Henüz not defteri yok. Kenar çubuğundan oluştur.
+            {t('notes.moveNote.empty')}
           </p>
         )}
       </div>

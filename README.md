@@ -14,6 +14,10 @@ npm run dev
 
 Without a Google client id the app still works fully offline; the Drive button stays disabled.
 
+Production builds (`npm run build`) are an installable PWA: a service worker caches the
+app shell so it opens offline. Only app assets are cached — Drive and auth traffic are
+always live. See [ROADMAP.md](./ROADMAP.md) for what's planned next.
+
 ## Scripts
 
 ```bash

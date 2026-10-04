@@ -9,6 +9,12 @@
     <link rel="preload" as="image" href="/vaultnote-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
+    <!-- Browser chrome tint; mirrors --background (index.css) per scheme. -->
+    <meta name="theme-color" content="#f2f4f9" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1a1c21" media="(prefers-color-scheme: dark)" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="VaultNote" />
     <title>VaultNote</title>
     <style>
       /* Paint the correct surface before the app bundle runs, so there is no

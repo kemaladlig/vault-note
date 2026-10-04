@@ -79,3 +79,8 @@ export function deriveFoldersKey(dek: Bytes): Promise<CryptoKey> {
 export function deriveViewsKey(dek: Bytes): Promise<CryptoKey> {
   return deriveContextKey(dek, 'vaultnote:views')
 }
+
+/** Key for the encrypted local templates doc. */
+export function deriveTemplatesKey(dek: Bytes): Promise<CryptoKey> {
+  return deriveContextKey(dek, 'vaultnote:templates')
+}

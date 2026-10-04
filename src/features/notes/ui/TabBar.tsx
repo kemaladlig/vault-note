@@ -3,6 +3,7 @@ import { Ellipsis, FileText, X, XCircle } from 'lucide-react'
 import { Menu, type MenuItem } from '@/components/ui/menu'
 import { useShellStore } from '@/features/shell/store/shellStore'
 import { cn } from '@/lib/utils'
+import { useT } from '@/shared/i18n'
 
 import { useNotesStore } from '../store/notesStore'
 
@@ -22,13 +23,15 @@ export function TabBar() {
   const splitId = useShellStore((s) => s.splitId)
   const setSplitId = useShellStore((s) => s.setSplitId)
 
+  const t = useT()
+
   if (openIds.length === 0) return null
 
   const byId = new Map(notes.map((note) => [note.id, note]))
 
   const menuItems: MenuItem[] = [
     {
-      label: 'Diğerlerini kapat',
+      label: t('notes.tabs.closeOther'),
       icon: <X />,
       disabled: openIds.length < 2 || !selectedId,
       onSelect: () => {
@@ -38,7 +41,7 @@ export function TabBar() {
       },
     },
     {
-      label: 'Tüm sekmeleri kapat',
+      label: t('notes.tabs.closeAll'),
       icon: <XCircle />,
       onSelect: () => {
         closeAllTabs()
@@ -51,12 +54,12 @@ export function TabBar() {
     <div className="flex h-11 shrink-0 items-stretch border-b bg-surface-variant/80 pr-1.5 pl-1.5">
       <div
         role="tablist"
-        aria-label="Açık notlar"
+        aria-label={t('notes.tabs.aria')}
         className="no-scrollbar flex min-w-0 flex-1 items-end gap-1 overflow-x-auto"
       >
         {openIds.map((id) => {
           const note = byId.get(id)
-          const title = note?.title.trim() || 'Başlıksız'
+          const title = note?.title.trim() || t('common.untitled')
           const active = id === selectedId
           const inSplit = id === splitId
           return (
@@ -83,15 +86,17 @@ export function TabBar() {
                   <FileText
                     className={cn(
                       'size-3.5 shrink-0',
-                      active ? 'text-primary/70' : 'text-muted-foreground/70',
+                      active ? 'text-primary' : 'text-muted-foreground/70',
                     )}
                   />
                 )}
-                <span className={cn('truncate', active && 'font-medium')}>{title}</span>
+                <span className={cn('truncate', active && 'font-medium text-primary')}>
+                  {title}
+                </span>
               </button>
               <button
                 type="button"
-                aria-label={`${title} sekmesini kapat`}
+                aria-label={t('notes.tabs.closeTab', { title })}
                 onClick={() => {
                   if (inSplit) setSplitId(undefined)
                   closeTab(id)
@@ -115,7 +120,7 @@ export function TabBar() {
           {openIds.length}
         </span>
         <Menu
-          label="Sekme seçenekleri"
+          label={t('notes.tabs.options')}
           icon={<Ellipsis className="size-4" />}
           items={menuItems}
           triggerClassName="size-7"

@@ -360,3 +360,271 @@ test('notebooks: color and drag-to-reparent', async ({ page }) => {
   await folderA.locator('span[role="presentation"]').click()
   await expect(page.getByRole('button', { name: 'Proje B', exact: true })).toBeVisible()
 })
+
+test('i18n: switch language to English and persist across reload', async ({ page }) => {
+  await page.goto('/')
+  await page.getByLabel('Ana parola').fill(PASS)
+  await page.getByLabel('Parolayı doğrula').fill(PASS)
+  await page.getByRole('button', { name: 'Vault oluştur' }).click()
+  await expect(page.getByRole('button', { name: 'Yeni not' })).toBeVisible()
+
+  // Switch to English from Settings (opened via the app menu).
+  await page.getByRole('button', { name: 'Uygulama menüsü' }).click()
+  await page.getByRole('menuitem', { name: 'Ayarlar' }).click()
+  await page.getByRole('button', { name: 'English' }).click()
+  await page.keyboard.press('Escape')
+
+  // Chrome copy is now English and the document language follows.
+  await expect(page.getByRole('button', { name: 'New note' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Yeni not' })).toHaveCount(0)
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+
+  // Persisted: a reload lands on the quick-unlock screen in English.
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Quick unlock' })).toBeVisible()
+})
+
+test('editor: markdown preview renders and returns to editing', async ({ page }) => {
+  await page.goto('/')
+  await page.getByLabel('Ana parola').fill(PASS)
+  await page.getByLabel('Parolayı doğrula').fill(PASS)
+  await page.getByRole('button', { name: 'Vault oluştur' }).click()
+  await page.getByRole('button', { name: 'Yeni not' }).click()
+
+  const editor = page.locator('.cm-content')
+  await editor.click()
+  // insertText bypasses CodeMirror keymaps (list continuation/autocomplete) so the
+  // document is exactly what we typed — newlines included.
+  await page.keyboard.insertText('# Başlık\n- bir\n- iki')
+
+  // Preview renders the decrypted Markdown as real elements…
+  await page.getByRole('button', { name: 'Önizleme' }).click()
+  const preview = page.locator('.md-preview')
+  await expect(preview.getByRole('heading', { name: 'Başlık' })).toBeVisible()
+  await expect(preview.getByText('bir')).toBeVisible()
+  await expect(preview.getByText('iki')).toBeVisible()
+
+  // …and the toggle returns to the editable CodeMirror surface.
+  await page.getByRole('button', { name: 'Düzenle' }).click()
+  await expect(page.locator('.cm-content')).toBeVisible()
+})
+
+test('list: sorting by title switches to a flat, A→Z list', async ({ page }) => {
+  await page.goto('/')
+  await page.getByLabel('Ana parola').fill(PASS)
+  await page.getByLabel('Parolayı doğrula').fill(PASS)
+  await page.getByRole('button', { name: 'Vault oluştur' }).click()
+
+  await page.getByRole('button', { name: 'Yeni not' }).click()
+  await expect(page.getByRole('tab')).toHaveCount(1)
+  await page.getByPlaceholder('Başlıksız').fill('Alfa')
+  await expect(page.getByRole('tab', { name: 'Alfa' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Yeni not' }).click()
+  await expect(page.getByRole('tab')).toHaveCount(2)
+  await page.getByPlaceholder('Başlıksız').fill('Beta')
+  await expect(page.getByRole('tab', { name: 'Beta' })).toBeVisible()
+
+  const alfaRow = page.locator('li').filter({ hasText: /Alfa/ })
+  const betaRow = page.locator('li').filter({ hasText: /Beta/ })
+
+  // Default ordering is last-updated desc, so the newer "Beta" sits above "Alfa".
+  const before = await Promise.all([alfaRow.boundingBox(), betaRow.boundingBox()])
+  expect(before[0]!.y).toBeGreaterThan(before[1]!.y)
+
+  // Sorting by title (A→Z) flips them and drops the date headers.
+  await page.getByRole('button', { name: 'Sırala' }).click()
+  await page.getByRole('menuitem', { name: 'Başlık' }).click()
+  const after = await Promise.all([alfaRow.boundingBox(), betaRow.boundingBox()])
+  expect(after[0]!.y).toBeLessThan(after[1]!.y)
+})
+
+test('links: [[ suggestion, preview navigation, backlinks and broken links', async ({ page }) => {
+  await page.goto('/')
+  await page.getByLabel('Ana parola').fill(PASS)
+  await page.getByLabel('Parolayı doğrula').fill(PASS)
+  await page.getByRole('button', { name: 'Vault oluştur' }).click()
+
+  // Target note that will be linked to.
+  await page.getByRole('button', { name: 'Yeni not' }).click()
+  await expect(page.getByRole('tab')).toHaveCount(1)
+  await page.getByPlaceholder('Başlıksız').fill('Alfa')
+  await expect(page.getByRole('tab', { name: 'Alfa' })).toBeVisible()
+
+  // Source note that links to it.
+  await page.getByRole('button', { name: 'Yeni not' }).click()
+  await expect(page.getByRole('tab')).toHaveCount(2)
+  await page.getByPlaceholder('Başlıksız').fill('Beta')
+  await expect(page.getByRole('tab', { name: 'Beta' })).toBeVisible()
+
+  const editor = page.locator('.cm-content')
+  await editor.click()
+  // `[[` pops the note suggestion list.
+  await page.keyboard.insertText('[[')
+  await expect(page.locator('.cm-tooltip-autocomplete')).toContainText('Alfa')
+  await page.keyboard.press('Escape')
+
+  // Write the link, replacing whatever is in the doc.
+  await page.keyboard.press('ControlOrMeta+A')
+  await page.keyboard.insertText('[[Alfa]]')
+  await page.waitForTimeout(900)
+
+  // Preview renders it as a clickable in-app link; clicking opens the target.
+  await page.getByRole('button', { name: 'Önizleme' }).click()
+  const link = page.locator('.md-preview a[data-note-id]')
+  await expect(link).toHaveText('Alfa')
+  await link.click()
+  await expect(page.getByPlaceholder('Başlıksız')).toHaveValue('Alfa')
+
+  // The target lists Beta as a backlink.
+  await page.getByRole('button', { name: 'Bağlantılar' }).click()
+  const panel = page.getByRole('complementary', { name: 'Bağlantılar' })
+  await expect(panel.getByText('Bu nota bağlananlar · 1')).toBeVisible()
+  await expect(panel.getByRole('button', { name: /Beta/ })).toBeVisible()
+
+  // A link to a missing title is surfaced as broken, not silently dropped.
+  await editor.click()
+  await page.keyboard.insertText('\n[[Kayıp Not]]')
+  await expect(panel.getByText('Kırık bağlantılar · 1')).toBeVisible()
+})
+
+test('templates: save a note as a template, then create a note from it', async ({ page }) => {
+  await page.goto('/')
+  await page.getByLabel('Ana parola').fill(PASS)
+  await page.getByLabel('Parolayı doğrula').fill(PASS)
+  await page.getByRole('button', { name: 'Vault oluştur' }).click()
+
+  // Source note carrying the content a template should capture.
+  await page.getByRole('button', { name: 'Yeni not' }).click()
+  await expect(page.getByRole('tab')).toHaveCount(1)
+  await page.getByPlaceholder('Başlıksız').fill('Şablon Kaynağı')
+  const editor = page.locator('.cm-content')
+  await editor.click()
+  await page.keyboard.insertText('şablon gövdesi')
+  await page.getByRole('button', { name: 'Etiketler' }).click()
+  await page.getByLabel('Etiket ekle').fill('şablon')
+  await page.getByLabel('Etiket ekle').press('Enter')
+  await expect(page.getByText('#şablon').first()).toBeVisible()
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(900)
+
+  // Save it as a named template from the note menu.
+  await page.getByRole('button', { name: 'Diğer işlemler' }).click()
+  await page.getByRole('menuitem', { name: 'Şablon olarak kaydet' }).click()
+  await page.getByRole('textbox', { name: 'Şablon olarak kaydet' }).fill('Toplantı şablonu')
+  await page.getByRole('button', { name: 'Kaydet', exact: true }).click()
+
+  // It is listed (and manageable) in Settings → Templates.
+  await page.getByRole('button', { name: 'Uygulama menüsü' }).click()
+  await page.getByRole('menuitem', { name: 'Ayarlar' }).click()
+  await expect(
+    page.getByRole('dialog', { name: 'Ayarlar' }).getByText('Toplantı şablonu'),
+  ).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  // The command palette now offers "new note from template".
+  await page.keyboard.press('Control+k')
+  await page.getByLabel('Komut ara').fill('Şablondan')
+  await page.keyboard.press('Enter')
+
+  // Picking it creates a note pre-filled from the template.
+  const picker = page.getByRole('dialog', { name: 'Şablondan yeni not' })
+  await picker.getByRole('button', { name: /Toplantı şablonu/ }).click()
+  await expect(page.getByPlaceholder('Başlıksız')).toHaveValue('Şablon Kaynağı')
+  await expect(page.locator('.cm-content')).toContainText('şablon gövdesi')
+
+  // The template's tags came along too.
+  await page.getByRole('button', { name: 'Etiketler' }).click()
+  await expect(page.getByText('#şablon').first()).toBeVisible()
+})
+
+test('import: markdown + JSON dry-run, skips duplicates, imports new notes', async ({ page }) => {
+  await page.goto('/')
+  await page.getByLabel('Ana parola').fill(PASS)
+  await page.getByLabel('Parolayı doğrula').fill(PASS)
+  await page.getByRole('button', { name: 'Vault oluştur' }).click()
+
+  // An existing note that one of the files will duplicate by content hash.
+  await page.getByRole('button', { name: 'Yeni not' }).click()
+  await page.getByPlaceholder('Başlıksız').fill('Mevcut')
+  const editor = page.locator('.cm-content')
+  await editor.click()
+  await page.keyboard.insertText('aynı gövde')
+  await page.waitForTimeout(900)
+
+  // Settings → import opens the file dialog.
+  await page.getByRole('button', { name: 'Uygulama menüsü' }).click()
+  await page.getByRole('menuitem', { name: 'Ayarlar' }).click()
+  await page.getByRole('button', { name: /İçe aktar/ }).click()
+
+  const dialog = page.getByRole('dialog', { name: 'İçe aktarma' })
+  await expect(dialog).toBeVisible()
+
+  await page.locator('dialog[open] input[type=file]').setInputFiles([
+    { name: 'mevcut.md', mimeType: 'text/markdown', buffer: Buffer.from('# Mevcut\naynı gövde') },
+    { name: 'yeni.md', mimeType: 'text/markdown', buffer: Buffer.from('# Yeni Not\n\nyepyeni gövde') },
+    {
+      name: 'export.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(
+        JSON.stringify({
+          app: 'vaultnote',
+          version: 1,
+          notes: [{ title: 'JSON Notu', body: 'json gövde', tags: ['j'] }],
+        }),
+      ),
+    },
+  ])
+
+  // Dry-run: two new, one duplicate — nothing is written yet.
+  await expect(dialog.getByText('3 not bulundu: 2 yeni, 1 yinelenen.')).toBeVisible()
+  await expect(page.getByRole('complementary').getByRole('button', { name: /Yeni Not/ })).toHaveCount(0)
+
+  await dialog.getByRole('button', { name: '2 notu içe aktar' }).click()
+  await expect(dialog).toHaveCount(0)
+
+  const list = page.getByRole('complementary')
+  await expect(list.getByRole('button', { name: /Yeni Not/ })).toBeVisible()
+  await expect(list.getByRole('button', { name: /JSON Notu/ })).toBeVisible()
+
+  // Re-importing the same files now reports everything as duplicate.
+  await page.getByRole('button', { name: 'Uygulama menüsü' }).click()
+  await page.getByRole('menuitem', { name: 'Ayarlar' }).click()
+  await page.getByRole('button', { name: /İçe aktar/ }).click()
+  await page.locator('dialog[open] input[type=file]').setInputFiles([
+    { name: 'mevcut.md', mimeType: 'text/markdown', buffer: Buffer.from('# Mevcut\naynı gövde') },
+  ])
+  await expect(
+    page.getByRole('dialog', { name: 'İçe aktarma' }).getByText('1 not bulundu: 0 yeni, 1 yinelenen.'),
+  ).toBeVisible()
+})
+
+test('history: restore an earlier version of a note', async ({ page }) => {
+  await page.goto('/')
+  await page.getByLabel('Ana parola').fill(PASS)
+  await page.getByLabel('Parolayı doğrula').fill(PASS)
+  await page.getByRole('button', { name: 'Vault oluştur' }).click()
+
+  await page.getByRole('button', { name: 'Yeni not' }).click()
+  await expect(page.getByRole('tab')).toHaveCount(1)
+  const editor = page.locator('.cm-content')
+  await editor.click()
+  await page.keyboard.insertText('ilk sürüm')
+  await page.waitForTimeout(900)
+
+  // Edit again — this snapshots the previous content into the local history.
+  await page.keyboard.press('ControlOrMeta+A')
+  await page.keyboard.insertText('ikinci sürüm')
+  await page.waitForTimeout(900)
+
+  // Open the version history and pick the newest snapshot (the pre-edit content).
+  await page.getByRole('button', { name: 'Sürüm geçmişi' }).click()
+  const panel = page.getByRole('complementary', { name: 'Sürüm geçmişi' })
+  await panel.getByRole('button', { name: /Sürüm/ }).first().click()
+
+  // The read-only preview shows the old body; restoring writes a new head version.
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByText('ilk sürüm')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Bu sürümü geri yükle' }).click()
+  await expect(page.locator('.cm-content')).toContainText('ilk sürüm')
+})

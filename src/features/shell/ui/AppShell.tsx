@@ -1,3 +1,8 @@
+import { useEffect } from 'react'
+
+import { useTemplateStore } from '@/features/notes/store/templateStore'
+import { ImportDialog } from '@/features/notes/ui/ImportDialog'
+import { TemplatePickerDialog } from '@/features/notes/ui/TemplatePickerDialog'
 import { NotesShell } from '@/features/notes/ui/NotesShell'
 import { useAutoSync } from '@/features/sync/useAutoSync'
 
@@ -11,6 +16,12 @@ export function AppShell() {
   useAutoSync()
   useShortcuts()
 
+  // Templates are device-local; load them once the (already unlocked) shell mounts.
+  const loadTemplates = useTemplateStore((s) => s.load)
+  useEffect(() => {
+    void loadTemplates()
+  }, [loadTemplates])
+
   return (
     <div className="flex h-full flex-col bg-shell-gradient">
       <TopBar />
@@ -20,6 +31,8 @@ export function AppShell() {
         </div>
       </main>
       <CommandPalette />
+      <TemplatePickerDialog />
+      <ImportDialog />
       <SettingsDialog />
     </div>
   )

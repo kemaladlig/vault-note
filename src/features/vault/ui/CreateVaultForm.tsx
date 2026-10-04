@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RestoreFromDrive } from '@/features/sync/ui/RestoreFromDrive'
 import { cn } from '@/lib/utils'
+import { useT } from '@/shared/i18n'
 
 import { useVaultStore } from '../store/vaultStore'
 import { VaultFrame } from './VaultFrame'
@@ -16,6 +17,7 @@ const MIN_LENGTH = 8
 type Mode = 'passphrase' | 'device'
 
 export function CreateVaultForm() {
+  const t = useT()
   const createVault = useVaultStore((s) => s.create)
   const createDevice = useVaultStore((s) => s.createDevice)
   const [mode, setMode] = useState<Mode>('passphrase')
@@ -32,32 +34,32 @@ export function CreateVaultForm() {
 
     if (mode === 'device') {
       if (!acknowledged) {
-        setError('Devam etmek için uyarıyı onayla.')
+        setError(t('vault.create.ackRequired'))
         return
       }
       setBusy(true)
       try {
         await createDevice()
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Vault oluşturulamadı.')
+        setError(err instanceof Error ? err.message : t('vault.create.failed'))
         setBusy(false)
       }
       return
     }
 
     if (passphrase.length < MIN_LENGTH) {
-      setError(`Ana parola en az ${MIN_LENGTH} karakter olmalı.`)
+      setError(t('vault.create.passShort', { n: MIN_LENGTH }))
       return
     }
     if (passphrase !== confirm) {
-      setError('Parolalar eşleşmiyor.')
+      setError(t('vault.create.passMismatch'))
       return
     }
     setBusy(true)
     try {
       await createVault(passphrase, { remember })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Vault oluşturulamadı.')
+      setError(err instanceof Error ? err.message : t('vault.create.failed'))
       setBusy(false)
     }
   }
@@ -66,11 +68,9 @@ export function CreateVaultForm() {
     <VaultFrame>
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Vault oluştur</CardTitle>
+          <CardTitle>{t('vault.create.title')}</CardTitle>
           <CardDescription>
-            {mode === 'passphrase'
-              ? 'Notların bu parolayla şifrelenir. Parolayı kaybedersen verilerine kimse erişemez — biz dahil. Kurtarma yolu yok.'
-              : 'Bu cihazda parolasız çalışır. Kurtarma yolu yoktur ve başka cihazlarda açılamaz.'}
+            {mode === 'passphrase' ? t('vault.create.descPass') : t('vault.create.descDevice')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -84,7 +84,7 @@ export function CreateVaultForm() {
               )}
               onClick={() => setMode('passphrase')}
             >
-              Parola ile
+              {t('vault.create.withPassphrase')}
             </button>
             <button
               type="button"
@@ -95,7 +95,7 @@ export function CreateVaultForm() {
               )}
               onClick={() => setMode('device')}
             >
-              Parolasız
+              {t('vault.create.passwordless')}
             </button>
           </div>
 
@@ -103,7 +103,7 @@ export function CreateVaultForm() {
             {mode === 'passphrase' ? (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="passphrase">Ana parola</Label>
+                  <Label htmlFor="passphrase">{t('vault.create.passphrase')}</Label>
                   <Input
                     id="passphrase"
                     type="password"
@@ -113,7 +113,7 @@ export function CreateVaultForm() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="confirm">Parolayı doğrula</Label>
+                  <Label htmlFor="confirm">{t('vault.create.confirm')}</Label>
                   <Input
                     id="confirm"
                     type="password"
@@ -125,15 +125,15 @@ export function CreateVaultForm() {
                 {error && <p className="text-sm text-destructive">{error}</p>}
                 <div className="flex items-start gap-2.5 text-sm">
                   <Checkbox
-                    aria-label="Bu cihazda hatırla"
+                    aria-label={t('vault.create.remember')}
                     checked={remember}
                     onCheckedChange={(checked) => setRemember(checked === true)}
                     className="mt-0.5"
                   />
                   <span>
-                    Bu cihazda hatırla
+                    {t('vault.create.remember')}
                     <span className="block text-xs text-muted-foreground">
-                      Bu cihazda parolasız hızlı açma. Başka cihazları etkilemez.
+                      {t('vault.create.rememberHint')}
                     </span>
                   </span>
                 </div>
@@ -141,32 +141,32 @@ export function CreateVaultForm() {
             ) : (
               <>
                 <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
-                  <p className="font-medium text-destructive">Kurtarma yok</p>
+                  <p className="font-medium text-destructive">{t('vault.create.noRecovery')}</p>
                   <ul className="mt-1 list-disc space-y-1 pl-4 text-muted-foreground">
-                    <li>Parola belirlemezsin; anahtar yalnızca bu cihazda tutulur.</li>
-                    <li>Bu cihazı sıfırlar, tarayıcı verilerini silersen notlar gider.</li>
-                    <li>Drive'a yedeklensen bile başka cihazda açılamaz.</li>
+                    <li>{t('vault.create.noRecovery1')}</li>
+                    <li>{t('vault.create.noRecovery2')}</li>
+                    <li>{t('vault.create.noRecovery3')}</li>
                   </ul>
                 </div>
                 {error && <p className="text-sm text-destructive">{error}</p>}
                 <div className="flex items-start gap-2.5 text-sm">
                   <Checkbox
-                    aria-label="Riski anladım"
+                    aria-label={t('vault.create.acknowledge')}
                     checked={acknowledged}
                     onCheckedChange={(checked) => setAcknowledged(checked === true)}
                     className="mt-0.5"
                   />
-                  <span>Riski anladım, parolasız kurulumu istiyorum.</span>
+                  <span>{t('vault.create.acknowledgeLabel')}</span>
                 </div>
               </>
             )}
 
             <Button type="submit" className="w-full" disabled={busy}>
               {busy
-                ? 'Anahtar türetiliyor…'
+                ? t('vault.create.deriving')
                 : mode === 'device'
-                  ? 'Parolasız oluştur'
-                  : 'Vault oluştur'}
+                  ? t('vault.create.deviceSubmit')
+                  : t('vault.create.submit')}
             </Button>
           </form>
           <RestoreFromDrive />

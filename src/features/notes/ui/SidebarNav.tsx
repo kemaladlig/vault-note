@@ -28,6 +28,7 @@ import {
   folderSubtree,
   type Folder,
 } from '@/shared/folders'
+import { useT } from '@/shared/i18n'
 import { toast } from '@/shared/toast'
 
 import type { DecryptedNote, NotesView } from '../model'
@@ -95,17 +96,10 @@ function NavItem({
       className={cn(
         'group/nav relative flex w-full items-center gap-2.5 overflow-hidden rounded-lg px-2.5 py-1.5 text-left text-sm transition-all duration-200',
         active
-          ? 'bg-accent font-medium text-accent-foreground'
+          ? 'bg-gradient-to-r from-primary/15 via-accent to-accent/30 font-medium text-accent-foreground'
           : 'text-foreground/90 hover:bg-muted hover:pl-3',
       )}
     >
-      <span
-        aria-hidden
-        className={cn(
-          'absolute top-1/2 left-0 h-4 w-0.5 origin-left rounded-r-full bg-primary transition-transform duration-200',
-          active ? 'scale-x-100 animate-grow-x' : 'scale-x-0',
-        )}
-      />
       <span
         className={cn(
           'shrink-0 transition-transform duration-200',
@@ -142,6 +136,7 @@ interface SidebarNavProps {
 
 /** Sidebar scope: view shortcuts, the notebook tree and tag filters. */
 export function SidebarNav({ onNavigate }: SidebarNavProps) {
+  const t = useT()
   const notes = useNotesStore((s) => s.notes)
   const view = useNotesStore((s) => s.view)
   const folderId = useNotesStore((s) => s.folderId)
@@ -195,7 +190,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
     const hasFilter =
       query.trim() !== '' || Boolean(tagFilter) || Boolean(folderId) || view !== 'all'
     if (!hasFilter) {
-      toast('Önce bir arama veya filtre uygula.')
+      toast(t('notes.sidebar.needFilter'))
       return
     }
     setDialog({ kind: 'save-view' })
@@ -313,18 +308,18 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
               </span>
             )}
           </button>
-          <div className="absolute top-1/2 right-1 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+          <div className="absolute top-1/2 right-1 -translate-y-1/2 transition-opacity focus-within:opacity-100 md:opacity-0 md:group-hover:opacity-100">
             <Menu
-              label={`${folder.name} seçenekleri`}
+              label={t('notes.sidebar.itemOptions', { name: folder.name })}
               icon={<MoreHorizontal />}
               triggerClassName="size-6"
               items={[
-                { label: 'Alt not defteri', icon: <FolderPlus />, onSelect: () => setDialog({ kind: 'child', folder }) },
-                { label: 'Renk', icon: <Palette />, onSelect: () => setDialog({ kind: 'color', folder }) },
-                { label: 'Taşı…', icon: <FolderInput />, onSelect: () => setDialog({ kind: 'move-folder', folder }) },
-                { label: 'Yeniden adlandır', icon: <Pencil />, onSelect: () => setDialog({ kind: 'rename', folder }) },
+                { label: t('notes.folder.child'), icon: <FolderPlus />, onSelect: () => setDialog({ kind: 'child', folder }) },
+                { label: t('notes.folder.color'), icon: <Palette />, onSelect: () => setDialog({ kind: 'color', folder }) },
+                { label: t('notes.folder.move'), icon: <FolderInput />, onSelect: () => setDialog({ kind: 'move-folder', folder }) },
+                { label: t('notes.folder.rename'), icon: <Pencil />, onSelect: () => setDialog({ kind: 'rename', folder }) },
                 { type: 'separator' },
-                { label: 'Sil', icon: <Trash2 />, destructive: true, onSelect: () => setPendingDelete(folder) },
+                { label: t('common.delete'), icon: <Trash2 />, destructive: true, onSelect: () => setPendingDelete(folder) },
               ]}
             />
           </div>
@@ -346,28 +341,28 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
         <div className="space-y-0.5">
           <NavItem
             icon={<Library className="size-4" />}
-            label="Tüm notlar"
+            label={t('notes.nav.all')}
             count={counts.all}
             active={view === 'all' && !folderId}
             onClick={() => go(() => setView('all'))}
           />
           <NavItem
             icon={<Pin className="size-4" />}
-            label="Sabitlenenler"
+            label={t('notes.view.pinned')}
             count={counts.pinned}
             active={view === 'pinned'}
             onClick={() => go(() => setView('pinned'))}
           />
           <NavItem
             icon={<Archive className="size-4" />}
-            label="Arşiv"
+            label={t('notes.view.archive')}
             count={counts.archive}
             active={view === 'archive'}
             onClick={() => go(() => setView('archive'))}
           />
           <NavItem
             icon={<Trash2 className="size-4" />}
-            label="Çöp"
+            label={t('notes.view.trash')}
             count={counts.trash}
             active={view === 'trash'}
             onClick={() => go(() => setView('trash'))}
@@ -376,12 +371,12 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
 
         <section>
           <header className="group/section flex items-center justify-between pr-1">
-            <SectionTitle>Akıllı görünümler</SectionTitle>
+            <SectionTitle>{t('notes.sidebar.smartViews')}</SectionTitle>
             <Button
               size="icon-xs"
               variant="ghost"
-              className="opacity-0 transition-opacity group-hover/section:opacity-100 focus-visible:opacity-100"
-              aria-label="Görünümü kaydet"
+              className="opacity-100 transition-opacity md:opacity-0 md:group-hover/section:opacity-100 md:focus-visible:opacity-100"
+              aria-label={t('notes.sidebar.saveView')}
               onClick={onSaveView}
             >
               <Plus />
@@ -389,7 +384,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
           </header>
           {savedViews.length === 0 ? (
             <p className="px-2.5 py-1 text-xs leading-relaxed text-muted-foreground/90">
-              Bir arama veya filtreyi kaydet, hızlı eriş.
+              {t('notes.sidebar.saveViewHint')}
             </p>
           ) : (
             <ul className="space-y-0.5">
@@ -417,20 +412,20 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
                         />
                         <span className="min-w-0 flex-1 truncate">{item.name}</span>
                       </button>
-                      <div className="absolute top-1/2 right-1 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                      <div className="absolute top-1/2 right-1 -translate-y-1/2 transition-opacity focus-within:opacity-100 md:opacity-0 md:group-hover:opacity-100">
                         <Menu
-                          label={`${item.name} seçenekleri`}
+                          label={t('notes.sidebar.itemOptions', { name: item.name })}
                           icon={<MoreHorizontal />}
                           triggerClassName="size-6"
                           items={[
                             {
-                              label: 'Yeniden adlandır',
+                              label: t('notes.folder.rename'),
                               icon: <Pencil />,
                               onSelect: () => setDialog({ kind: 'rename-view', view: item }),
                             },
                             { type: 'separator' },
                             {
-                              label: 'Sil',
+                              label: t('common.delete'),
                               icon: <Trash2 />,
                               destructive: true,
                               onSelect: () => void removeView(item.id),
@@ -466,12 +461,12 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
           )}
         >
           <header className="group/section flex items-center justify-between pr-1">
-            <SectionTitle>Not defterleri</SectionTitle>
+            <SectionTitle>{t('notes.sidebar.notebooks')}</SectionTitle>
             <Button
               size="icon-xs"
               variant="ghost"
-              className="opacity-0 transition-opacity group-hover/section:opacity-100 focus-visible:opacity-100"
-              aria-label="Not defteri ekle"
+              className="opacity-100 transition-opacity md:opacity-0 md:group-hover/section:opacity-100 md:focus-visible:opacity-100"
+              aria-label={t('notes.sidebar.addNotebook')}
               onClick={() => setDialog({ kind: 'create' })}
             >
               <Plus />
@@ -479,7 +474,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
           </header>
           {roots.length === 0 ? (
             <p className="px-2.5 py-1 text-xs leading-relaxed text-muted-foreground/90">
-              Henüz not defteri yok. Sürükleyip bırakarak da düzenleyebilirsin.
+              {t('notes.sidebar.noNotebooks')}
             </p>
           ) : (
             <ul className="space-y-0.5">{roots.map((folder) => renderFolder(folder, 0))}</ul>
@@ -488,7 +483,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
 
         {tags.length > 0 && (
           <section>
-            <SectionTitle>Etiketler</SectionTitle>
+            <SectionTitle>{t('notes.sidebar.tags')}</SectionTitle>
             <div className="flex flex-wrap gap-1.5 px-1.5 pt-0.5">
               <button
                 type="button"
@@ -500,7 +495,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
                     : 'bg-surface text-muted-foreground shadow-e1 hover:text-foreground',
                 )}
               >
-                Tümü
+                {t('notes.sidebar.allTags')}
               </button>
               {tags.map((tag) => (
                 <button
@@ -523,49 +518,49 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
       </nav>
 
       <footer className="shrink-0 border-t border-border/70 p-2.5">
-        <span className="flex items-center gap-2 rounded-lg bg-muted/60 px-2.5 py-2 text-[11px] font-medium text-muted-foreground">
+        <span className="flex items-center gap-2 rounded-lg border border-primary/15 bg-gradient-to-r from-accent/80 to-transparent px-2.5 py-2 text-[11px] font-medium text-muted-foreground">
           <ShieldCheck className="size-3.5 shrink-0 text-success" />
-          Uçtan uca şifreli · yalnızca sende
+          {t('notes.sidebar.encryptedBadge')}
         </span>
       </footer>
 
       <PromptDialog
         open={dialog?.kind === 'create'}
-        title="Yeni not defteri"
-        placeholder="Not defteri adı"
-        confirmLabel="Oluştur"
+        title={t('notes.folder.newTitle')}
+        placeholder={t('common.notebookName')}
+        confirmLabel={t('common.create')}
         onConfirm={(name) => void createFolder(name)}
         onClose={() => setDialog(null)}
       />
       <PromptDialog
         open={dialog?.kind === 'child'}
-        title="Alt not defteri"
-        placeholder="Not defteri adı"
-        confirmLabel="Oluştur"
+        title={t('notes.folder.child')}
+        placeholder={t('common.notebookName')}
+        confirmLabel={t('common.create')}
         onConfirm={(name) => dialog?.folder && void createFolder(name, dialog.folder.id)}
         onClose={() => setDialog(null)}
       />
       <PromptDialog
         open={dialog?.kind === 'rename'}
-        title="Yeniden adlandır"
+        title={t('notes.folder.rename')}
         initialValue={dialog?.folder?.name ?? ''}
-        confirmLabel="Kaydet"
+        confirmLabel={t('common.save')}
         onConfirm={(name) => dialog?.folder && void renameFolder(dialog.folder.id, name)}
         onClose={() => setDialog(null)}
       />
       <PromptDialog
         open={dialog?.kind === 'save-view'}
-        title="Görünümü kaydet"
-        placeholder="Görünüm adı"
-        confirmLabel="Kaydet"
+        title={t('notes.view.saveTitle')}
+        placeholder={t('notes.view.namePlaceholder')}
+        confirmLabel={t('common.save')}
         onConfirm={(name) => void saveCurrentView(name)}
         onClose={() => setDialog(null)}
       />
       <PromptDialog
         open={dialog?.kind === 'rename-view'}
-        title="Görünümü yeniden adlandır"
+        title={t('notes.view.renameTitle')}
         initialValue={dialog?.view?.name ?? ''}
-        confirmLabel="Kaydet"
+        confirmLabel={t('common.save')}
         onConfirm={(name) => dialog?.view && void renameView(dialog.view.id, name)}
         onClose={() => setDialog(null)}
       />
@@ -573,19 +568,19 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
       <Modal
         open={dialog?.kind === 'color'}
         onClose={() => setDialog(null)}
-        title="Not defteri rengi"
-        description="Not defterine bir renk ver."
+        title={t('notes.folder.colorTitle')}
+        description={t('notes.folder.colorDesc')}
         icon={<Palette />}
         footer={
           <Button variant="ghost" onClick={() => setDialog(null)}>
-            Kapat
+            {t('common.close')}
           </Button>
         }
       >
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            aria-label="Renk yok"
+            aria-label={t('notes.folder.colorNone')}
             onClick={() => {
               if (dialog?.folder) void setFolderColor(dialog.folder.id, undefined)
               setDialog(null)
@@ -601,7 +596,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
             <button
               key={color}
               type="button"
-              aria-label={`Renk ${color}`}
+              aria-label={t('notes.folder.colorName', { color })}
               onClick={() => {
                 if (dialog?.folder) void setFolderColor(dialog.folder.id, color)
                 setDialog(null)
@@ -628,13 +623,13 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
       <Modal
         open={Boolean(pendingDelete)}
         onClose={() => setPendingDelete(null)}
-        title="Not defterini sil"
-        description="Bu not defteri ve alt defterleri silinir. İçindeki notlar üst deftere taşınır."
+        title={t('notes.folder.deleteTitle')}
+        description={t('notes.folder.deleteDesc')}
         icon={<Trash2 />}
         footer={
           <>
             <Button variant="ghost" onClick={() => setPendingDelete(null)}>
-              Vazgeç
+              {t('common.cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -643,7 +638,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
                 setPendingDelete(null)
               }}
             >
-              Sil
+              {t('common.delete')}
             </Button>
           </>
         }

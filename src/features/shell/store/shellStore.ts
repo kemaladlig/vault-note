@@ -4,6 +4,10 @@ import { create } from 'zustand'
 interface ShellState {
   commandOpen: boolean
   settingsOpen: boolean
+  /** New-note-from-template picker. */
+  templatePickerOpen: boolean
+  /** Import dry-run / commit dialog. */
+  importOpen: boolean
   /** Mobile: true shows the note list, false shows the editor. Desktop ignores this. */
   listOpen: boolean
   /** Below xl: the navigation sidebar renders as an overlay drawer when true. */
@@ -12,6 +16,8 @@ interface ShellState {
   splitId?: string
   setCommandOpen: (open: boolean) => void
   setSettingsOpen: (open: boolean) => void
+  setTemplatePickerOpen: (open: boolean) => void
+  setImportOpen: (open: boolean) => void
   setListOpen: (open: boolean) => void
   setNavOpen: (open: boolean) => void
   setSplitId: (id?: string) => void
@@ -20,11 +26,15 @@ interface ShellState {
 export const useShellStore = create<ShellState>((set) => ({
   commandOpen: false,
   settingsOpen: false,
+  templatePickerOpen: false,
+  importOpen: false,
   listOpen: true,
   navOpen: false,
   splitId: undefined,
   setCommandOpen: (commandOpen) => set({ commandOpen }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+  setTemplatePickerOpen: (templatePickerOpen) => set({ templatePickerOpen }),
+  setImportOpen: (importOpen) => set({ importOpen }),
   setListOpen: (listOpen) => set({ listOpen }),
   setNavOpen: (navOpen) => set({ navOpen }),
   setSplitId: (splitId) => set({ splitId }),

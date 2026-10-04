@@ -1,12 +1,14 @@
 import { create } from 'zustand'
 
+import type { MessageKey } from './i18n'
+
 export type ScaleId = 'compact' | 'normal' | 'comfortable'
 
 /** Presets map to the root font size; every size in the app is rem-based. */
-export const SCALES: ReadonlyArray<{ id: ScaleId; label: string; px: number }> = [
-  { id: 'compact', label: 'Sıkı', px: 15 },
-  { id: 'normal', label: 'Normal', px: 17 },
-  { id: 'comfortable', label: 'Geniş', px: 19 },
+export const SCALES: ReadonlyArray<{ id: ScaleId; labelKey: MessageKey; px: number }> = [
+  { id: 'compact', labelKey: 'settings.scale.compact', px: 15 },
+  { id: 'normal', labelKey: 'settings.scale.normal', px: 17 },
+  { id: 'comfortable', labelKey: 'settings.scale.comfortable', px: 19 },
 ]
 
 const STORAGE_KEY = 'vaultnote.scale'

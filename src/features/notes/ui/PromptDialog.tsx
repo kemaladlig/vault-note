@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
+import { useT } from '@/shared/i18n'
 
 interface PromptDialogProps {
   open: boolean
@@ -22,10 +23,11 @@ export function PromptDialog({
   description,
   initialValue = '',
   placeholder,
-  confirmLabel = 'Kaydet',
+  confirmLabel,
   onConfirm,
   onClose,
 }: PromptDialogProps) {
+  const t = useT()
   const [value, setValue] = useState(initialValue)
   const [wasOpen, setWasOpen] = useState(open)
 
@@ -51,10 +53,10 @@ export function PromptDialog({
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Vazgeç
+            {t('common.cancel')}
           </Button>
           <Button disabled={!value.trim()} onClick={submit}>
-            {confirmLabel}
+            {confirmLabel ?? t('common.save')}
           </Button>
         </>
       }

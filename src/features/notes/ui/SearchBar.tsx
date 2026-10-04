@@ -2,6 +2,7 @@ import { ChevronDown, ChevronUp, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useT } from '@/shared/i18n'
 
 interface SearchBarProps {
   term: string
@@ -21,13 +22,14 @@ export function SearchBar({
   onPrevious,
   onClose,
 }: SearchBarProps) {
+  const t = useT()
   return (
     <div className="flex items-center gap-1.5 border-b border-border/70 bg-sidebar/60 px-2 py-1.5 animate-slide-up">
       <Input
         autoFocus
         value={term}
-        placeholder="Notta ara…"
-        aria-label="Aramayı gir"
+        placeholder={t('notes.search.placeholder')}
+        aria-label={t('notes.search.label')}
         className="h-8"
         onChange={(event) => onTermChange(event.target.value)}
         onKeyDown={(event) => {
@@ -42,12 +44,12 @@ export function SearchBar({
         }}
       />
       <span className="min-w-16 text-right text-xs tabular-nums text-muted-foreground">
-        {term ? `${matchCount} eşleşme` : ''}
+        {term ? t('notes.search.matches', { count: matchCount }) : ''}
       </span>
       <Button
         size="icon-sm"
         variant="ghost"
-        aria-label="Önceki eşleşme"
+        aria-label={t('notes.search.prev')}
         disabled={!term}
         onClick={onPrevious}
       >
@@ -56,13 +58,13 @@ export function SearchBar({
       <Button
         size="icon-sm"
         variant="ghost"
-        aria-label="Sonraki eşleşme"
+        aria-label={t('notes.search.next')}
         disabled={!term}
         onClick={onNext}
       >
         <ChevronDown />
       </Button>
-      <Button size="icon-sm" variant="ghost" aria-label="Aramayı kapat" onClick={onClose}>
+      <Button size="icon-sm" variant="ghost" aria-label={t('notes.search.close')} onClick={onClose}>
         <X />
       </Button>
     </div>

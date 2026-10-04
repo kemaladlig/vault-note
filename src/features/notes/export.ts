@@ -1,3 +1,5 @@
+import { t } from '@/shared/i18n'
+
 import type { DecryptedNote } from './model'
 
 /** Trigger a client-side file download. Export is plaintext — the UI must warn the user. */
@@ -21,7 +23,7 @@ function slug(title: string): string {
 }
 
 export function noteToMarkdown(note: DecryptedNote): string {
-  const heading = `# ${note.title || 'Başlıksız'}`
+  const heading = `# ${note.title || t('common.untitled')}`
   const tags = note.tags.length ? `\n\n${note.tags.map((tag) => `#${tag}`).join(' ')}` : ''
   return `${heading}${tags}\n\n${note.body}\n`
 }
