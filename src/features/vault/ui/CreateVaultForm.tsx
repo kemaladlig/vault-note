@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core'
 import { useState, type FormEvent } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -24,10 +25,16 @@ export function CreateVaultForm() {
   const createDevice = useVaultStore((s) => s.createDevice)
   const setAppLockNone = useVaultStore((s) => s.setAppLockNone)
   const setAppLockBiometric = useVaultStore((s) => s.setAppLockBiometric)
-  const [mode, setMode] = useState<Mode>('passphrase')
+  // Native ships device-first: the OS secure store already holds the key, so a passphrase on
+  // first run is pure friction. The web has no such store (IndexedDB is exposed to same-origin
+  // code), so there the passphrase stays the default.
+  const isNative = Capacitor.isNativePlatform()
+  const [mode, setMode] = useState<Mode>(isNative ? 'device' : 'passphrase')
   const [passphrase, setPassphrase] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [openMode, setOpenMode] = useState<OpenMode>('none')
+  const [openMode, setOpenMode] = useState<OpenMode>(
+    isNative && biometricAvailable() ? 'biometric' : 'none',
+  )
   const [acknowledged, setAcknowledged] = useState(false)
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
@@ -51,6 +58,10 @@ export function CreateVaultForm() {
       setBusy(true)
       try {
         await createDevice()
+        // The open-mode choice was previously dropped in device mode; apply it like the
+        // passphrase path does so biometric/none actually takes effect.
+        if (openMode === 'biometric') setAppLockBiometric()
+        else setAppLockNone()
       } catch (err) {
         setError(err instanceof Error ? err.message : t('vault.create.failed'))
         setBusy(false)
