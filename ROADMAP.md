@@ -151,6 +151,30 @@ Implemented:
 
 ---
 
+## App lock (PIN) — DONE (unplanned)
+
+A user request outside the phases: open a vault without typing a passphrase, but keep a small
+local gate. Passwordless mode + quick unlock already opened with no input; the missing piece was
+a PIN option (biometrics only exist on native, not the web/PWA).
+
+- `pinGate.ts` adds an optional **device-local PIN** over the quick-unlock blob: the plain device
+  blob is replaced by a copy sealed under an `Argon2id`-derived key (fresh salt), so recovering
+  the DEK needs both the device key and the PIN. 4–8 digits; wrong attempts throttle with
+  exponential backoff. It is a **convenience lock, never the encryption root** — a short PIN is
+  not allowed to encrypt notes directly. Never synced.
+- Settings → Güvenlik: "Uygulama açılışı" is a single open-mode selector — **Kilit yok / PIN /
+  Biyometrik** (biometric only on native). Choosing PIN opens `PinDialog.tsx` (set/change/remove);
+  switching back off a PIN verifies it first, because that unwraps the device key. When a PIN is
+  set, the unlock screen shows a PIN field instead of quick unlock and keeps the passphrase
+  fallback for passphrase vaults.
+- **Open mode (follow-up):** `appLock.ts` stores the device-local non-PIN preference
+  (`none`/`biometric`); the same selector is offered at signup (`CreateVaultForm.tsx`). With
+  **Kilit yok**, `vaultStore.init()` auto-unlocks on a cold boot — the app opens directly, no tap.
+  A manual lock stays locked for the session (auto-open runs only from `init()`).
+- `pinGate.test.ts` (+6 unit → 72); `app lock:` and `open mode:` e2e flows (19 e2e total).
+
+---
+
 ## Phase 7 — Multiple vaults (XL, question before starting)
 
 Only if actually needed; this reshapes the data model.

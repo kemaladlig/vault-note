@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { useT } from '@/shared/i18n'
 
 import { WrongPassphraseError } from '../crypto'
+import { PinLockedError, isValidPin } from '../store/pinGate'
 import { useVaultStore } from '../store/vaultStore'
 import { VaultFrame } from './VaultFrame'
 
@@ -16,14 +17,17 @@ export function UnlockForm() {
   const t = useT()
   const unlock = useVaultStore((s) => s.unlock)
   const unlockWithDevice = useVaultStore((s) => s.unlockWithDevice)
+  const unlockWithPin = useVaultStore((s) => s.unlockWithPin)
   const forgetDevice = useVaultStore((s) => s.forgetDevice)
   const reset = useVaultStore((s) => s.reset)
   const quickAvailable = useVaultStore((s) => s.quickUnlockAvailable)
+  const pinSet = useVaultStore((s) => s.pinSet)
   const mode = useVaultStore((s) => s.settings?.mode)
 
   const isDevice = mode === 'device'
   const [withPassphrase, setWithPassphrase] = useState(!quickAvailable)
   const [passphrase, setPassphrase] = useState('')
+  const [pin, setPin] = useState('')
   const [remember, setRemember] = useState(true)
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
@@ -35,6 +39,25 @@ export function UnlockForm() {
       await unlockWithDevice()
     } catch (err) {
       setError(err instanceof Error ? err.message : t('vault.unlock.quickFailed'))
+      setBusy(false)
+    }
+  }
+
+  async function onPinUnlock(event: FormEvent) {
+    event.preventDefault()
+    setBusy(true)
+    setError(undefined)
+    try {
+      await unlockWithPin(pin)
+    } catch (err) {
+      if (err instanceof PinLockedError) {
+        setError(t('vault.unlock.pinLocked', { s: Math.ceil(err.remainingMs / 1000) }))
+      } else if (err instanceof WrongPassphraseError) {
+        setError(t('vault.unlock.pinWrong'))
+      } else {
+        setError(err instanceof Error ? err.message : t('vault.unlock.failed'))
+      }
+      setPin('')
       setBusy(false)
     }
   }
@@ -58,10 +81,12 @@ export function UnlockForm() {
     }
   }
 
+  // PIN gate takes priority: it is the current device's configured gate.
+  const showPin = pinSet && !withPassphrase
   // Device mode with the key still present: only quick unlock exists.
-  const showQuick = quickAvailable && (isDevice || !withPassphrase)
-  // Device mode with the key gone: nothing can recover it.
-  const brokenDevice = isDevice && !quickAvailable
+  const showQuick = quickAvailable && !pinSet && (isDevice || !withPassphrase)
+  // Device mode with neither the key nor a PIN: nothing can recover it.
+  const brokenDevice = isDevice && !quickAvailable && !pinSet
 
   return (
     <VaultFrame>
@@ -71,9 +96,11 @@ export function UnlockForm() {
           <CardDescription>
             {brokenDevice
               ? t('vault.unlock.brokenDesc')
-              : showQuick
-                ? t('vault.unlock.quickDesc')
-                : t('vault.unlock.passDesc')}
+              : showPin
+                ? t('vault.unlock.pinDesc')
+                : showQuick
+                  ? t('vault.unlock.quickDesc')
+                  : t('vault.unlock.passDesc')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -94,6 +121,38 @@ export function UnlockForm() {
                 {t('vault.unlock.reset')}
               </Button>
             </div>
+          ) : showPin ? (
+            <form className="space-y-4" onSubmit={onPinUnlock}>
+              <div className="space-y-2">
+                <Label htmlFor="pin">{t('vault.unlock.pinLabel')}</Label>
+                <Input
+                  id="pin"
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  autoFocus
+                  maxLength={8}
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                />
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <Button type="submit" className="w-full" disabled={busy || !isValidPin(pin)}>
+                {busy ? t('vault.unlock.opening') : t('vault.unlock.openPin')}
+              </Button>
+              {!isDevice && (
+                <button
+                  type="button"
+                  className="mx-auto block text-xs text-muted-foreground underline-offset-4 hover:underline"
+                  onClick={() => {
+                    setWithPassphrase(true)
+                    setError(undefined)
+                  }}
+                >
+                  {t('vault.unlock.withPassphrase')}
+                </button>
+              )}
+            </form>
           ) : showQuick ? (
             <div className="space-y-4">
               <Button className="w-full" disabled={busy} onClick={() => void onQuickUnlock()}>
@@ -145,7 +204,19 @@ export function UnlockForm() {
               <Button type="submit" className="w-full" disabled={busy || !passphrase}>
                 {busy ? t('vault.unlock.verifying') : t('vault.unlock.title')}
               </Button>
-              {quickAvailable && (
+              {pinSet && (
+                <button
+                  type="button"
+                  className="mx-auto block text-xs text-muted-foreground underline-offset-4 hover:underline"
+                  onClick={() => {
+                    setWithPassphrase(false)
+                    setError(undefined)
+                  }}
+                >
+                  {t('vault.unlock.backToPin')}
+                </button>
+              )}
+              {quickAvailable && !pinSet && (
                 <button
                   type="button"
                   className="mx-auto block text-xs text-muted-foreground underline-offset-4 hover:underline"

@@ -9,24 +9,35 @@ import { RestoreFromDrive } from '@/features/sync/ui/RestoreFromDrive'
 import { cn } from '@/lib/utils'
 import { useT } from '@/shared/i18n'
 
+import { biometricAvailable } from '../store/appLock'
 import { useVaultStore } from '../store/vaultStore'
 import { VaultFrame } from './VaultFrame'
 
 const MIN_LENGTH = 8
 
 type Mode = 'passphrase' | 'device'
+type OpenMode = 'none' | 'biometric' | 'passphrase'
 
 export function CreateVaultForm() {
   const t = useT()
   const createVault = useVaultStore((s) => s.create)
   const createDevice = useVaultStore((s) => s.createDevice)
+  const setAppLockNone = useVaultStore((s) => s.setAppLockNone)
+  const setAppLockBiometric = useVaultStore((s) => s.setAppLockBiometric)
   const [mode, setMode] = useState<Mode>('passphrase')
   const [passphrase, setPassphrase] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [remember, setRemember] = useState(true)
+  const [openMode, setOpenMode] = useState<OpenMode>('none')
   const [acknowledged, setAcknowledged] = useState(false)
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
+
+  // "Passphrase every time" only makes sense when there is a passphrase to ask for.
+  const openOptions: OpenMode[] = [
+    'none',
+    ...(biometricAvailable() ? (['biometric'] as const) : []),
+    ...(mode === 'passphrase' ? (['passphrase'] as const) : []),
+  ]
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -57,7 +68,9 @@ export function CreateVaultForm() {
     }
     setBusy(true)
     try {
-      await createVault(passphrase, { remember })
+      await createVault(passphrase, { remember: openMode !== 'passphrase' })
+      if (openMode === 'biometric') setAppLockBiometric()
+      else if (openMode === 'none') setAppLockNone()
     } catch (err) {
       setError(err instanceof Error ? err.message : t('vault.create.failed'))
       setBusy(false)
@@ -93,7 +106,10 @@ export function CreateVaultForm() {
                 'rounded-md px-3 py-1.5 transition-colors',
                 mode === 'device' ? 'bg-background shadow-sm' : 'text-muted-foreground',
               )}
-              onClick={() => setMode('device')}
+              onClick={() => {
+                setMode('device')
+                if (openMode === 'passphrase') setOpenMode('none')
+              }}
             >
               {t('vault.create.passwordless')}
             </button>
@@ -123,20 +139,6 @@ export function CreateVaultForm() {
                   />
                 </div>
                 {error && <p className="text-sm text-destructive">{error}</p>}
-                <div className="flex items-start gap-2.5 text-sm">
-                  <Checkbox
-                    aria-label={t('vault.create.remember')}
-                    checked={remember}
-                    onCheckedChange={(checked) => setRemember(checked === true)}
-                    className="mt-0.5"
-                  />
-                  <span>
-                    {t('vault.create.remember')}
-                    <span className="block text-xs text-muted-foreground">
-                      {t('vault.create.rememberHint')}
-                    </span>
-                  </span>
-                </div>
               </>
             ) : (
               <>
@@ -160,6 +162,56 @@ export function CreateVaultForm() {
                 </div>
               </>
             )}
+
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">{t('vault.create.openLabel')}</p>
+              <div
+                className="space-y-1"
+                role="radiogroup"
+                aria-label={t('vault.create.openLabel')}
+              >
+                {openOptions.map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={openMode === value}
+                    onClick={() => setOpenMode(value)}
+                    className={cn(
+                      'flex w-full items-start gap-2.5 rounded-lg border px-3 py-2 text-left text-sm transition-colors',
+                      openMode === value
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:bg-muted',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border',
+                        openMode === value ? 'border-primary' : 'border-muted-foreground/40',
+                      )}
+                    >
+                      {openMode === value && <span className="size-2 rounded-full bg-primary" />}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block font-medium">
+                        {value === 'none'
+                          ? t('vault.create.openNone')
+                          : value === 'biometric'
+                            ? t('vault.create.openBiometric')
+                            : t('vault.create.openPassphrase')}
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        {value === 'none'
+                          ? t('vault.create.openNoneHint')
+                          : value === 'biometric'
+                            ? t('vault.create.openBiometricHint')
+                            : t('vault.create.openPassphraseHint')}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <Button type="submit" className="w-full" disabled={busy}>
               {busy

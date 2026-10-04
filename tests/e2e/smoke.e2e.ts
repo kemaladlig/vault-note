@@ -74,13 +74,10 @@ test('boot splash: covers the cold boot, then hands over to the first screen', a
   // starts on it…
   await page.reload({ waitUntil: 'commit' })
   await expect(page.locator('#boot-splash')).toBeAttached()
-  // …and it is gone once the unlock screen is on display, so nothing can be covered by it.
-  await expect(page.getByRole('button', { name: 'Hızlı aç' })).toBeVisible()
-  await expect(page.locator('#boot-splash')).toHaveCount(0)
-
-  // And it must not swallow input on its way out.
-  await page.getByRole('button', { name: 'Hızlı aç' }).click()
+  // …and it is gone once the first screen is on display. The default open mode is "no lock",
+  // so the boot unlocks itself and hands over to the notes shell with no gate.
   await expect(page.getByRole('button', { name: 'Yeni not' })).toBeVisible()
+  await expect(page.locator('#boot-splash')).toHaveCount(0)
 })
 
 test('passwordless vault: create, lock, quick-unlock only', async ({ page }) => {
@@ -102,6 +99,89 @@ test('passwordless vault: create, lock, quick-unlock only', async ({ page }) => 
   await expect(page.getByRole('button', { name: 'Parolayla aç' })).toHaveCount(0)
   await page.getByRole('button', { name: 'Hızlı aç' }).click()
   await expect(page.getByRole('complementary').getByRole('button', { name: /cihaz-notu/ })).toBeVisible()
+})
+
+test('app lock: a PIN gates quick unlock on this device', async ({ page }) => {
+  await page.goto('/')
+  await page.getByLabel('Ana parola').fill(PASS)
+  await page.getByLabel('Parolayı doğrula').fill(PASS)
+  await page.getByRole('button', { name: 'Vault oluştur' }).click()
+  await expect(page.getByRole('button', { name: 'Yeni not' })).toBeVisible()
+
+  // Enable the PIN by choosing the PIN open-mode in Settings → Security.
+  await page.getByRole('button', { name: 'Uygulama menüsü' }).click()
+  await page.getByRole('menuitem', { name: 'Ayarlar' }).click()
+  await page.getByRole('button', { name: 'PIN', exact: true }).click()
+  const pinDialog = page.getByRole('dialog', { name: 'PIN ekle' })
+  await pinDialog.getByLabel('Yeni PIN', { exact: true }).fill('1234')
+  await pinDialog.getByLabel('Yeni PIN (tekrar)').fill('1234')
+  await pinDialog.getByRole('button', { name: 'PIN ekle' }).click()
+  await expect(page.getByRole('dialog', { name: 'PIN ekle' })).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog', { name: 'Ayarlar' })).toHaveCount(0)
+
+  // Lock: the PIN screen replaces quick unlock.
+  await page.getByRole('button', { name: 'Kilitle' }).click()
+  await expect(page.getByRole('button', { name: 'Aç', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Hızlı aç' })).toHaveCount(0)
+
+  // A wrong PIN is rejected and keeps the vault locked.
+  await page.getByLabel('PIN', { exact: true }).fill('9999')
+  await page.getByRole('button', { name: 'Aç', exact: true }).click()
+  await expect(page.getByText('PIN hatalı.')).toBeVisible()
+
+  // The correct PIN unlocks.
+  await page.getByLabel('PIN', { exact: true }).fill('1234')
+  await page.getByRole('button', { name: 'Aç', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Yeni not' })).toBeVisible()
+})
+
+test('open mode: "no lock" opens the boot directly, switching to PIN gates it', async ({ page }) => {
+  await page.goto('/')
+  await page.getByLabel('Ana parola').fill(PASS)
+  await page.getByLabel('Parolayı doğrula').fill(PASS)
+  // The default open mode is "no lock" and it is pre-selected at signup.
+  await expect(page.getByRole('radio', { name: 'Kilit yok' })).toHaveAttribute('aria-checked', 'true')
+  await page.getByRole('button', { name: 'Vault oluştur' }).click()
+  await expect(page.getByRole('button', { name: 'Yeni not' })).toBeVisible()
+
+  // A reload with "no lock" skips the gate entirely.
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Yeni not' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Hızlı aç' })).toHaveCount(0)
+
+  // Switch to PIN from Settings → Security.
+  await page.getByRole('button', { name: 'Uygulama menüsü' }).click()
+  await page.getByRole('menuitem', { name: 'Ayarlar' }).click()
+  await page.getByRole('button', { name: 'PIN', exact: true }).click()
+  const setDialog = page.getByRole('dialog', { name: 'PIN ekle' })
+  await setDialog.getByLabel('Yeni PIN', { exact: true }).fill('4321')
+  await setDialog.getByLabel('Yeni PIN (tekrar)').fill('4321')
+  await setDialog.getByRole('button', { name: 'PIN ekle' }).click()
+  await expect(setDialog).toHaveCount(0)
+  await page.keyboard.press('Escape')
+
+  // The boot now asks for the PIN before the shell.
+  await page.reload()
+  await expect(page.getByLabel('PIN', { exact: true })).toBeVisible()
+  await page.getByLabel('PIN', { exact: true }).fill('4321')
+  await page.getByRole('button', { name: 'Aç', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Yeni not' })).toBeVisible()
+
+  // Switch back to "no lock"; removing the PIN needs the current one.
+  await page.getByRole('button', { name: 'Uygulama menüsü' }).click()
+  await page.getByRole('menuitem', { name: 'Ayarlar' }).click()
+  await page.getByRole('button', { name: 'Kilit yok' }).click()
+  const removeDialog = page.getByRole('dialog', { name: "PIN'i kaldır" })
+  await removeDialog.getByLabel('Mevcut PIN', { exact: true }).fill('4321')
+  await removeDialog.getByRole('button', { name: "PIN'i kaldır" }).click()
+  await expect(removeDialog).toHaveCount(0)
+  await page.keyboard.press('Escape')
+
+  // And the boot opens directly again.
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Yeni not' })).toBeVisible()
+  await expect(page.getByLabel('PIN', { exact: true })).toHaveCount(0)
 })
 
 test('polish: tags, command palette, dark theme and export', async ({ page }) => {
@@ -379,9 +459,10 @@ test('i18n: switch language to English and persist across reload', async ({ page
   await expect(page.getByRole('button', { name: 'Yeni not' })).toHaveCount(0)
   await expect(page.locator('html')).toHaveAttribute('lang', 'en')
 
-  // Persisted: a reload lands on the quick-unlock screen in English.
+  // Persisted: the language survives, and with "no lock" the reload lands directly on the
+  // notes shell in English.
   await page.reload()
-  await expect(page.getByRole('button', { name: 'Quick unlock' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'New note' })).toBeVisible()
 })
 
 test('editor: markdown preview renders and returns to editing', async ({ page }) => {

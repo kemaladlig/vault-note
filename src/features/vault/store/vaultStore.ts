@@ -11,7 +11,16 @@ import {
   type VaultMode,
 } from '../crypto'
 import { verifyBiometric } from './biometric'
+import { getAppLockPref, setAppLockPref, type AppLockMode } from './appLock'
 import { clearDeviceKey } from './deviceKey'
+import {
+  changePin as changePinGate,
+  clearPin,
+  clearPinState,
+  hasPinGate,
+  setPin,
+  unlockWithPin as unlockWithPinGate,
+} from './pinGate'
 import { disableQuickUnlock, enableQuickUnlock, hasQuickUnlock, quickUnlock } from './quickUnlock'
 import { destroyVault, loadHeader, loadSettings, saveVault, type VaultSettings } from './vaultRepo'
 
@@ -30,6 +39,10 @@ interface VaultState {
   dek?: Bytes
   /** Whether this device can unlock without the passphrase. */
   quickUnlockAvailable: boolean
+  /** Whether quick unlock is additionally gated by a device-local PIN. */
+  pinSet: boolean
+  /** How the app opens on this device: none (auto), pin, or biometric (native). */
+  appLockMode: AppLockMode
   init: () => Promise<void>
   create: (passphrase: string, options?: RememberOptions) => Promise<void>
   /**
@@ -40,6 +53,20 @@ interface VaultState {
   unlock: (passphrase: string, options?: RememberOptions) => Promise<void>
   /** Unlock via the device-held key; no passphrase. */
   unlockWithDevice: () => Promise<void>
+  /** Unlock via the device-local PIN gate. */
+  unlockWithPin: (pin: string) => Promise<void>
+  /** Gate quick unlock with a PIN (vault must be unlocked). */
+  enablePin: (pin: string) => Promise<void>
+  /** Remove the PIN after verifying it. */
+  disablePin: (pin: string) => Promise<void>
+  /** Replace the PIN after verifying the current one. */
+  changePin: (current: string, next: string) => Promise<void>
+  /** Open directly on this device, no prompt (requires no PIN). */
+  setAppLockNone: () => void
+  /** Gate quick unlock behind the native biometric prompt. */
+  setAppLockBiometric: () => void
+  /** Enable plain device quick unlock right now (vault must be unlocked). */
+  enableQuickHere: () => Promise<void>
   /** Re-wrap the same DEK under a new passphrase. Notes are never re-encrypted. */
   changePassphrase: (current: string, next: string) => Promise<void>
   /** Adopt a vault header discovered on Drive (new-device setup). Lands in `locked`. */
@@ -60,30 +87,55 @@ let initToken = 0
 export const useVaultStore = create<VaultState>((set, get) => ({
   status: 'loading',
   quickUnlockAvailable: false,
+  pinSet: false,
+  appLockMode: 'none',
 
   init: async () => {
     // StrictMode double-invokes effects and `reset()` re-calls this. Token the call and never
     // downgrade a session the user has already unlocked while the (async) boot read was in flight.
     const token = ++initToken
-    const [header, settings, quick] = await Promise.all([
+    const [header, settings, quick, pin] = await Promise.all([
       loadHeader(),
       loadSettings(),
       hasQuickUnlock(),
+      hasPinGate(),
     ])
     if (token !== initToken || get().status === 'unlocked') return
+    const locked = Boolean(header && settings)
+    const appLockMode: AppLockMode = pin ? 'pin' : getAppLockPref()
     set({
       header,
       settings,
-      quickUnlockAvailable: quick,
-      status: header && settings ? 'locked' : 'uninitialized',
+      quickUnlockAvailable: quick || pin,
+      pinSet: pin,
+      appLockMode,
+      status: locked ? 'locked' : 'uninitialized',
     })
+    // "Open directly": no gate on this device, so skip the unlock screen on a cold boot. A manual
+    // lock stays locked for the session — this runs only from `init()`.
+    if (locked && quick && !pin && appLockMode === 'none') {
+      try {
+        const dek = await quickUnlock()
+        if (token === initToken && get().status === 'locked') set({ dek, status: 'unlocked' })
+      } catch {
+        // Device key missing/corrupt: leave the unlock screen up.
+      }
+    }
   },
 
   create: async (passphrase, options) => {
     const { header, dek } = await createVault(passphrase)
     const settings = await saveVault(header, 'passphrase')
     if (options?.remember !== false) await enableQuickUnlock(dek)
-    set({ header, settings, dek, status: 'unlocked', quickUnlockAvailable: await hasQuickUnlock() })
+    set({
+      header,
+      settings,
+      dek,
+      status: 'unlocked',
+      quickUnlockAvailable: await hasQuickUnlock(),
+      pinSet: false,
+      appLockMode: getAppLockPref(),
+    })
   },
 
   createDevice: async () => {
@@ -93,7 +145,15 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const { header, dek } = await createVault(throwaway)
     const settings = await saveVault(header, 'device')
     await enableQuickUnlock(dek)
-    set({ header, settings, dek, status: 'unlocked', quickUnlockAvailable: true })
+    set({
+      header,
+      settings,
+      dek,
+      status: 'unlocked',
+      quickUnlockAvailable: true,
+      pinSet: false,
+      appLockMode: getAppLockPref(),
+    })
   },
 
   unlock: async (passphrase, options) => {
@@ -102,14 +162,65 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const dek = await unlockVault(passphrase, header)
     if (options?.remember === true) await enableQuickUnlock(dek)
     if (options?.remember === false) await disableQuickUnlock()
-    set({ dek, status: 'unlocked', quickUnlockAvailable: await hasQuickUnlock() })
+    const [quick, pin] = await Promise.all([hasQuickUnlock(), hasPinGate()])
+    set({
+      dek,
+      status: 'unlocked',
+      quickUnlockAvailable: quick || pin,
+      pinSet: pin,
+      appLockMode: pin ? 'pin' : getAppLockPref(),
+    })
   },
 
   unlockWithDevice: async () => {
-    // Gate on the OS biometric prompt when available; throws on cancel/failure.
-    await verifyBiometric('VaultNote kilidini aç')
+    // Gate on the OS biometric prompt only when the device is set to biometric; "open directly"
+    // must not prompt.
+    if (get().appLockMode === 'biometric') await verifyBiometric('VaultNote kilidini aç')
     const dek = await quickUnlock()
     set({ dek, status: 'unlocked' })
+  },
+
+  unlockWithPin: async (pin) => {
+    const dek = await unlockWithPinGate(pin)
+    set({ dek, status: 'unlocked' })
+  },
+
+  enablePin: async (pin) => {
+    const { dek } = get()
+    if (!dek) throw new Error('Vault kilitli')
+    await setPin(pin, dek)
+    set({ pinSet: true, quickUnlockAvailable: true, appLockMode: 'pin' })
+  },
+
+  disablePin: async (pin) => {
+    await clearPin(pin)
+    const [quick, pinStill] = await Promise.all([hasQuickUnlock(), hasPinGate()])
+    set({
+      quickUnlockAvailable: quick || pinStill,
+      pinSet: pinStill,
+      appLockMode: pinStill ? 'pin' : getAppLockPref(),
+    })
+  },
+
+  changePin: async (current, next) => {
+    await changePinGate(current, next)
+  },
+
+  setAppLockNone: () => {
+    setAppLockPref('none')
+    set({ appLockMode: 'none' })
+  },
+
+  setAppLockBiometric: () => {
+    setAppLockPref('biometric')
+    set({ appLockMode: 'biometric' })
+  },
+
+  enableQuickHere: async () => {
+    const { dek } = get()
+    if (!dek) throw new Error('Vault kilitli')
+    await enableQuickUnlock(dek)
+    set({ quickUnlockAvailable: true })
   },
 
   changePassphrase: async (current, next) => {
@@ -126,14 +237,25 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     wipe(get().dek)
     // A restored vault has a different DEK than any quick-unlock was made for.
     await disableQuickUnlock()
+    await clearPinState()
     const settings = await saveVault(header, mode)
-    set({ header, settings, dek: undefined, status: 'locked', quickUnlockAvailable: false })
+    set({
+      header,
+      settings,
+      dek: undefined,
+      status: 'locked',
+      quickUnlockAvailable: false,
+      pinSet: false,
+      appLockMode: 'none',
+    })
   },
 
   forgetDevice: async () => {
     await disableQuickUnlock()
+    await clearPinState()
     await clearDeviceKey()
-    set({ quickUnlockAvailable: false })
+    setAppLockPref('none')
+    set({ quickUnlockAvailable: false, pinSet: false, appLockMode: 'none' })
   },
 
   lock: () => {
@@ -145,11 +267,13 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     wipe(get().dek)
     await destroyVault()
     await clearDeviceKey()
+    await clearPinState()
     set({
       header: undefined,
       settings: undefined,
       dek: undefined,
       quickUnlockAvailable: false,
+      pinSet: false,
       status: 'loading',
     })
     await get().init()

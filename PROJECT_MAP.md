@@ -52,7 +52,7 @@ src/
         Splash.tsx            brand screen for the vault-loading phase
         TopBar.tsx            brand, global search, sync, new note, lock, app menu
         CommandPalette.tsx    search + actions: note hits with match snippet, mobile search surface
-        SettingsDialog.tsx    theme, rekey, quick-unlock, sync, export/import, templates, reset
+        SettingsDialog.tsx    theme, rekey, app-open mode + PIN, sync, export/import, templates, reset
     vault/
       crypto/                cryptographic core (implemented, 11 tests)
         types.ts             Sealed, KdfParams, VaultHeader, CreatedVault
@@ -66,15 +66,18 @@ src/
         crypto.test.ts
       store/
         vaultRepo.ts         header/settings persistence in Dexie meta
-        vaultStore.ts        Zustand: lifecycle + quick-unlock state, DEK in RAM
+        vaultStore.ts        Zustand: lifecycle + quick-unlock state, app-open mode, DEK in RAM
         deviceKey.ts         device key: non-extractable (web) / OS secure store (native)
-        quickUnlock.ts       wrap/unwrap the DEK with the device key
+        quickUnlock.ts       wrap/unwrap the DEK with the device key (shared seal/open helpers)
+        appLock.ts           device-local open mode (none/biometric) preference; PIN lives in pinGate
+        pinGate.ts           optional PIN gate over the device blob + attempt throttling
         biometric.ts         native biometric gate (dynamic imports, no-op on web)
         vaultRepo.test.ts
       ui/
         VaultGate.tsx        routes app by vault lifecycle
         VaultFrame.tsx       shared branded stage for the auth screens
         CreateVaultForm.tsx, UnlockForm.tsx
+        PinDialog.tsx        set/change/remove the device-local unlock PIN
     notes/
       model.ts               DecryptedNote, NoteContent (incl. pinned/folderId/archived), NotesView
       search.ts              selectNotes: scope (view/folder subtree) + tag + Turkish-aware text
@@ -202,6 +205,20 @@ src/
   never loads the plugins). "Forget this device" deletes the sealed DEK and the device key.
   Restoring a drive vault disables it. The key is bound to the OS keystore, not to biometry —
   the prompt is an app-level gate on top of it.
+- **PIN gate (app lock):** an optional device-local gate layered on quick unlock. Enabling it
+  replaces the plain device blob with a copy sealed under a key derived from a 4–8 digit PIN
+  (`Argon2id`, fresh salt) in `meta['vault.quickUnlockPin']`, so recovering the DEK needs both
+  the device key and the PIN. It is a **convenience lock, never the encryption root** — a short
+  PIN alone would be offline-brute-forceable, so it never encrypts notes directly. Wrong attempts
+  throttle with exponential backoff (`meta['vault.pinAttempts']`). Never synced; dropped by
+  "Forget this device" and by restoring a Drive vault.
+- **App-open mode (device-local):** how the app opens on this device — `none` (open directly,
+  no prompt), `pin` (the gate above), or `biometric` (native, `biometric.ts`). The non-PIN half is
+  a device preference (`localStorage['vaultnote.appLock']`, `appLock.ts`); PIN presence is derived
+  from `hasPinGate()`. With `none`, `vaultStore.init()` **auto-unlocks on a cold boot** (no tap);
+  a manual **lock stays locked** for the session because the auto-open runs only from `init()`,
+  never from `lock()`. Chosen at signup (`CreateVaultForm`) and changeable in Settings; switching
+  off a PIN requires verifying it first, since that unwraps the device key.
 - **Passwordless mode (`device`):** the header is wrapped with a random throwaway passphrase we
   discard, and the DEK is reachable only via this device's quick-unlock key. No recovery, no
   cross-device: clearing site data loses the vault, and a Drive backup cannot be opened
@@ -212,8 +229,10 @@ src/
 
 ## Features (user-facing)
 
-- Vault lifecycle: create (passphrase or passwordless), unlock (passphrase, quick-unlock,
-  biometric on native), lock, reset, forget device.
+- Vault lifecycle: create (passphrase or passwordless) with a chosen **open mode** (no lock /
+  PIN / biometric on native), unlock (passphrase, quick-unlock, PIN, biometric on native), lock,
+  reset, forget device. "No lock" opens the boot directly, no gate. Settings → Security switches
+  the open mode at any time and can add/change/remove the app-lock **PIN**.
 - Notes: create/edit (debounced encrypted save), delete with confirmation, tags, search.
   The editor toggles a **sanitized Markdown preview** (rendered with `marked` + `DOMPurify`,
   loaded lazily; the body never leaves the device). The list is grouped by date

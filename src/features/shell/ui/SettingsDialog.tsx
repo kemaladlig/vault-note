@@ -1,4 +1,4 @@
-import { Check, CloudOff, Download, KeyRound, LayoutTemplate, Monitor, Moon, Pencil, ShieldCheck, Sun, Trash2, Upload } from 'lucide-react'
+import { Check, CloudOff, Download, KeyRound, LayoutTemplate, Lock, Monitor, Moon, Pencil, ShieldCheck, Sun, Trash2, Upload } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 
 import { Badge } from '@/components/ui/badge'
@@ -14,6 +14,8 @@ import { useTemplateStore } from '@/features/notes/store/templateStore'
 import type { NoteTemplate } from '@/features/notes/templates'
 import { useSyncStore } from '@/features/sync/store/syncStore'
 import { WrongPassphraseError } from '@/features/vault/crypto'
+import { PinDialog, type PinDialogMode } from '@/features/vault/ui/PinDialog'
+import { biometricAvailable, type AppLockMode } from '@/features/vault/store/appLock'
 import { useVaultStore } from '@/features/vault/store/vaultStore'
 import { useI18nStore, useT, LOCALES, type MessageKey } from '@/shared/i18n'
 import { cn } from '@/lib/utils'
@@ -69,7 +71,15 @@ export function SettingsDialog() {
 
   const vaultMode = useVaultStore((s) => s.settings?.mode)
   const quickAvailable = useVaultStore((s) => s.quickUnlockAvailable)
+  const pinSet = useVaultStore((s) => s.pinSet)
   const forgetDevice = useVaultStore((s) => s.forgetDevice)
+  const enablePin = useVaultStore((s) => s.enablePin)
+  const disablePin = useVaultStore((s) => s.disablePin)
+  const changePin = useVaultStore((s) => s.changePin)
+  const appLockMode = useVaultStore((s) => s.appLockMode)
+  const setAppLockNone = useVaultStore((s) => s.setAppLockNone)
+  const setAppLockBiometric = useVaultStore((s) => s.setAppLockBiometric)
+  const enableQuickHere = useVaultStore((s) => s.enableQuickHere)
   const changePassphrase = useVaultStore((s) => s.changePassphrase)
   const reset = useVaultStore((s) => s.reset)
 
@@ -96,6 +106,9 @@ export function SettingsDialog() {
   const [revisionLimit, setRevisionLimitState] = useState(() => getRevisionLimit())
   const [renameTarget, setRenameTarget] = useState<NoteTemplate | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<NoteTemplate | null>(null)
+  const [pinMode, setPinMode] = useState<PinDialogMode | null>(null)
+  /** Target mode to apply once the current PIN has been verified and removed. */
+  const [pendingLock, setPendingLock] = useState<'none' | 'biometric' | null>(null)
 
   const isDevice = vaultMode === 'device'
   const syncing = syncStatus === 'syncing'
@@ -108,6 +121,36 @@ export function SettingsDialog() {
     setConfirm('')
     setRekeyError(undefined)
     setConfirmReset(false)
+    setPendingLock(null)
+  }
+
+  /** Apply a no-PIN open mode, enabling device quick unlock first if it was off. */
+  async function applyLock(target: 'none' | 'biometric') {
+    if (!quickAvailable) {
+      try {
+        await enableQuickHere()
+      } catch (err) {
+        toast(err instanceof Error ? err.message : t('settings.appLockFailed'), 'error')
+        return
+      }
+    }
+    if (target === 'biometric') setAppLockBiometric()
+    else setAppLockNone()
+  }
+
+  async function chooseLock(target: AppLockMode) {
+    if (target === appLockMode) return
+    if (target === 'pin') {
+      if (!pinSet) setPinMode('set')
+      return
+    }
+    // Switching off the PIN needs the current PIN to unwrap the device key first.
+    if (pinSet) {
+      setPendingLock(target)
+      setPinMode('remove')
+      return
+    }
+    await applyLock(target)
   }
 
   async function onRetention(days: number) {
@@ -151,6 +194,23 @@ export function SettingsDialog() {
       )
     } finally {
       setRekeyBusy(false)
+    }
+  }
+
+  async function onPinSubmit({ current, next }: { current?: string; next?: string }) {
+    if (pinMode === 'set' && next) {
+      await enablePin(next)
+      toast(t('settings.pinAdded'), 'success')
+    } else if (pinMode === 'change' && current && next) {
+      await changePin(current, next)
+      toast(t('settings.pinChanged'), 'success')
+    } else if (pinMode === 'remove' && current) {
+      await disablePin(current)
+      toast(t('settings.pinRemoved'), 'success')
+      if (pendingLock) {
+        await applyLock(pendingLock)
+        setPendingLock(null)
+      }
     }
   }
 
@@ -253,6 +313,54 @@ export function SettingsDialog() {
                 </Button>
               )}
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm">
+              <Lock className="size-4 text-muted-foreground" />
+              <span>{t('settings.appLock')}</span>
+            </div>
+            <div
+              className={cn(
+                'grid gap-1 rounded-xl bg-muted p-1 text-sm',
+                biometricAvailable() ? 'grid-cols-3' : 'grid-cols-2',
+              )}
+            >
+              {(['none', 'pin', 'biometric'] as const)
+                .filter((value) => value !== 'biometric' || biometricAvailable())
+                .map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={appLockMode === value}
+                    onClick={() => void chooseLock(value)}
+                    className={cn(
+                      'rounded-lg px-3 py-1.5 transition-colors',
+                      appLockMode === value
+                        ? 'bg-background shadow-e1'
+                        : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    {value === 'none'
+                      ? t('settings.lockNone')
+                      : value === 'pin'
+                        ? t('settings.lockPin')
+                        : t('settings.lockBiometric')}
+                  </button>
+                ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {appLockMode === 'none'
+                ? t('settings.lockNoneNote')
+                : appLockMode === 'biometric'
+                  ? t('settings.lockBiometricNote')
+                  : t('settings.appLockDesc')}
+            </p>
+            {pinSet && (
+              <Button size="xs" variant="ghost" onClick={() => setPinMode('change')}>
+                {t('settings.pinChange')}
+              </Button>
+            )}
           </div>
 
           {isDevice ? (
@@ -514,6 +622,16 @@ export function SettingsDialog() {
             </Button>
           </>
         }
+      />
+
+      <PinDialog
+        open={pinMode !== null}
+        mode={pinMode ?? 'set'}
+        onClose={() => {
+          setPinMode(null)
+          setPendingLock(null)
+        }}
+        onSubmit={onPinSubmit}
       />
     </Modal>
   )
