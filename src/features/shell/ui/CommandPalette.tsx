@@ -10,7 +10,7 @@ import {
   Settings,
   Sun,
 } from 'lucide-react'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useDeferredValue, useMemo, useState, type ReactNode } from 'react'
 
 import { Kbd } from '@/components/ui/kbd'
 import { activeNotes, filterNotes, matchInfo } from '@/features/notes/search'
@@ -21,6 +21,7 @@ import { Highlight } from '@/features/notes/ui/Highlight'
 import { useSyncStore } from '@/features/sync/store/syncStore'
 import { useVaultStore } from '@/features/vault/store/vaultStore'
 import { cn } from '@/lib/utils'
+import { useExitMotion } from '@/shared/exitMotion'
 import { useT } from '@/shared/i18n'
 import { relativeTime } from '@/shared/time'
 import { useThemeStore } from '@/shared/theme'
@@ -42,15 +43,16 @@ interface Command {
 
 const MAX_NOTES = 6
 
-/** Ctrl/Cmd+K palette: quick actions plus note jump. Mounted only while open. */
+/** Ctrl/Cmd+K palette: quick actions plus note jump. Stays mounted through its exit animation. */
 export function CommandPalette() {
   const open = useShellStore((s) => s.commandOpen)
   const setOpen = useShellStore((s) => s.setCommandOpen)
-  if (!open) return null
-  return <Palette onClose={() => setOpen(false)} />
+  const { mounted, closing } = useExitMotion(open)
+  if (!mounted) return null
+  return <Palette closing={closing} onClose={() => setOpen(false)} />
 }
 
-function Palette({ onClose }: { onClose: () => void }) {
+function Palette({ onClose, closing = false }: { onClose: () => void; closing?: boolean }) {
   const t = useT()
   const setSettingsOpen = useShellStore((s) => s.setSettingsOpen)
   const setListOpen = useShellStore((s) => s.setListOpen)
@@ -70,6 +72,8 @@ function Palette({ onClose }: { onClose: () => void }) {
 
   const [term, setTerm] = useState('')
   const [active, setActive] = useState(0)
+  // Keep the input instant; the full-body scan runs on the deferred value.
+  const deferredTerm = useDeferredValue(term)
 
   const commands = useMemo<Command[]>(
     () => [
@@ -170,19 +174,19 @@ function Palette({ onClose }: { onClose: () => void }) {
     )
     const baseNotes = activeNotes(notes)
     // With a query, keep relevance ranking; when idle, show the user's list order.
-    const orderedNotes = term.trim()
-      ? filterNotes(baseNotes, term)
+    const orderedNotes = deferredTerm.trim()
+      ? filterNotes(baseNotes, deferredTerm)
       : sortNotes(baseNotes, sortBy, sortDir)
     const matchingNotes = orderedNotes
       .slice(0, MAX_NOTES)
       .map<Command>((note) => {
         const title = note.title || t('common.untitled')
-        const info = matchInfo(note, term)
+        const info = deferredTerm.trim() ? matchInfo(note, deferredTerm) : null
         return {
           id: `note:${note.id}`,
           label: title,
-          labelNode: <Highlight text={title} query={term} />,
-          detail: info?.snippet ? <Highlight text={info.snippet} query={term} /> : undefined,
+          labelNode: <Highlight text={title} query={deferredTerm} />,
+          detail: info?.snippet ? <Highlight text={info.snippet} query={deferredTerm} /> : undefined,
           hint: relativeTime(note.updatedAt),
           icon: <FileText />,
           group: t('shell.palette.groupNotes'),
@@ -195,7 +199,7 @@ function Palette({ onClose }: { onClose: () => void }) {
         }
       })
     return [...matchingCommands, ...matchingNotes]
-  }, [commands, needle, notes, onClose, select, setListOpen, setQuery, sortBy, sortDir, term, t])
+  }, [commands, deferredTerm, needle, notes, onClose, select, setListOpen, setQuery, sortBy, sortDir, term, t])
 
   const activeIndex = Math.min(active, Math.max(items.length - 1, 0))
 
@@ -205,7 +209,10 @@ function Palette({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-[var(--scrim)] p-3 pt-[7vh] animate-fade-in sm:p-4 sm:pt-[12vh]"
+      className={cn(
+        'fixed inset-0 z-50 flex items-start justify-center bg-[var(--scrim)] p-3 pt-[7vh] sm:p-4 sm:pt-[12vh]',
+        closing ? 'pointer-events-none animate-fade-out' : 'animate-fade-in',
+      )}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
@@ -214,7 +221,10 @@ function Palette({ onClose }: { onClose: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-label={t('shell.palette.aria')}
-        className="w-full max-w-xl overflow-hidden rounded-2xl border border-border/70 bg-popover text-popover-foreground shadow-pop animate-pop-in"
+        className={cn(
+          'w-full max-w-xl overflow-hidden rounded-2xl border border-border/70 bg-popover text-popover-foreground shadow-pop',
+          closing ? 'animate-pop-out' : 'animate-pop-in',
+        )}
       >
         <div className="flex items-center gap-2.5 border-b border-border/70 px-4">
           <Search className="size-4 shrink-0 text-muted-foreground" />
@@ -274,7 +284,7 @@ function Palette({ onClose }: { onClose: () => void }) {
                   >
                     <span
                       className={cn(
-                        'grid size-7 shrink-0 place-items-center rounded-md transition-all',
+                        'grid size-7 shrink-0 place-items-center rounded-md transition-[background-color,color,box-shadow]',
                         isActive
                           ? 'bg-surface text-accent-foreground shadow-e1'
                           : 'text-muted-foreground',

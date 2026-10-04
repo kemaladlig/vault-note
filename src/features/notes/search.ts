@@ -19,21 +19,72 @@ export function normalizeTr(value: string): string {
 
 /** Turkish-aware, case-insensitive haystack for one note (title + body + tags). */
 export function noteHaystack(note: DecryptedNote): string {
-  return normalizeTr(`${note.title}\n${note.body}\n${note.tags.join(' ')}`)
+  return normOf(note).haystack
 }
+
+/**
+ * Per-note normalized cache. Note objects in the store are replaced (never
+ * mutated) on edit, so a WeakMap keyed by object is always fresh and GCs
+ * itself when the note is replaced. This avoids re-running toLocaleLowerCase
+ * over long bodies on every keystroke while typing a query.
+ */
+interface NormEntry {
+  title: string
+  tags: string[]
+  body: string
+  haystack: string
+  /** Collapsed-whitespace body for snippets; built lazily (hits only). */
+  flat?: string
+  flatNorm?: string
+}
+
+const normCache = new WeakMap<DecryptedNote, NormEntry>()
+
+function normOf(note: DecryptedNote): NormEntry {
+  let entry = normCache.get(note)
+  if (!entry) {
+    const title = normalizeTr(note.title)
+    const tags = note.tags.map(normalizeTr)
+    const body = normalizeTr(note.body)
+    entry = { title, tags, body, haystack: `${title}\n${body}\n${tags.join(' ')}` }
+    normCache.set(note, entry)
+  }
+  return entry
+}
+
+function flatOf(note: DecryptedNote): { flat: string; flatNorm: string } {
+  const entry = normOf(note)
+  if (entry.flat === undefined || entry.flatNorm === undefined) {
+    const flat = note.body.replace(/\s+/g, ' ').trim()
+    entry.flat = flat
+    entry.flatNorm = normalizeTr(flat)
+  }
+  return { flat: entry.flat, flatNorm: entry.flatNorm }
+}
+
+/** Fuzzy matching only needs the head of long bodies; exact scan covers the rest. */
+const FUZZY_BODY_CHARS = 2000
+/** Enough literal hits means fuzzy would only add noise (and cost) — skip it. */
+const EXACT_SKIP_FUZZY = 25
+/** Bound expensive fuzzy work; exact matches are still unioned in full. */
+const FUZZY_LIMIT = 50
 
 const FUSE_OPTIONS: IFuseOptions<DecryptedNote> = {
   isCaseSensitive: false,
   ignoreDiacritics: true,
   includeScore: true,
-  includeMatches: true,
+  includeMatches: false,
   minMatchCharLength: 2,
   threshold: 0.4,
   ignoreLocation: true,
   keys: [
-    { name: 'title', weight: 2, getFn: (note: DecryptedNote) => normalizeTr(note.title) },
-    { name: 'tags', weight: 1.5, getFn: (note: DecryptedNote) => note.tags.map(normalizeTr) },
-    { name: 'body', weight: 1, getFn: (note: DecryptedNote) => normalizeTr(note.body) },
+    { name: 'title', weight: 2, getFn: (note: DecryptedNote) => normOf(note).title },
+    { name: 'tags', weight: 1.5, getFn: (note: DecryptedNote) => normOf(note).tags },
+    {
+      name: 'body',
+      weight: 1,
+      getFn: (note: DecryptedNote) => normOf(note).body.slice(0, FUZZY_BODY_CHARS),
+    },
   ],
 }
 
@@ -43,17 +94,22 @@ export function filterNotes(notes: DecryptedNote[], query: string): DecryptedNot
   if (!needle) return notes
   // Single chars are noisy for fuzzy matching — plain substring is predictable.
   if (needle.length < 2) {
-    return notes.filter((note) => noteHaystack(note).includes(needle))
+    return notes.filter((note) => normOf(note).haystack.includes(needle))
   }
+  // Cheap exact pass first (cached normalization, one indexOf per note).
+  const exact: DecryptedNote[] = []
+  for (const note of notes) {
+    if (normOf(note).haystack.includes(needle)) exact.push(note)
+  }
+  // Plenty of literal hits: fuzzy would only add noise at full cost — skip it.
+  if (exact.length >= EXACT_SKIP_FUZZY) return exact
   const fuse = new Fuse(notes, { ...FUSE_OPTIONS })
-  const hits = fuse.search(needle)
+  const hits = fuse.search(needle, { limit: FUZZY_LIMIT })
   const seen = new Set(hits.map((hit) => hit.item.id))
   const ranked = hits.map((hit) => hit.item)
   // Union with exact matches so Fuse can never hide a literal substring hit.
-  for (const note of notes) {
-    if (!seen.has(note.id) && noteHaystack(note).includes(needle)) {
-      ranked.push(note)
-    }
+  for (const note of exact) {
+    if (!seen.has(note.id)) ranked.push(note)
   }
   return ranked
 }
@@ -108,10 +164,10 @@ function windowBody(flat: string, matchIndex: number, matchLength: number): stri
 }
 
 /** Collapse whitespace and window the body text around the first needle occurrence. */
-function bodySnippet(body: string, needle: string): string {
-  const flat = body.replace(/\s+/g, ' ').trim()
+function bodySnippet(note: DecryptedNote, needle: string): string {
+  const { flat, flatNorm } = flatOf(note)
   if (!flat) return ''
-  const index = needle ? normalizeTr(flat).indexOf(needle) : -1
+  const index = needle ? flatNorm.indexOf(needle) : -1
   if (index === -1) return flat.slice(0, SNIPPET_BEFORE + SNIPPET_AFTER)
   return windowBody(flat, index, needle.length)
 }
@@ -120,39 +176,21 @@ function bodySnippet(body: string, needle: string): string {
 export function matchInfo(note: DecryptedNote, query: string): MatchInfo | null {
   const needle = normalizeTr(query.trim())
   if (!needle) return null
-  if (normalizeTr(note.title).includes(needle)) {
-    return { field: 'title', snippet: bodySnippet(note.body, needle) }
+  const norm = normOf(note)
+  if (norm.title.includes(needle)) {
+    return { field: 'title', snippet: bodySnippet(note, needle) }
   }
-  if (note.tags.some((tag) => normalizeTr(tag).includes(needle))) {
-    return { field: 'tags', snippet: bodySnippet(note.body, needle) }
+  if (norm.tags.some((tag) => tag.includes(needle))) {
+    return { field: 'tags', snippet: bodySnippet(note, needle) }
   }
-  const flatBody = note.body.replace(/\s+/g, ' ').trim()
-  const bodyIndex = normalizeTr(flatBody).indexOf(needle)
+  const { flat, flatNorm } = flatOf(note)
+  const bodyIndex = flat ? flatNorm.indexOf(needle) : -1
   if (bodyIndex !== -1) {
-    return { field: 'body', snippet: windowBody(flatBody, bodyIndex, needle.length) }
+    return { field: 'body', snippet: windowBody(flat, bodyIndex, needle.length) }
   }
-  // No literal hit — ask Fuse whether this note fuzzy-matches, so the list
-  // and palette still show a snippet instead of falling back to a preview.
-  if (needle.length < 2) return null
-  const fuse = new Fuse([note], { ...FUSE_OPTIONS })
-  const hits = fuse.search(needle)
-  if (hits.length === 0) return null
-  const keys = new Set((hits[0].matches ?? []).map((match) => match.key))
-  const field: MatchInfo['field'] = keys.has('title')
-    ? 'title'
-    : keys.has('tags')
-      ? 'tags'
-      : 'body'
-  if (field !== 'body') {
-    return { field, snippet: bodySnippet(note.body, '') }
-  }
-  const bodyMatch = (hits[0].matches ?? []).find((match) => match.key === 'body')
-  const first = bodyMatch?.indices?.[0]
-  if (first) {
-    const [start, end] = first
-    return { field, snippet: windowBody(flatBody, start, end - start + 1) }
-  }
-  return { field, snippet: bodySnippet(note.body, '') }
+  // No literal hit: no per-note fuzzy fallback here. It cost a Fuse instance
+  // per rendered row; the list falls back to the body preview instead.
+  return null
 }
 
 /** Notes that can appear in search/jump surfaces (excludes archive + trash). */

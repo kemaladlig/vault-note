@@ -13,7 +13,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useDeferredValue, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Menu, type MenuItem } from '@/components/ui/menu'
@@ -176,9 +176,12 @@ export function NotesShell() {
     [folderId, folders],
   )
 
+  // Typing stays instant (the input is the store query); the expensive
+  // full-body scan runs on the deferred value so keystrokes never block.
+  const deferredQuery = useDeferredValue(query)
   const filtered = useMemo(
-    () => selectNotes(notes, { query, tag: tagFilter, view, folderIds }),
-    [notes, query, tagFilter, view, folderIds],
+    () => selectNotes(notes, { query: deferredQuery, tag: tagFilter, view, folderIds }),
+    [notes, deferredQuery, tagFilter, view, folderIds],
   )
   const sorted = useMemo(
     () => sortNotes(filtered, sortBy, sortDir),
@@ -187,8 +190,8 @@ export function NotesShell() {
   const groupField = groupFieldFor(sortBy)
   const selected = notes.find((note) => note.id === selectedId)
   const splitNote = notes.find((note) => note.id === splitId && note.id !== selectedId)
-  const searching = query.trim().length > 0
-  const filtering = searching || Boolean(tagFilter)
+  const deferredSearching = deferredQuery.trim().length > 0
+  const filtering = query.trim().length > 0 || Boolean(tagFilter)
   // Mobile: with no note selected (empty view, closed tabs…) the list is always the surface.
   const showList = listOpen || !selected
 
@@ -259,7 +262,7 @@ export function NotesShell() {
       <aside
         aria-label={t('notes.shell.nav')}
         className={cn(
-          'absolute inset-y-0 left-0 z-40 w-[min(280px,85vw)] shrink-0 flex-col border-r border-border/70 bg-sidebar shadow-e3 transition-transform duration-300 ease-[var(--ease-emphasized)]',
+          'absolute inset-y-0 left-0 z-40 w-[min(280px,85vw)] shrink-0 flex-col border-r border-border/70 bg-sidebar shadow-e3 transition-transform duration-[var(--duration-slow)] ease-[var(--ease-emphasized)]',
           'xl:static xl:z-auto xl:w-[280px] xl:translate-x-0 xl:shadow-none',
           navOpen ? 'translate-x-0' : '-translate-x-full',
         )}
@@ -283,6 +286,8 @@ export function NotesShell() {
       </aside>
 
       <aside
+        data-pane="list"
+        data-visible={showList}
         className={cn(
           'w-full shrink-0 flex-col bg-surface md:w-80 xl:w-[340px]',
           showList ? 'flex' : 'hidden md:flex',
@@ -319,8 +324,8 @@ export function NotesShell() {
               <>
                 <span className="flex-1 truncate">
                   {tagFilter ? `#${tagFilter}` : ''}
-                  {tagFilter && searching ? ' · ' : ''}
-                  {searching ? `“${query.trim()}”` : ''}
+                  {tagFilter && query.trim() ? ' · ' : ''}
+                  {query.trim() ? `“${query.trim()}”` : ''}
                 </span>
                 <button
                   type="button"
@@ -353,7 +358,7 @@ export function NotesShell() {
               notes={sorted}
               selectedId={selectedId}
               onSelect={onSelect}
-              query={query}
+              query={deferredQuery}
               view={view}
               groupPinned={view === 'all' && !folderId}
               grouped={groupField !== null}
@@ -369,6 +374,8 @@ export function NotesShell() {
       </aside>
 
       <section
+        data-pane="editor"
+        data-visible={!showList}
         className={cn(
           'min-w-0 flex-1 flex-col border-l border-border/70 bg-surface',
           showList ? 'hidden md:flex' : 'flex',
@@ -381,7 +388,7 @@ export function NotesShell() {
               <NoteEditor
                 key={selected.id}
                 note={selected}
-                initialSearch={searching ? query.trim() : undefined}
+                initialSearch={deferredSearching ? deferredQuery.trim() : undefined}
                 onBack={() => setListOpen(true)}
               />
             ) : (
@@ -428,7 +435,7 @@ export function NotesShell() {
             void create()
             setListOpen(false)
           }}
-          className="absolute right-5 bottom-[max(env(safe-area-inset-bottom),1.25rem)] z-20 grid size-14 place-items-center rounded-2xl bg-[image:linear-gradient(180deg,var(--brand-from),var(--brand-to))] text-primary-foreground shadow-glow transition-transform duration-200 animate-pop-in hover:scale-105 active:scale-95 md:hidden"
+          className="absolute right-5 bottom-[max(env(safe-area-inset-bottom),1.25rem)] z-20 grid size-14 place-items-center rounded-2xl bg-[image:linear-gradient(180deg,var(--brand-from),var(--brand-to))] text-primary-foreground shadow-glow transition-transform duration-[var(--duration-base)] animate-pop-in hover:scale-105 active:scale-95 md:hidden"
         >
           <Plus className="size-6" />
         </button>
