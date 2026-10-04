@@ -12,11 +12,14 @@ export interface VaultNoteIconProps extends ImgHTMLAttributes<HTMLImageElement> 
 export function VaultNoteIcon({ className, alt = 'VaultNote', size, ...props }: VaultNoteIconProps) {
   return (
     <img
-      src="/vaultnote-icon.png"
+      src="/pwa-192.png"
       alt={alt}
       width={size}
       height={size}
-      className={cn('size-8 rounded-[10px] shadow-e1 select-none object-cover', className)}
+      className={cn(
+        'size-8 rounded-md shadow-e1 ring-1 ring-foreground/10 select-none',
+        className,
+      )}
       {...props}
     />
   )

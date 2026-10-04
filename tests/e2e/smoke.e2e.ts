@@ -709,3 +709,37 @@ test('history: restore an earlier version of a note', async ({ page }) => {
   await dialog.getByRole('button', { name: 'Bu sürümü geri yükle' }).click()
   await expect(page.locator('.cm-content')).toContainText('ilk sürüm')
 })
+
+test('install: the top bar offers install when the browser allows it', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Parolasız' }).click()
+  await page.getByRole('checkbox', { name: 'Riski anladım' }).click()
+  await page.getByRole('button', { name: 'Parolasız oluştur' }).click()
+  await expect(page.getByRole('button', { name: 'Yeni not' })).toBeVisible()
+
+  // No install affordance until the browser fires beforeinstallprompt.
+  await expect(page.getByRole('button', { name: 'Uygulamayı yükle' })).toHaveCount(0)
+
+  await page.evaluate(() => {
+    ;(window as unknown as { __installPrompted: boolean }).__installPrompted = false
+    const event = new Event('beforeinstallprompt')
+    Object.assign(event, {
+      prompt: () => {
+        ;(window as unknown as { __installPrompted: boolean }).__installPrompted = true
+        return Promise.resolve()
+      },
+      userChoice: Promise.resolve({ outcome: 'accepted', platform: 'web' }),
+    })
+    window.dispatchEvent(event)
+  })
+
+  const install = page.getByRole('button', { name: 'Uygulamayı yükle' })
+  await expect(install).toBeVisible()
+  await install.click()
+
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { __installPrompted: boolean }).__installPrompted))
+    .toBe(true)
+  // A single-use prompt is consumed, so the affordance disappears.
+  await expect(page.getByRole('button', { name: 'Uygulamayı yükle' })).toHaveCount(0)
+})

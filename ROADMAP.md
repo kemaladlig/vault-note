@@ -16,7 +16,7 @@ questioned before starting.
 Two independent hardening tasks. Do the risky one first.
 
 **1A · PWA + offline shell** — DONE (manifest, Workbox SW, icons, theme-color)
-- `public/manifest.webmanifest` (name, icons from `vaultnote-icon.svg/png`, theme/background
+- `public/manifest.webmanifest` (name, icons generated from `vaultnote-icon.png`, theme/background
   from the `--shell-from`/`--shell-to` tokens, `display: standalone`), link it + `theme-color`
   in `index.html`.
 - Service worker via `vite-plugin-pwa` (Vite 8 compatible) for app-shell + asset caching.

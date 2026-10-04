@@ -208,6 +208,7 @@ export const tr = {
   'shell.syncNoClient': 'Google istemci kimliği tanımlı değil',
   'shell.newNote': 'Yeni not',
   'shell.lock': 'Kilitle',
+  'shell.install': 'Uygulamayı yükle',
   'shell.appMenu': 'Uygulama menüsü',
 
   // Command palette
@@ -557,6 +558,7 @@ export const en: Record<MessageKey, string> = {
   'shell.syncNoClient': 'Google client id not configured',
   'shell.newNote': 'New note',
   'shell.lock': 'Lock',
+  'shell.install': 'Install app',
   'shell.appMenu': 'App menu',
 
   'shell.palette.aria': 'Command palette',

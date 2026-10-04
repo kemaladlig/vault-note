@@ -392,9 +392,13 @@ src/
 - Precaching covers only built same-origin assets (js/css/html/svg/png/woff). Drive and
   Google auth origins are explicit `NetworkOnly` rules, so the service worker never caches
   ciphertext or API traffic; offline data stays the app's concern, not the SW's.
-- Icons: `public/pwa-192.png`, `public/pwa-512.png` (any) and `public/pwa-maskable-512.png`
-  (maskable, full-bleed dark) are generated from `public/vaultnote-icon.png`. Regenerate
-  them when the brand mark changes.
+- Icons are generated from the master `public/vaultnote-icon.png` (1024px, transparent corners):
+  `pwa-192.png` / `pwa-512.png` (any), `pwa-maskable-512.png` (maskable, full-bleed dark),
+  `apple-touch-icon.png`, and `favicon-32.png`. Regenerate them with `pwsh scripts/gen-icons.ps1`
+  when the brand mark changes; the master is a regeneration source and is excluded from the
+  service-worker precache (`globIgnores` in `vite.config.ts`).
+- While the browser offers `beforeinstallprompt`, the top bar shows an install button (plus a
+  matching app-menu entry). See `src/shared/pwaInstall.ts`.
 - Browser chrome tint comes from two `<meta name="theme-color">` entries in `index.html`
   (light/dark), mirroring `--background`.
 

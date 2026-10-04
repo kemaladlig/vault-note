@@ -14,7 +14,7 @@ export default defineConfig({
     // same-origin assets; Drive/OAuth traffic is explicitly network-only (never cached).
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'vaultnote-icon.png'],
+      includeAssets: ['favicon-32.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'VaultNote',
         short_name: 'VaultNote',
@@ -38,6 +38,9 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
+        // The 1024px master is a regeneration source, not a runtime asset; keep it out of the
+        // install payload.
+        globIgnores: ['**/vaultnote-icon.png'],
         navigateFallback: '/index.html',
         runtimeCaching: [
           // Ciphertext may be cached by the app, never by the SW: API/auth stay live.

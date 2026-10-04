@@ -1,6 +1,7 @@
 import {
   Cloud,
   CloudOff,
+  Download,
   Lock,
   Monitor,
   Moon,
@@ -21,6 +22,7 @@ import { useSyncStore } from '@/features/sync/store/syncStore'
 import { useVaultStore } from '@/features/vault/store/vaultStore'
 import { cn } from '@/lib/utils'
 import { useT } from '@/shared/i18n'
+import { promptInstall, useCanInstall } from '@/shared/pwaInstall'
 import { useThemeStore } from '@/shared/theme'
 
 import { useShellStore } from '../store/shellStore'
@@ -47,9 +49,17 @@ export function TopBar() {
   const mode = useThemeStore((s) => s.mode)
   const setMode = useThemeStore((s) => s.setMode)
 
+  const canInstall = useCanInstall()
+
   const syncing = syncStatus === 'syncing'
 
   const menuItems: MenuItem[] = [
+    ...(canInstall
+      ? ([
+          { label: t('shell.install'), icon: <Download />, onSelect: () => void promptInstall() },
+          { type: 'separator' },
+        ] satisfies MenuItem[])
+      : []),
     { label: t('shell.settings'), icon: <Settings />, onSelect: () => setSettingsOpen(true) },
     { type: 'separator' },
     {
@@ -172,6 +182,19 @@ export function TopBar() {
           <Plus className="size-4" />
           <span className="hidden md:inline">{t('shell.newNote')}</span>
         </Button>
+
+        {canInstall && (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            className="bg-surface/70 text-primary backdrop-blur-sm hover:bg-surface"
+            aria-label={t('shell.install')}
+            title={t('shell.install')}
+            onClick={() => void promptInstall()}
+          >
+            <Download />
+          </Button>
+        )}
 
         <Button
           size="icon-sm"
