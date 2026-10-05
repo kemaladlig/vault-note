@@ -122,6 +122,11 @@ function trPattern(term: string): string {
 }
 
 /** Build the active query for a term, or null when the term is empty (clears). */
+function centerSelection(view: EditorView): void {
+  const head = view.state.selection.main.head
+  view.dispatch({ effects: EditorView.scrollIntoView(head, { y: 'center', yMargin: 80 }) })
+}
+
 function queryFor(term: string): SearchQuery | null {
   if (!term) return null
   return new SearchQuery({ search: trPattern(term), caseSensitive: false, regexp: true })
@@ -379,12 +384,19 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
       view.dispatch({ effects: setSearchQuery.of(query) })
       matchRef.current?.(countMatches(view.state, query))
       cmFindNext(view)
+      centerSelection(view)
     },
     findNext: () => {
-      if (viewRef.current) cmFindNext(viewRef.current)
+      const view = viewRef.current
+      if (!view) return
+      cmFindNext(view)
+      centerSelection(view)
     },
     findPrevious: () => {
-      if (viewRef.current) cmFindPrevious(viewRef.current)
+      const view = viewRef.current
+      if (!view) return
+      cmFindPrevious(view)
+      centerSelection(view)
     },
     format: (action) => {
       const view = viewRef.current
@@ -464,6 +476,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
         view.dispatch({ effects: setSearchQuery.of(query) })
         matchRef.current?.(countMatches(view.state, query))
         cmFindNext(view)
+        centerSelection(view)
       }
     }
     return () => {
