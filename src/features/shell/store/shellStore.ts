@@ -1,11 +1,19 @@
 import { create } from 'zustand'
 
-const PANELS_KEY = 'vaultnote.panelsHidden'
+const PANELS_KEY = 'vaultnote.panelMode'
+const LEGACY_PANELS_KEY = 'vaultnote.panelsHidden'
+
+/** Desktop layout: both panes, nav folded away, or editor only. Cycled in this order. */
+export type PanelMode = 'full' | 'list' | 'editor'
+const PANEL_ORDER: readonly PanelMode[] = ['full', 'list', 'editor']
 
 /** Desktop pane collapse is kept across sessions; mobile uses the drawer flags instead. */
-function readPanelsHidden(): boolean {
-  if (typeof localStorage === 'undefined') return false
-  return localStorage.getItem(PANELS_KEY) === '1'
+function readPanelMode(): PanelMode {
+  if (typeof localStorage === 'undefined') return 'full'
+  const value = localStorage.getItem(PANELS_KEY)
+  if (value === 'full' || value === 'list' || value === 'editor') return value
+  // Pre-mode builds stored a boolean collapse; that maps to editor-only.
+  return localStorage.getItem(LEGACY_PANELS_KEY) === '1' ? 'editor' : 'full'
 }
 
 /** App-chrome state: which overlays are open, the mobile pane, and the split editor. */
@@ -20,8 +28,8 @@ interface ShellState {
   listOpen: boolean
   /** Below xl: the navigation sidebar renders as an overlay drawer when true. */
   navOpen: boolean
-  /** Desktop: nav + note-list panes collapsed to the editor only. Persisted. */
-  panelsHidden: boolean
+  /** Desktop: which panes are shown; Ctrl+B cycles full → list → editor. Persisted. */
+  panelMode: PanelMode
   /** Desktop split view: the note shown in the secondary pane, if any. */
   splitId?: string
   setCommandOpen: (open: boolean) => void
@@ -30,8 +38,8 @@ interface ShellState {
   setImportOpen: (open: boolean) => void
   setListOpen: (open: boolean) => void
   setNavOpen: (open: boolean) => void
-  setPanelsHidden: (hidden: boolean) => void
-  togglePanels: () => void
+  setPanelMode: (mode: PanelMode) => void
+  cyclePanels: () => void
   setSplitId: (id?: string) => void
 }
 
@@ -42,7 +50,7 @@ export const useShellStore = create<ShellState>((set) => ({
   importOpen: false,
   listOpen: true,
   navOpen: false,
-  panelsHidden: readPanelsHidden(),
+  panelMode: readPanelMode(),
   splitId: undefined,
   setCommandOpen: (commandOpen) => set({ commandOpen }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
@@ -50,13 +58,15 @@ export const useShellStore = create<ShellState>((set) => ({
   setImportOpen: (importOpen) => set({ importOpen }),
   setListOpen: (listOpen) => set({ listOpen }),
   setNavOpen: (navOpen) => set({ navOpen }),
-  setPanelsHidden: (panelsHidden) => {
-    localStorage.setItem(PANELS_KEY, panelsHidden ? '1' : '0')
-    set({ panelsHidden })
+  setPanelMode: (panelMode) => {
+    localStorage.setItem(PANELS_KEY, panelMode)
+    localStorage.removeItem(LEGACY_PANELS_KEY)
+    set({ panelMode })
   },
-  togglePanels: () => {
-    const { panelsHidden, setPanelsHidden } = useShellStore.getState()
-    setPanelsHidden(!panelsHidden)
+  cyclePanels: () => {
+    const { panelMode, setPanelMode } = useShellStore.getState()
+    const next = PANEL_ORDER[(PANEL_ORDER.indexOf(panelMode) + 1) % PANEL_ORDER.length]
+    setPanelMode(next)
   },
   setSplitId: (splitId) => set({ splitId }),
 }))

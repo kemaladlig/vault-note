@@ -5,6 +5,7 @@ import {
   Lock,
   Monitor,
   Moon,
+  PanelLeft,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
@@ -20,7 +21,6 @@ import { Input } from '@/components/ui/input'
 import { Kbd } from '@/components/ui/kbd'
 import { Menu, type MenuItem } from '@/components/ui/menu'
 import { Modal } from '@/components/ui/modal'
-import { Spinner } from '@/components/ui/spinner'
 import { VaultNoteIcon } from '@/components/ui/vault-note-icon'
 import { useNotesStore } from '@/features/notes/store/notesStore'
 import { useSyncStore } from '@/features/sync/store/syncStore'
@@ -46,8 +46,8 @@ export function TopBar() {
   const setCommandOpen = useShellStore((s) => s.setCommandOpen)
   const setSettingsOpen = useShellStore((s) => s.setSettingsOpen)
   const setListOpen = useShellStore((s) => s.setListOpen)
-  const panelsHidden = useShellStore((s) => s.panelsHidden)
-  const togglePanels = useShellStore((s) => s.togglePanels)
+  const panelMode = useShellStore((s) => s.panelMode)
+  const cyclePanels = useShellStore((s) => s.cyclePanels)
 
   const syncStatus = useSyncStore((s) => s.status)
   const configured = useSyncStore((s) => s.configured)
@@ -67,6 +67,14 @@ export function TopBar() {
 
   const syncing = syncStatus === 'syncing'
   const searchInputRef = useRef<HTMLInputElement>(null)
+
+  const panelLabel = t(
+    panelMode === 'full'
+      ? 'shell.panels.hideNav'
+      : panelMode === 'list'
+        ? 'shell.panels.hideList'
+        : 'shell.panels.show',
+  )
 
   const menuItems: MenuItem[] = [
     ...(canInstall
@@ -108,9 +116,7 @@ export function TopBar() {
     }
   }
 
-  const syncIcon = syncing ? (
-    <Spinner />
-  ) : syncError ? (
+  const syncIcon = syncError ? (
     <CloudOff className="size-4 text-destructive" />
   ) : (
     <Cloud className="size-4" />
@@ -133,16 +139,23 @@ export function TopBar() {
             Vault<span className="text-primary">Note</span>
           </span>
         </div>
+        {/* One button, three states: hides the nav, then the list, then returns
+            everything at once. The label always names what the next press does. */}
         <Button
           size="icon-sm"
           variant="ghost"
           className="ml-1 hidden bg-transparent text-muted-foreground hover:bg-surface/70 md:inline-flex"
-          aria-label={t(panelsHidden ? 'shell.panels.show' : 'shell.panels.hide')}
-          title={t(panelsHidden ? 'shell.panels.show' : 'shell.panels.hide') + ' (Ctrl+B)'}
-          aria-pressed={!panelsHidden}
-          onClick={togglePanels}
+          aria-label={panelLabel}
+          title={`${panelLabel} (Ctrl+B)`}
+          onClick={cyclePanels}
         >
-          {panelsHidden ? <PanelLeftOpen /> : <PanelLeftClose />}
+          {panelMode === 'editor' ? (
+            <PanelLeftOpen />
+          ) : panelMode === 'list' ? (
+            <PanelLeft />
+          ) : (
+            <PanelLeftClose />
+          )}
         </Button>
       </div>
 
@@ -205,8 +218,12 @@ export function TopBar() {
         <Button
           size="sm"
           variant="ghost"
-          className="hidden gap-1.5 rounded-full border border-border/60 bg-surface/70 px-3 shadow-e1 backdrop-blur-sm transition-shadow hover:shadow-e2 sm:inline-flex"
+          className={cn(
+            'hidden gap-1.5 rounded-full border border-border/60 bg-surface/70 px-3 shadow-e1 backdrop-blur-sm transition-shadow hover:shadow-e2 sm:inline-flex',
+            syncing && 'ring-sync',
+          )}
           aria-label={t('shell.syncAria')}
+          aria-busy={syncing}
           title={syncTitle}
           disabled={!configured || syncing}
           onClick={() => void sync()}
@@ -217,15 +234,16 @@ export function TopBar() {
             aria-hidden
             className={cn(
               'hidden size-1.5 rounded-full md:block',
-              syncing ? 'animate-pulse bg-primary' : syncError || lastConflicts > 0 ? 'bg-destructive' : pending > 0 ? 'bg-amber-500' : 'bg-success/70',
+              syncError || lastConflicts > 0 ? 'bg-destructive' : pending > 0 ? 'bg-amber-500' : 'bg-success/70',
             )}
           />
         </Button>
         <Button
           size="icon-sm"
           variant="ghost"
-          className="bg-surface/70 backdrop-blur-sm sm:hidden"
+          className={cn('bg-surface/70 backdrop-blur-sm sm:hidden', syncing && 'ring-sync')}
           aria-label={t('shell.syncAria')}
+          aria-busy={syncing}
           title={syncTitle}
           disabled={!configured || syncing}
           onClick={() => void sync()}

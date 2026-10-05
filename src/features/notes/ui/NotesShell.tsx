@@ -157,7 +157,7 @@ export function NotesShell() {
   const setListOpen = useShellStore((s) => s.setListOpen)
   const navOpen = useShellStore((s) => s.navOpen)
   const setNavOpen = useShellStore((s) => s.setNavOpen)
-  const panelsHidden = useShellStore((s) => s.panelsHidden)
+  const panelMode = useShellStore((s) => s.panelMode)
   const splitId = useShellStore((s) => s.splitId)
   const setSplitId = useShellStore((s) => s.setSplitId)
 
@@ -269,10 +269,13 @@ export function NotesShell() {
       <aside
         aria-label={t('notes.shell.nav')}
         className={cn(
-          'absolute inset-y-0 left-0 z-40 w-[min(280px,85vw)] shrink-0 flex-col border-r border-border/70 bg-sidebar shadow-e3 transition-transform duration-[var(--duration-slow)] ease-[var(--ease-emphasized)]',
-          'xl:static xl:z-auto xl:w-[280px] xl:translate-x-0 xl:shadow-none',
+          'absolute inset-y-0 left-0 z-40 flex w-[min(280px,85vw)] shrink-0 flex-col border-r border-border/70 bg-sidebar shadow-e3 transition-[transform,opacity] duration-[var(--duration-base)] ease-[var(--ease-emphasized)]',
+          'xl:relative xl:w-[280px] xl:translate-x-0 xl:shadow-none',
           navOpen ? 'translate-x-0' : '-translate-x-full',
-          panelsHidden && 'xl:hidden',
+          // Material exit: the layout slot collapses in one frame (base
+          // `absolute` returns) while the pane fades out on its slide — the
+          // dissolve reads as "leaving", not as a sheet floating over content.
+          panelMode !== 'full' && 'xl:absolute xl:-translate-x-full xl:opacity-0 xl:pointer-events-none xl:shadow-e3',
         )}
       >
         <header className="flex h-12 shrink-0 items-center justify-between border-b border-border/70 px-3 xl:hidden">
@@ -297,11 +300,14 @@ export function NotesShell() {
         data-pane="list"
         data-visible={showList}
         className={cn(
-          'w-full shrink-0 flex-col bg-surface md:w-80 xl:w-[340px]',
-          panelsHidden
+          'w-full shrink-0 flex-col bg-surface transition-[transform,opacity] duration-[var(--duration-base)] ease-[var(--ease-emphasized)] md:w-80 xl:w-[340px]',
+          // The list uses the same Material exit as the nav — fade out while
+          // sliding left under it (lower z). Below md the two are still
+          // discrete surfaces, so the collapse rules only bite from md up.
+          panelMode === 'editor'
             ? showList
-              ? 'flex md:hidden'
-              : 'hidden'
+              ? 'flex md:absolute md:inset-y-0 md:left-0 md:z-20 md:-translate-x-full md:opacity-0 md:pointer-events-none'
+              : 'hidden md:flex md:absolute md:inset-y-0 md:left-0 md:z-20 md:-translate-x-full md:opacity-0 md:pointer-events-none'
             : showList
               ? 'flex'
               : 'hidden md:flex',

@@ -5,6 +5,7 @@ import {
   Lock,
   Monitor,
   Moon,
+  PanelLeft,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
@@ -60,8 +61,8 @@ function Palette({ onClose, closing = false }: { onClose: () => void; closing?: 
   const t = useT()
   const setSettingsOpen = useShellStore((s) => s.setSettingsOpen)
   const setListOpen = useShellStore((s) => s.setListOpen)
-  const panelsHidden = useShellStore((s) => s.panelsHidden)
-  const togglePanels = useShellStore((s) => s.togglePanels)
+  const panelMode = useShellStore((s) => s.panelMode)
+  const cyclePanels = useShellStore((s) => s.cyclePanels)
 
   const notes = useNotesStore((s) => s.notes)
   const select = useNotesStore((s) => s.select)
@@ -123,12 +124,25 @@ function Palette({ onClose, closing = false }: { onClose: () => void; closing?: 
         : []),
       {
         id: 'panels',
-        label: t(panelsHidden ? 'shell.panels.show' : 'shell.panels.hide'),
+        label: t(
+          panelMode === 'full'
+            ? 'shell.panels.hideNav'
+            : panelMode === 'list'
+              ? 'shell.panels.hideList'
+              : 'shell.panels.show',
+        ),
         hint: t('shell.panels.hint'),
-        icon: panelsHidden ? <PanelLeftOpen /> : <PanelLeftClose />,
+        icon:
+          panelMode === 'editor' ? (
+            <PanelLeftOpen />
+          ) : panelMode === 'list' ? (
+            <PanelLeft />
+          ) : (
+            <PanelLeftClose />
+          ),
         group: t('shell.palette.groupActions'),
         run: () => {
-          togglePanels()
+          cyclePanels()
           onClose()
         },
       },
@@ -183,7 +197,7 @@ function Palette({ onClose, closing = false }: { onClose: () => void; closing?: 
         },
       },
     ],
-    [create, lock, onClose, panelsHidden, setListOpen, setMode, setSettingsOpen, setTemplatePickerOpen, sync, t, templates.length, togglePanels],
+    [create, cyclePanels, lock, onClose, panelMode, setListOpen, setMode, setSettingsOpen, setTemplatePickerOpen, sync, t, templates.length],
   )
 
   const needle = term.trim().toLocaleLowerCase('tr')
