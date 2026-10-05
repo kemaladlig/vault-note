@@ -48,14 +48,17 @@ test('create vault → note → in-note search → lock/unlock, encrypted at res
   expect(raw).not.toContain('yumurta')
   expect(raw).toContain('"ct"')
 
-  // 6. Lock, then quick-unlock without a passphrase (device key).
+  // 6. Lock, then quick-unlock without a passphrase (device key). The TopBar lock asks
+  // for confirmation first, so every lock is a two-step click.
   await page.getByRole('button', { name: 'Kilitle' }).click()
+  await page.getByRole('dialog', { name: 'Vault kilitlensin mi?' }).getByRole('button', { name: 'Kilitle' }).click()
   await expect(page.getByRole('button', { name: 'Hızlı aç' })).toBeVisible()
   await page.getByRole('button', { name: 'Hızlı aç' }).click()
   await expect(page.getByRole('complementary').getByRole('button', { name: /gizli-baslik/ })).toBeVisible()
 
   // 7. Lock again and fall back to the passphrase.
   await page.getByRole('button', { name: 'Kilitle' }).click()
+  await page.getByRole('dialog', { name: 'Vault kilitlensin mi?' }).getByRole('button', { name: 'Kilitle' }).click()
   await page.getByRole('button', { name: 'Parolayla aç' }).click()
   await page.getByLabel('Ana parola').fill(PASS)
   await page.getByRole('button', { name: 'Kilidi aç' }).click()
@@ -90,6 +93,7 @@ test('app lock: a PIN gates quick unlock on this device', async ({ page }) => {
   // Enable the PIN by choosing the PIN open-mode in Settings → Security.
   await page.getByRole('button', { name: 'Uygulama menüsü' }).click()
   await page.getByRole('menuitem', { name: 'Ayarlar' }).click()
+  await page.getByRole('tab', { name: 'Güvenlik' }).click()
   await page.getByRole('button', { name: 'PIN', exact: true }).click()
   const pinDialog = page.getByRole('dialog', { name: 'PIN ekle' })
   await pinDialog.getByLabel('Yeni PIN', { exact: true }).fill('1234')
@@ -101,6 +105,7 @@ test('app lock: a PIN gates quick unlock on this device', async ({ page }) => {
 
   // Lock: the PIN screen replaces quick unlock.
   await page.getByRole('button', { name: 'Kilitle' }).click()
+  await page.getByRole('dialog', { name: 'Vault kilitlensin mi?' }).getByRole('button', { name: 'Kilitle' }).click()
   await expect(page.getByRole('button', { name: 'Aç', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Hızlı aç' })).toHaveCount(0)
 
@@ -131,6 +136,7 @@ test('open mode: "no lock" opens the boot directly, switching to PIN gates it', 
   // Switch to PIN from Settings → Security.
   await page.getByRole('button', { name: 'Uygulama menüsü' }).click()
   await page.getByRole('menuitem', { name: 'Ayarlar' }).click()
+  await page.getByRole('tab', { name: 'Güvenlik' }).click()
   await page.getByRole('button', { name: 'PIN', exact: true }).click()
   const setDialog = page.getByRole('dialog', { name: 'PIN ekle' })
   await setDialog.getByLabel('Yeni PIN', { exact: true }).fill('4321')
@@ -149,6 +155,7 @@ test('open mode: "no lock" opens the boot directly, switching to PIN gates it', 
   // Switch back to "no lock"; removing the PIN needs the current one.
   await page.getByRole('button', { name: 'Uygulama menüsü' }).click()
   await page.getByRole('menuitem', { name: 'Ayarlar' }).click()
+  await page.getByRole('tab', { name: 'Güvenlik' }).click()
   await page.getByRole('button', { name: 'Kilit yok' }).click()
   const removeDialog = page.getByRole('dialog', { name: "PIN'i kaldır" })
   await removeDialog.getByLabel('Mevcut PIN', { exact: true }).fill('4321')
@@ -173,8 +180,8 @@ test('polish: tags, command palette, dark theme and export', async ({ page }) =>
 
   // Tag editing lives in the header popover now.
   await page.getByRole('button', { name: 'Etiketler' }).click()
-  await page.getByLabel('Etiket ekle').fill('iş')
-  await page.getByLabel('Etiket ekle').press('Enter')
+  await page.getByRole('textbox', { name: 'Etiket ekle' }).fill('iş')
+  await page.getByRole('textbox', { name: 'Etiket ekle' }).press('Enter')
   await expect(page.getByText('#iş').first()).toBeVisible()
   await page.waitForTimeout(900)
 
@@ -363,8 +370,8 @@ test('smart views: save the current filter and re-apply it', async ({ page }) =>
   await page.getByRole('button', { name: 'Yeni not' }).click()
   await page.getByPlaceholder('Başlıksız').fill('İş notu')
   await page.getByRole('button', { name: 'Etiketler' }).click()
-  await page.getByLabel('Etiket ekle').fill('iş')
-  await page.getByLabel('Etiket ekle').press('Enter')
+  await page.getByRole('textbox', { name: 'Etiket ekle' }).fill('iş')
+  await page.getByRole('textbox', { name: 'Etiket ekle' }).press('Enter')
   await page.waitForTimeout(900)
 
   await page.getByRole('button', { name: 'Yeni not' }).click()
@@ -561,8 +568,8 @@ test('templates: save a note as a template, then create a note from it', async (
   await editor.click()
   await page.keyboard.insertText('şablon gövdesi')
   await page.getByRole('button', { name: 'Etiketler' }).click()
-  await page.getByLabel('Etiket ekle').fill('şablon')
-  await page.getByLabel('Etiket ekle').press('Enter')
+  await page.getByRole('textbox', { name: 'Etiket ekle' }).fill('şablon')
+  await page.getByRole('textbox', { name: 'Etiket ekle' }).press('Enter')
   await expect(page.getByText('#şablon').first()).toBeVisible()
   await page.keyboard.press('Escape')
   await page.waitForTimeout(900)
@@ -573,9 +580,10 @@ test('templates: save a note as a template, then create a note from it', async (
   await page.getByRole('textbox', { name: 'Şablon olarak kaydet' }).fill('Toplantı şablonu')
   await page.getByRole('button', { name: 'Kaydet', exact: true }).click()
 
-  // It is listed (and manageable) in Settings → Templates.
+  // It is listed (and manageable) in Settings → Data.
   await page.getByRole('button', { name: 'Uygulama menüsü' }).click()
   await page.getByRole('menuitem', { name: 'Ayarlar' }).click()
+  await page.getByRole('tab', { name: 'Veri' }).click()
   await expect(
     page.getByRole('dialog', { name: 'Ayarlar' }).getByText('Toplantı şablonu'),
   ).toBeVisible()
@@ -611,9 +619,10 @@ test('import: markdown + JSON dry-run, skips duplicates, imports new notes', asy
   await page.keyboard.insertText('aynı gövde')
   await page.waitForTimeout(900)
 
-  // Settings → import opens the file dialog.
+  // Settings → import opens the file dialog. Import lives in the Data tab.
   await page.getByRole('button', { name: 'Uygulama menüsü' }).click()
   await page.getByRole('menuitem', { name: 'Ayarlar' }).click()
+  await page.getByRole('tab', { name: 'Veri' }).click()
   await page.getByRole('button', { name: /İçe aktar/ }).click()
 
   const dialog = page.getByRole('dialog', { name: 'İçe aktarma' })
@@ -649,6 +658,7 @@ test('import: markdown + JSON dry-run, skips duplicates, imports new notes', asy
   // Re-importing the same files now reports everything as duplicate.
   await page.getByRole('button', { name: 'Uygulama menüsü' }).click()
   await page.getByRole('menuitem', { name: 'Ayarlar' }).click()
+  await page.getByRole('tab', { name: 'Veri' }).click()
   await page.getByRole('button', { name: /İçe aktar/ }).click()
   await page.locator('dialog[open] input[type=file]').setInputFiles([
     { name: 'mevcut.md', mimeType: 'text/markdown', buffer: Buffer.from('# Mevcut\naynı gövde') },
