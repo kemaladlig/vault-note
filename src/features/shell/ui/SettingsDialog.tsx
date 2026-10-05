@@ -289,7 +289,7 @@ export function SettingsDialog() {
           </div>
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">{t('settings.accent')}</p>
-            <div className="-m-1 flex items-center gap-1.5 p-1" role="group" aria-label={t('settings.accent')}>
+            <div className="-m-2 flex items-center gap-1.5 p-2" role="group" aria-label={t('settings.accent')}>
               {ACCENTS.map(({ id, labelKey, swatch }) => (
                 <button
                   key={id}
