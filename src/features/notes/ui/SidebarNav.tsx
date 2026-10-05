@@ -368,7 +368,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
   const roots = childFolders(folders)
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto px-2 py-3">
         <div className="space-y-0.5">
           <NavItem
@@ -549,7 +549,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
         )}
       </nav>
 
-      <footer className="shrink-0 border-t border-border/70 p-2.5">
+      <footer className="mt-auto shrink-0 border-t border-border/70 bg-sidebar p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
         <span className="flex items-center gap-2 rounded-lg border border-primary/15 bg-gradient-to-r from-accent/80 to-transparent px-2.5 py-2 text-[11px] font-medium text-muted-foreground">
           <ShieldCheck className="size-3.5 shrink-0 text-success" />
           {t('notes.sidebar.encryptedBadge')}
