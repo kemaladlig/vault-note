@@ -5,6 +5,8 @@ import {
   Lock,
   Monitor,
   Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Search,
   Settings,
@@ -44,6 +46,8 @@ export function TopBar() {
   const setCommandOpen = useShellStore((s) => s.setCommandOpen)
   const setSettingsOpen = useShellStore((s) => s.setSettingsOpen)
   const setListOpen = useShellStore((s) => s.setListOpen)
+  const panelsHidden = useShellStore((s) => s.panelsHidden)
+  const togglePanels = useShellStore((s) => s.togglePanels)
 
   const syncStatus = useSyncStore((s) => s.status)
   const configured = useSyncStore((s) => s.configured)
@@ -120,63 +124,74 @@ export function TopBar() {
       : t('shell.syncNoClient'))
 
   return (
-    <header className="relative z-30 flex h-14 shrink-0 items-center gap-2 px-3 md:px-4">
-      <div className="group/dock flex min-w-0 flex-1 items-center gap-1.5 rounded-full border border-border/60 bg-surface/70 p-1 pr-2 shadow-e1 backdrop-blur-md transition-[border-color,box-shadow] duration-[var(--duration-base)] animate-fade-in hover:shadow-e2 focus-within:border-primary/40 focus-within:shadow-e2 focus-within:ring-4 focus-within:ring-primary/10 max-sm:border-transparent max-sm:bg-transparent max-sm:p-0 max-sm:shadow-none max-sm:backdrop-blur-none lg:max-w-xl">
+    <header className="relative z-30 grid h-14 shrink-0 grid-cols-[1fr_auto] items-center gap-2 px-3 sm:grid-cols-[1fr_minmax(0,36rem)_1fr] sm:gap-4 md:px-4">
+      {/* Left: brand, then the panel toggle next to the surface it controls. */}
+      <div className="flex min-w-0 items-center gap-1.5">
         <div className="flex min-w-0 items-center gap-2 pl-0.5">
           <VaultNoteIcon className="size-8 shrink-0 shadow-e1" />
           <span className="hidden text-[15px] font-semibold tracking-tight md:block">
             Vault<span className="text-primary">Note</span>
           </span>
         </div>
-        <span aria-hidden className="hidden h-5 w-px shrink-0 bg-border/70 md:block" />
-        <div className="group/search relative hidden min-w-0 flex-1 sm:block">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within/search:text-primary" />
-          <Input
-            ref={searchInputRef}
-            value={query}
-            placeholder={t('shell.search.placeholder')}
-            aria-label={t('shell.search.label')}
-            className={cn(
-              'h-9 rounded-full border-transparent bg-transparent pr-9 pl-9 shadow-none focus-visible:border-transparent focus-visible:ring-0',
-              !query && 'pr-16',
-            )}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape' && query) {
-                event.preventDefault()
-                setQuery('')
-              }
-            }}
-          />
-          {query ? (
-            <button
-              type="button"
-              aria-label={t('shell.search.clear')}
-              title={t('shell.search.clear')}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => {
-                setQuery('')
-                searchInputRef.current?.focus()
-              }}
-              className="absolute top-1/2 right-1.5 grid size-6 -translate-y-1/2 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <X className="size-3.5" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              aria-label={t('shell.openPalette')}
-              onClick={() => setCommandOpen(true)}
-              className="absolute top-1/2 right-1.5 flex -translate-y-1/2 items-center gap-0.5 rounded-md px-1 py-0.5 transition-colors hover:bg-muted"
-            >
-              <Kbd>Ctrl</Kbd>
-              <Kbd>K</Kbd>
-            </button>
-          )}
-        </div>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          className="ml-1 hidden bg-transparent text-muted-foreground hover:bg-surface/70 md:inline-flex"
+          aria-label={t(panelsHidden ? 'shell.panels.show' : 'shell.panels.hide')}
+          title={t(panelsHidden ? 'shell.panels.show' : 'shell.panels.hide') + ' (Ctrl+B)'}
+          aria-pressed={!panelsHidden}
+          onClick={togglePanels}
+        >
+          {panelsHidden ? <PanelLeftOpen /> : <PanelLeftClose />}
+        </Button>
       </div>
 
-      <div className="ml-auto flex items-center gap-1.5">
+      {/* Center: the search pill owns the header's middle column, so wide
+          viewports read as symmetric instead of one dead band. */}
+      <div className="group/search hidden w-full items-center gap-2 rounded-full border border-border/60 bg-surface/70 p-1 shadow-e1 backdrop-blur-md transition-[border-color,box-shadow] duration-[var(--duration-base)] animate-fade-in hover:shadow-e2 focus-within:border-primary/40 focus-within:shadow-e2 focus-within:ring-4 focus-within:ring-primary/10 sm:flex">
+        <Search className="ml-1.5 size-4 shrink-0 text-muted-foreground transition-colors group-focus-within/search:text-primary" />
+        <Input
+          ref={searchInputRef}
+          value={query}
+          placeholder={t('shell.search.placeholder')}
+          aria-label={t('shell.search.label')}
+          className="h-9 min-w-0 flex-1 rounded-full border-transparent bg-transparent px-1 shadow-none focus-visible:border-transparent focus-visible:ring-0"
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && query) {
+              event.preventDefault()
+              setQuery('')
+            }
+          }}
+        />
+        {query ? (
+          <button
+            type="button"
+            aria-label={t('shell.search.clear')}
+            title={t('shell.search.clear')}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              setQuery('')
+              searchInputRef.current?.focus()
+            }}
+            className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <X className="size-3.5" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            aria-label={t('shell.openPalette')}
+            onClick={() => setCommandOpen(true)}
+            className="mr-0.5 flex shrink-0 items-center gap-0.5 rounded-md px-1 py-0.5 transition-colors hover:bg-muted"
+          >
+            <Kbd>Ctrl</Kbd>
+            <Kbd>K</Kbd>
+          </button>
+        )}
+      </div>
+
+      <div className="flex items-center gap-1.5 justify-self-end">
         <Button
           size="icon-sm"
           variant="ghost"

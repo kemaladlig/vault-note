@@ -4,10 +4,11 @@ import { useNotesStore } from '@/features/notes/store/notesStore'
 
 import { useShellStore } from './store/shellStore'
 
-/** Global keyboard shortcuts: Ctrl/Cmd+K palette, Ctrl/Cmd+N new note. */
+/** Global keyboard shortcuts: Ctrl/Cmd+K palette, Ctrl/Cmd+N new note, Ctrl/Cmd+B panels. */
 export function useShortcuts(): void {
   const setCommandOpen = useShellStore((s) => s.setCommandOpen)
   const setListOpen = useShellStore((s) => s.setListOpen)
+  const togglePanels = useShellStore((s) => s.togglePanels)
   const create = useNotesStore((s) => s.create)
 
   useEffect(() => {
@@ -21,9 +22,12 @@ export function useShortcuts(): void {
       } else if (key === 'n') {
         event.preventDefault()
         void create().then(() => setListOpen(false))
+      } else if (key === 'b') {
+        event.preventDefault()
+        togglePanels()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [create, setCommandOpen, setListOpen])
+  }, [create, setCommandOpen, setListOpen, togglePanels])
 }

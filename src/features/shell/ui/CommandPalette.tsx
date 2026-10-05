@@ -5,6 +5,8 @@ import {
   Lock,
   Monitor,
   Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Search,
   Settings,
@@ -58,6 +60,8 @@ function Palette({ onClose, closing = false }: { onClose: () => void; closing?: 
   const t = useT()
   const setSettingsOpen = useShellStore((s) => s.setSettingsOpen)
   const setListOpen = useShellStore((s) => s.setListOpen)
+  const panelsHidden = useShellStore((s) => s.panelsHidden)
+  const togglePanels = useShellStore((s) => s.togglePanels)
 
   const notes = useNotesStore((s) => s.notes)
   const select = useNotesStore((s) => s.select)
@@ -118,6 +122,17 @@ function Palette({ onClose, closing = false }: { onClose: () => void; closing?: 
           ]
         : []),
       {
+        id: 'panels',
+        label: t(panelsHidden ? 'shell.panels.show' : 'shell.panels.hide'),
+        hint: t('shell.panels.hint'),
+        icon: panelsHidden ? <PanelLeftOpen /> : <PanelLeftClose />,
+        group: t('shell.palette.groupActions'),
+        run: () => {
+          togglePanels()
+          onClose()
+        },
+      },
+      {
         id: 'sync',
         label: t('shell.syncAria'),
         icon: <Cloud />,
@@ -168,7 +183,7 @@ function Palette({ onClose, closing = false }: { onClose: () => void; closing?: 
         },
       },
     ],
-    [create, lock, onClose, setListOpen, setMode, setSettingsOpen, setTemplatePickerOpen, sync, t, templates.length],
+    [create, lock, onClose, panelsHidden, setListOpen, setMode, setSettingsOpen, setTemplatePickerOpen, sync, t, templates.length, togglePanels],
   )
 
   const needle = term.trim().toLocaleLowerCase('tr')

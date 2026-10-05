@@ -244,6 +244,9 @@ export const tr = {
   'shell.lockDesc': 'Açık notlar bellekten temizlenir; devam etmek için kilidi açman gerekir.',
   'shell.install': 'Uygulamayı yükle',
   'shell.appMenu': 'Uygulama menüsü',
+  'shell.panels.hide': 'Panelleri gizle',
+  'shell.panels.show': 'Panelleri göster',
+  'shell.panels.hint': 'Ctrl+B',
 
   // Command palette
   'shell.palette.aria': 'Komut paleti',
@@ -626,6 +629,9 @@ export const en: Record<MessageKey, string> = {
   'shell.lockDesc': "Open notes are cleared from memory; you'll need to unlock to continue.",
   'shell.install': 'Install app',
   'shell.appMenu': 'App menu',
+  'shell.panels.hide': 'Hide panels',
+  'shell.panels.show': 'Show panels',
+  'shell.panels.hint': 'Ctrl+B',
 
   'shell.palette.aria': 'Command palette',
   'shell.palette.searchLabel': 'Search commands',
