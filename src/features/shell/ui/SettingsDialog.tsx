@@ -621,6 +621,14 @@ export function SettingsDialog() {
             {t('settings.exportWarnB')}
           </p>
           <p className="text-xs text-muted-foreground">{t('settings.importHint')}</p>
+          <p className="flex gap-4 text-xs text-muted-foreground">
+            <a className="underline-offset-4 hover:underline" href="/privacy" target="_blank" rel="noreferrer">
+              {t('settings.privacy')}
+            </a>
+            <a className="underline-offset-4 hover:underline" href="/terms" target="_blank" rel="noreferrer">
+              {t('settings.terms')}
+            </a>
+          </p>
           <div className="space-y-2 border-t pt-3">
             <p className="text-sm text-muted-foreground">{t('settings.trashRetention')}</p>
             <div className="grid grid-cols-4 gap-1 rounded-xl bg-muted p-1 text-sm">

@@ -23,7 +23,12 @@ export function RestoreFromDrive() {
     // Success flips VaultGate to the passphrase screen; say what happens next so the
     // second device feels like one continuous step instead of two disconnected screens.
     if (restored) toast(t('sync.restore.found'), 'success')
-    else setNotice(t('sync.restore.notFound'))
+    else {
+      // Auth failures (closed popup, origin mismatch, denied consent) used to masquerade
+      // as "no vault" — surface the real error so login trouble doesn't look like empty Drive.
+      const detail = useSyncStore.getState().error
+      setNotice(detail ?? t('sync.restore.notFound'))
+    }
   }
 
   return (

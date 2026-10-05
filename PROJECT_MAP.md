@@ -46,6 +46,7 @@ src/
     exitMotion.ts             motionMs()/exitMotionMs() (JS timings read from CSS tokens) + useExitMotion() for portals
   index.css                  design tokens (single source of truth) + Tailwind theme
   features/
+    legal/                    public `/privacy` + `/terms` pages (OAuth branding links, no vault needed)
     shell/                    app chrome (spans vault + notes + sync)
       store/shellStore.ts     overlay state + nav-drawer open flag + mobile list/editor pane + split-view note + template-picker/import dialogs
       useBoot.ts              hands the screen from the inline boot splash to the first screen
@@ -272,7 +273,8 @@ database, so no user data (plaintext or ciphertext) is ever handled by the host.
 block is the app's only browser-enforced security boundary:
 
 - **CSP** — `default-src 'self'`, `script-src` limited to self + `accounts.google.com` (the GIS
-  script), `connect-src` to the Drive/OAuth hosts, `frame-ancestors 'none'`, `object-src 'none'`,
+  script) + `'wasm-unsafe-eval'` (lets `hash-wasm` compile Argon2id without opening JS `eval`),
+  `connect-src` to the Drive/OAuth hosts, `frame-ancestors 'none'`, `object-src 'none'`,
   `base-uri 'none'`. Any new outbound host or injected script must be added here explicitly.
 - **Also set:** `X-Content-Type-Options`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`,
   a restrictive `Permissions-Policy`.

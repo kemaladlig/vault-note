@@ -163,6 +163,8 @@ export const tr = {
   'settings.import': 'İçe aktar…',
   'settings.importHint':
     'Markdown (.md) veya VaultNote JSON yedeği. Aktarılan notlar bu cihazda şifrelenir.',
+  'settings.privacy': 'Gizlilik politikası',
+  'settings.terms': 'Kullanım şartları',
   'import.title': 'İçe aktarma',
   'import.description':
     'Dosyaları seç. Önce özet gösterilir; onaylamadan hiçbir şey yazılmaz.',
@@ -362,6 +364,8 @@ export const tr = {
   'vault.create.deriving': 'Anahtar türetiliyor…',
   'vault.create.rememberHint': 'Bu cihaz parolayı hatırlar; ayarlardan değiştirebilirsin.',
   'vault.create.submit': 'Vault oluştur',
+  'vault.create.publicTagline':
+    'VaultNote, uçtan uca şifreli ve sunucusuz bir not uygulamasıdır: notların cihazında şifrelenir, yalnızca şifreli veri kendi Google Drive’ına taşınır.',
   'vault.unlock.title': 'Kilidi aç',
   'vault.unlock.brokenDesc': 'Parolasız vault bu cihazda açılamıyor.',
   'vault.unlock.quickDesc': 'Bu cihazda hızlı açma etkin.',
@@ -568,6 +572,8 @@ export const en: Record<MessageKey, string> = {
 
   'settings.import': 'Import…',
   'settings.importHint': 'Markdown (.md) or a VaultNote JSON backup. Imported notes are encrypted here.',
+  'settings.privacy': 'Privacy policy',
+  'settings.terms': 'Terms of service',
   'import.title': 'Import',
   'import.description':
     'Choose files. A summary is shown first; nothing is written until you confirm.',
@@ -759,6 +765,8 @@ export const en: Record<MessageKey, string> = {
   'vault.create.deriving': 'Deriving key…',
   'vault.create.rememberHint': 'This device will remember the passphrase; change it in Settings.',
   'vault.create.submit': 'Create vault',
+  'vault.create.publicTagline':
+    'VaultNote is an end-to-end encrypted, serverless notes app: notes are encrypted on your device, only ciphertext moves to your own Google Drive.',
   'vault.unlock.title': 'Unlock',
   'vault.unlock.brokenDesc': 'This passwordless vault cannot be opened on this device.',
   'vault.unlock.quickDesc': 'Quick unlock is on for this device.',

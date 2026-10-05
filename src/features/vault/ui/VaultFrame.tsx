@@ -1,9 +1,15 @@
 import type { ReactNode } from 'react'
 
 import { VaultNoteIcon } from '@/components/ui/vault-note-icon'
+import { useT } from '@/shared/i18n'
 
-/** Brand stage for the pre-unlock screens (create / unlock). */
+/**
+ * Brand stage for the pre-unlock screens (create / unlock). The footer carries a
+ * public app description plus policy links, so the home page is informative without
+ * logging in (OAuth branding review requires this).
+ */
 export function VaultFrame({ children }: { children: ReactNode }) {
+  const t = useT()
   return (
     <div className="flex min-h-full flex-col items-center justify-center gap-7 bg-shell-gradient p-6">
       <div className="flex flex-col items-center gap-3 animate-brand-in">
@@ -16,6 +22,16 @@ export function VaultFrame({ children }: { children: ReactNode }) {
         </span>
       </div>
       <div className="w-full max-w-md animate-rise [animation-delay:90ms]">{children}</div>
+      <p className="max-w-md text-center text-xs text-muted-foreground">
+        {t('vault.create.publicTagline')}{' '}
+        <a className="underline-offset-4 hover:underline" href="/privacy">
+          {t('settings.privacy')}
+        </a>
+        {' · '}
+        <a className="underline-offset-4 hover:underline" href="/terms">
+          {t('settings.terms')}
+        </a>
+      </p>
     </div>
   )
 }
