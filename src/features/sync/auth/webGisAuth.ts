@@ -45,6 +45,62 @@ let silent: Promise<boolean> | undefined
 /** Last failed silent attempt; backs off background polls when consent/config blocks them. */
 let lastSilentFail = 0
 const SILENT_COOLDOWN_MS = 30_000
+/** A stuck Google popup (blank page, blocked window) must never hang the UI forever. */
+const POPUP_TIMEOUT_MS = 60_000
+/** Last interactive failure in plain language, so the UI can say what actually happened. */
+let lastFailure: string | undefined
+
+/**
+ * Set after the first successful consent. Silent restores are gated on it: without prior
+ * consent every cold start would flash (and often trip the popup blocker on) a Google
+ * window the user never asked for.
+ */
+const CONSENT_KEY = 'vaultnote.driveConnected'
+
+function hasConsented(): boolean {
+  try {
+    return localStorage.getItem(CONSENT_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function markConsented(): void {
+  try {
+    localStorage.setItem(CONSENT_KEY, '1')
+  } catch {
+    /* private mode — silent restore just retries next time */
+  }
+}
+
+function clearConsent(): void {
+  try {
+    localStorage.removeItem(CONSENT_KEY)
+  } catch {
+    /* nothing persisted */
+  }
+}
+
+/** Maps GIS failure shapes to something a user can act on. */
+function describeFailure(error: unknown): string {
+  const raw =
+    typeof error === 'string'
+      ? error
+      : typeof (error as { message?: unknown } | null)?.message === 'string'
+        ? String((error as { message: string }).message)
+        : ''
+  const text = raw.toLowerCase()
+  if (text.includes('popup') && (text.includes('block') || text.includes('blocker'))) {
+    return 'Tarayıcı Google penceresini engelledi. Adres çubuğundaki ikondan açılır pencerelere izin verip tekrar dene.'
+  }
+  if (text.includes('popup') && text.includes('clos')) {
+    return 'Google penceresi kapatıldı. Bağlanmak için pencereyi açık bırakıp hesabını seç.'
+  }
+  if (text.includes('access_denied') || text.includes('denied') || text.includes('consent')) {
+    return 'Google izni verilmedi. Drive senkronu için izni onaylaman gerekir.'
+  }
+  return 'Erişim tokenı alınamadı.'
+}
 
 function loadGis(): Promise<void> {
   gisLoaded ??= new Promise<void>((resolve, reject) => {
@@ -64,6 +120,7 @@ function applyToken(response: TokenResponse): boolean {
   accessToken = response.access_token
   const ttl = Number(response.expires_in ?? 3600)
   expiresAt = Date.now() + Math.max(ttl - 60, 0) * 1000
+  markConsented()
   return true
 }
 
@@ -79,20 +136,40 @@ async function requestToken(prompt?: string): Promise<boolean> {
     const done = (ok: boolean) => {
       if (!settled) {
         settled = true
+        window.clearTimeout(timer)
         resolve(ok)
       }
     }
+    // A Google popup stuck on a blank page never settles — time out so the UI can
+    // tell the user to close it and retry instead of spinning forever.
+    const timer = window.setTimeout(() => {
+      lastFailure =
+        'Google penceresi yanıt vermedi (boş ekranda kaldıysa kapatıp tekrar dene).'
+      done(false)
+    }, POPUP_TIMEOUT_MS)
     const client = oauth2.initTokenClient({
       client_id: GOOGLE_CLIENT_ID as string,
       scope: SCOPES,
-      callback: (response) => done(applyToken(response)),
+      callback: (response) => {
+        const ok = applyToken(response)
+        if (!ok) lastFailure = describeFailure(response.error)
+        done(ok)
+      },
       // Config errors (origin_mismatch) surface here instead of hanging the popup.
-      error_callback: () => done(false),
+      error_callback: (error) => {
+        lastFailure = describeFailure(error)
+        done(false)
+      },
     })
-    client.callback = (response) => done(applyToken(response))
+    client.callback = (response) => {
+      const ok = applyToken(response)
+      if (!ok) lastFailure = describeFailure(response.error)
+      done(ok)
+    }
     try {
       client.requestAccessToken(prompt === undefined ? undefined : { prompt })
-    } catch {
+    } catch (error) {
+      lastFailure = describeFailure(error)
       done(false)
     }
   })
@@ -100,7 +177,8 @@ async function requestToken(prompt?: string): Promise<boolean> {
 
 /** Interactive sign-in. Resolves once an access token is in memory. */
 export async function signIn(): Promise<void> {
-  if (!(await requestToken())) throw new Error('Erişim tokenı alınamadı')
+  lastFailure = undefined
+  if (!(await requestToken())) throw new Error(lastFailure ?? 'Erişim tokenı alınamadı')
 }
 
 /**
@@ -120,6 +198,9 @@ export async function getAccessTokenSilent(): Promise<string> {
 export function restoreSession(): Promise<boolean> {
   if (hasSession()) return Promise.resolve(true)
   if (!GOOGLE_CLIENT_ID) return Promise.resolve(false)
+  // Never connected on this browser: don't flash a Google window the user never asked
+  // for (and don't trip its popup blocker) on every cold start and focus event.
+  if (!hasConsented()) return Promise.resolve(false)
   // Back off after a failure (consent needed, misconfigured origin, popup blocked)
   // so the 5s auto-sync poll doesn't hammer Google with token requests.
   if (Date.now() - lastSilentFail < SILENT_COOLDOWN_MS) return Promise.resolve(false)
@@ -152,5 +233,6 @@ export function signOut(): void {
   const token = accessToken
   accessToken = undefined
   expiresAt = 0
+  clearConsent()
   if (token) window.google?.accounts?.oauth2?.revoke(token)
 }

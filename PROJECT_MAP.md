@@ -403,6 +403,10 @@ block is the app's only browser-enforced security boundary:
 - **Auto-sync:** `useAutoSync` pushes ~1.5s after any local edit (new note / save / delete /
   notebook change) and pulls every 5s plus on `online`/`focus`/`visibilitychange` — always
   `interactive: false`, so it never opens the OAuth popup and is a no-op until first sign-in.
+  Silent restores are additionally gated on a `vaultnote.driveConnected` flag (set on first
+  consent, cleared on disconnect), so a browser that never connected never flashes a Google
+  window on cold start. Interactive sign-in surfaces the real failure (blocked/closed/stuck
+  popup, denied consent) and times out a hung popup after 60s instead of spinning forever.
   Idle polls are cheap: the engine caches the manifest `modifiedTime` and returns early when the
   remote is unchanged and nothing is pending locally; the manifest is rewritten only when notes
   actually changed, and the folders doc only when the tree changed.
