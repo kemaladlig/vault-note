@@ -47,12 +47,14 @@ function staggerDelay(index: number): string {
 }
 
 function preview(body: string): string {
-  return body
+  const text = body
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
     .slice(0, 2)
     .join(' ')
+  // A body may be one giant paragraph; the row must not build DOM for all of it.
+  return text.length > 200 ? `${text.slice(0, 200)}…` : text
 }
 
 interface NoteGroup {
@@ -217,11 +219,13 @@ function NoteRow({
           </span>
         </span>
         {/* The preview line is always reserved, even when empty, so one-line
-            and two-line rows keep the same visual rhythm. */}
+            and two-line rows keep the same visual rhythm. `line-clamp` owns
+            the display (block would disable the clamp); the empty case is an
+            inline nbsp that still creates a line box. */}
         <span
           aria-hidden={!bodyPreview}
           className={cn(
-            'mt-0.5 block text-xs leading-relaxed',
+            'mt-0.5 text-xs leading-relaxed',
             bodyPreview ? 'line-clamp-2 text-muted-foreground' : 'invisible',
           )}
         >
