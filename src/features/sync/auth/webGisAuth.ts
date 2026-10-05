@@ -26,6 +26,7 @@ interface GoogleOAuth2 {
     client_id: string
     scope: string
     callback: (response: TokenResponse) => void
+    error_callback?: (error: unknown) => void
   }) => TokenClient
   revoke: (token: string, done?: () => void) => void
 }
@@ -41,6 +42,9 @@ let expiresAt = 0
 let gisLoaded: Promise<void> | undefined
 /** In-flight silent restore, so concurrent polls share one attempt. */
 let silent: Promise<boolean> | undefined
+/** Last failed silent attempt; backs off background polls when consent/config blocks them. */
+let lastSilentFail = 0
+const SILENT_COOLDOWN_MS = 30_000
 
 function loadGis(): Promise<void> {
   gisLoaded ??= new Promise<void>((resolve, reject) => {
@@ -63,7 +67,7 @@ function applyToken(response: TokenResponse): boolean {
   return true
 }
 
-/** Request a token. `prompt` omitted = let Google decide (may show UI); `''` = silent. */
+/** Request a token. `prompt` omitted = let Google decide (may show UI); `'none'` = silent. */
 async function requestToken(prompt?: string): Promise<boolean> {
   if (!GOOGLE_CLIENT_ID) throw new Error('VITE_GOOGLE_CLIENT_ID ayarlı değil.')
   await loadGis()
@@ -71,13 +75,26 @@ async function requestToken(prompt?: string): Promise<boolean> {
   if (!oauth2) throw new Error('Google Identity Services kullanılamıyor')
 
   return new Promise<boolean>((resolve) => {
+    let settled = false
+    const done = (ok: boolean) => {
+      if (!settled) {
+        settled = true
+        resolve(ok)
+      }
+    }
     const client = oauth2.initTokenClient({
       client_id: GOOGLE_CLIENT_ID as string,
       scope: SCOPES,
-      callback: () => {},
+      callback: (response) => done(applyToken(response)),
+      // Config errors (origin_mismatch) surface here instead of hanging the popup.
+      error_callback: () => done(false),
     })
-    client.callback = (response) => resolve(applyToken(response))
-    client.requestAccessToken(prompt === undefined ? undefined : { prompt })
+    client.callback = (response) => done(applyToken(response))
+    try {
+      client.requestAccessToken(prompt === undefined ? undefined : { prompt })
+    } catch {
+      done(false)
+    }
   })
 }
 
@@ -103,8 +120,18 @@ export async function getAccessTokenSilent(): Promise<string> {
 export function restoreSession(): Promise<boolean> {
   if (hasSession()) return Promise.resolve(true)
   if (!GOOGLE_CLIENT_ID) return Promise.resolve(false)
-  silent ??= requestToken('')
-    .catch(() => false)
+  // Back off after a failure (consent needed, misconfigured origin, popup blocked)
+  // so the 5s auto-sync poll doesn't hammer Google with token requests.
+  if (Date.now() - lastSilentFail < SILENT_COOLDOWN_MS) return Promise.resolve(false)
+  silent ??= requestToken('none')
+    .then((ok) => {
+      if (!ok) lastSilentFail = Date.now()
+      return ok
+    })
+    .catch(() => {
+      lastSilentFail = Date.now()
+      return false
+    })
     .finally(() => {
       silent = undefined
     })
