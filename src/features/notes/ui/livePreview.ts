@@ -284,3 +284,52 @@ export function activeFormatsAt(state: EditorState): Set<EditorFormat> {
   if (/^\[\[[^[\]]+\]\]$/.test(selected)) out.add('link')
   return out
 }
+
+/** Inline formats the toolbar can strip: the tree node that carries them, marker width per side. */
+const INLINE_MARKERS: Partial<Record<EditorFormat, { node: string; len: number }>> = {
+  bold: { node: 'StrongEmphasis', len: 2 },
+  italic: { node: 'Emphasis', len: 1 },
+  code: { node: 'InlineCode', len: 1 },
+}
+
+/** The marker pair wrapping the selection's head, in document positions. */
+export interface UnwrapTarget {
+  from: number
+  to: number
+  len: number
+}
+
+/**
+ * Where the selection already sits inside `format`, so pressing the toolbar button again
+ * strips it instead of stacking markers. Tree nodes anchor bold/italic/code; wikilinks
+ * are matched from the raw line, mirroring the active-format check above.
+ */
+export function inlineUnwrapTarget(state: EditorState, format: EditorFormat): UnwrapTarget | null {
+  const sel = state.selection.main
+  const spec = INLINE_MARKERS[format]
+  if (spec) {
+    // Structural view of the tree walk — avoids depending on @lezer/common types directly.
+    interface NodeChain {
+      name: string
+      from: number
+      to: number
+      parent: NodeChain | null
+    }
+    let node = syntaxTree(state).resolveInner(sel.head, 1) as unknown as NodeChain | null
+    for (; node; node = node.parent) {
+      if (node.name !== spec.node) continue
+      return node.to - node.from > spec.len * 2 ? { from: node.from, to: node.to, len: spec.len } : null
+    }
+    return null
+  }
+  if (format !== 'link') return null
+  const line = state.doc.lineAt(sel.head)
+  const offset = sel.head - line.from
+  for (const match of line.text.matchAll(/\[\[[^[\]\n]+\]\]/g)) {
+    const start = match.index ?? 0
+    if (offset > start && offset < start + match[0].length) {
+      return { from: line.from + start, to: line.from + start + match[0].length, len: 2 }
+    }
+  }
+  return null
+}

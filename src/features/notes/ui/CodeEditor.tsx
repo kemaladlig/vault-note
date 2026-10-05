@@ -13,7 +13,7 @@ import { basicSetup } from 'codemirror'
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 
 import { normalizeTr } from '../search'
-import { activeFormatsAt, livePreview, livePreviewTheme } from './livePreview'
+import { activeFormatsAt, inlineUnwrapTarget, livePreview, livePreviewTheme } from './livePreview'
 
 export interface CodeEditorHandle {
   /** Set the active search term ('' clears it) and jump to the first match. */
@@ -147,6 +147,8 @@ function toggleWrap(view: EditorView, before: string, after: string): void {
       changes: { from, to, insert: inner },
       selection: { anchor: from, head: from + inner.length },
     })
+  } else if (from === to && stripsEmptyWrap(view, from, before, after)) {
+    // Handled: pressing again on the empty markers just made removes them instead of stacking.
   } else {
     view.dispatch({
       changes: { from, to, insert: `${before}${selected}${after}` },
@@ -154,6 +156,53 @@ function toggleWrap(view: EditorView, before: string, after: string): void {
     })
   }
   view.focus()
+}
+
+/**
+ * With an empty selection sitting between a bare marker pair (`**|`), remove the pair —
+ * an empty `****` never parses, so the tree cannot report it. The outer-neighbour guard
+ * keeps an italic press inside `**|` from eating one star of the bold pair.
+ */
+function stripsEmptyWrap(view: EditorView, at: number, before: string, after: string): boolean {
+  const open = view.state.sliceDoc(Math.max(0, at - before.length), at)
+  const close = view.state.sliceDoc(at, at + after.length)
+  if (open !== before || close !== after) return false
+  if (view.state.sliceDoc(at - before.length - 1, at - before.length) === before.slice(-1)) return false
+  if (view.state.sliceDoc(at + after.length, at + after.length + 1) === after.slice(0, 1)) return false
+  view.dispatch({
+    changes: [
+      { from: at - before.length, to: at, insert: '' },
+      { from: at, to: at + after.length, insert: '' },
+    ],
+    selection: { anchor: at - before.length },
+  })
+  return true
+}
+
+/** Strip the marker pair the selection sits inside; true when the format was removed. */
+function unwrapInline(view: EditorView, format: EditorFormat): boolean {
+  const target = inlineUnwrapTarget(view.state, format)
+  if (!target) return false
+  const { from, to, len } = target
+  const shift = (pos: number): number =>
+    pos <= from ? pos : pos > to ? pos - len * 2 : Math.max(from, pos - len)
+  const sel = view.state.selection.main
+  view.dispatch({
+    changes: [
+      { from, to: from + len, insert: '' },
+      { from: to - len, to, insert: '' },
+    ],
+    selection: { anchor: shift(sel.anchor), head: shift(sel.head) },
+  })
+  view.focus()
+  return true
+}
+
+/** Pressing an inline format inside itself strips it; everywhere else it wraps. */
+function toggleInline(format: EditorFormat, before: string, after: string) {
+  return (view: EditorView): void => {
+    if (!unwrapInline(view, format)) toggleWrap(view, before, after)
+  }
 }
 
 /**
@@ -240,7 +289,7 @@ function formatCode(view: EditorView): void {
   const { from, to } = view.state.selection.main
   const selected = view.state.sliceDoc(from, to)
   if (!selected.includes('\n')) {
-    toggleWrap(view, '`', '`')
+    if (!unwrapInline(view, 'code')) toggleWrap(view, '`', '`')
     return
   }
   if (/^```[^\n]*\n[\s\S]*\n```$/.test(selected)) {
@@ -265,14 +314,14 @@ function formatCode(view: EditorView): void {
 
 /** One formatter per toolbar action — no conditionals at the call site. */
 const FORMATTERS: Record<EditorFormat, (view: EditorView) => void> = {
-  bold: (view) => toggleWrap(view, '**', '**'),
-  italic: (view) => toggleWrap(view, '*', '*'),
+  bold: toggleInline('bold', '**', '**'),
+  italic: toggleInline('italic', '*', '*'),
   heading: formatHeading,
   list: formatList,
   task: formatTask,
   quote: formatQuote,
   code: formatCode,
-  link: (view) => toggleWrap(view, '[[', ']]'),
+  link: toggleInline('link', '[[', ']]'),
 }
 
 /**
