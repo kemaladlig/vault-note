@@ -87,10 +87,22 @@ const theme = EditorView.theme({
   },
   '.cm-searchMatch': {
     backgroundColor: 'var(--search-highlight)',
-    borderRadius: '2px',
+    color: 'var(--search-highlight-ink)',
+    outline: '1px solid var(--search-highlight-ring)',
+    outlineOffset: '1px',
+    borderRadius: 'calc(var(--radius) / 4)',
+    fontWeight: '600',
+    boxDecorationBreak: 'clone',
+    WebkitBoxDecorationBreak: 'clone',
   },
   '.cm-searchMatch.cm-searchMatch-selected': {
     backgroundColor: 'var(--search-highlight-active)',
+    color: 'var(--search-highlight-ink)',
+    outline: '2px solid var(--search-highlight-active-ring)',
+    outlineOffset: '0px',
+    boxShadow: '0 1px 6px 0 color-mix(in srgb, var(--search-highlight-active-ring) 55%, transparent)',
+    fontWeight: '700',
+    animation: 'search-match-pop var(--duration-base) var(--ease-standard)',
   },
 })
 

@@ -63,9 +63,13 @@
   /* Scrim / overlays */
   --scrim: rgb(15 23 42 / 0.42);
 
-  /* Search highlight (in-note) */
-  --search-highlight: #fde293;
-  --search-highlight-active: #fbbc04;
+  /* Search highlight (in-note) — light pills with dark ink so a hit
+     reads as a chip at a distance, in both themes. */
+  --search-highlight: #ffe08a;
+  --search-highlight-active: #ffb300;
+  --search-highlight-ink: #231a00;
+  --search-highlight-ring: #926100;
+  --search-highlight-active-ring: #6f4a00;
 
   /* Shape */
   --radius: 0.875rem;
@@ -182,8 +186,11 @@
 
   --scrim: rgb(0 0 0 / 0.6);
 
-  --search-highlight: #7a5c00;
-  --search-highlight-active: #a1790a;
+  --search-highlight: #ffe08a;
+  --search-highlight-active: #ffb300;
+  --search-highlight-ink: #231a00;
+  --search-highlight-ring: #ffca28;
+  --search-highlight-active-ring: #ffffff;
 
   --elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.45), 0 1px 3px 1px rgb(0 0 0 / 0.28);
   --elevation-2: 0 2px 6px -2px rgb(0 0 0 / 0.4), 0 6px 16px -4px rgb(0 0 0 / 0.45);
@@ -380,6 +387,15 @@
   }
   to {
     background-position: -200% 0;
+  }
+}
+/* Active search hit: a short ring pulse so the jump lands the eye in long texts. */
+@keyframes search-match-pop {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--search-highlight-active-ring) 65%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 7px transparent;
   }
 }
 

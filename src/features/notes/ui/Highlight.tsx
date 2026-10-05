@@ -29,7 +29,10 @@ export function Highlight({
     parts.push(
       <mark
         key={index}
-        className={cn('rounded-[3px] bg-[var(--search-highlight)] px-0.5 text-foreground', className)}
+        className={cn(
+          'rounded-[calc(var(--radius)/4)] bg-[var(--search-highlight)] px-0.5 font-semibold text-[var(--search-highlight-ink)] ring-1 ring-[var(--search-highlight-ring)] [box-decoration-break:clone]',
+          className,
+        )}
       >
         {text.slice(index, index + needle.length)}
       </mark>,
