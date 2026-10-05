@@ -626,7 +626,7 @@ export function SettingsDialog() {
         </Section>
 
         <Section title={t('settings.revisionsSection')}>
-          <div className="grid grid-cols-4 gap-1 rounded-xl bg-muted p-1 text-sm">
+          <div className="grid grid-cols-3 gap-1 rounded-xl bg-muted p-1 text-sm">
             {REVISION_LIMIT_OPTIONS.map(({ limit, labelKey, params }) => (
               <button
                 key={limit}

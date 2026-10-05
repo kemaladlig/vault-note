@@ -40,7 +40,7 @@ src/
     accent.ts                 persisted accent color (blue/violet/teal/amber/rose) + init
     editorPrefs.ts            persisted editor delta size + line spacing + init
     trash.ts                  trash retention preference + isTrashExpired predicate
-    revisions.ts              version-history retention preference (10/25/50/unlimited)
+    revisions.ts              version-history retention preference (5/10/25, default 10)
     boot.ts                   dismisses the inline boot splash once the first screen is up
     toast.ts                  imperative toast store (leaving phase drives the exit animation)
     exitMotion.ts             motionMs()/exitMotionMs() (JS timings read from CSS tokens) + useExitMotion() for portals
@@ -320,7 +320,7 @@ block is the app's only browser-enforced security boundary:
   **history panel** listing snapshots by version and time; selecting one shows a read-only
   preview and **Restore** re-applies its title/body/tags as a **new head version** (the current
   notebook/pin/archive are preserved). History is **device-local and never synced**; the
-  retention limit (10/25/50/unlimited) is a device preference under Settings → Sürüm geçmişi.
+  retention limit (5/10/25, default 10) is a device preference under Settings → Sürüm geçmişi.
 - **Organization:** pin ("Sabitlenenler"), nested **notebooks** (folders, sealed at rest),
   archive, and a trash with restore / permanent delete / "Çöpü boşalt". The sidebar exposes
   scope views, the notebook tree (per-folder counts, rename/delete, sub-notebooks), an optional

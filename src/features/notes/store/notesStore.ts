@@ -210,6 +210,13 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       /* retried on the next note switch */
     }
     await get().purgeTrash()
+    // Retention got stricter (25/50/unlimited → 5/10/25); enforce it once per unlock so
+    // pre-existing over-limit histories shrink without waiting for the next edit.
+    try {
+      await repo.pruneAllRevisions()
+    } catch {
+      /* retried on the next edit or setting change */
+    }
   },
 
   reload: async () => {

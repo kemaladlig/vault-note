@@ -133,14 +133,14 @@ describe('noteRepo version history (device-local)', () => {
       removeItem: (key: string) => void store.delete(key),
       clear: () => store.clear(),
     })
-    store.set('vaultnote.revisionLimit', '2')
+    store.set('vaultnote.revisionLimit', '5')
 
     let note = await createNote(dek, { title: 't', body: 'v0', tags: [] })
-    for (const body of ['v1', 'v2', 'v3']) {
+    for (const body of ['v1', 'v2', 'v3', 'v4', 'v5', 'v6']) {
       note = await updateNote(dek, note, { title: 't', body, tags: [] })
     }
     const revisions = await listRevisions(dek, note.id)
-    expect(revisions.map((revision) => revision.body)).toEqual(['v2', 'v1'])
+    expect(revisions.map((revision) => revision.body)).toEqual(['v5', 'v4', 'v3', 'v2', 'v1'])
   })
 
   it('destroyNote drops the history too', async () => {

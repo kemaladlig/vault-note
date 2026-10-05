@@ -336,7 +336,6 @@ export const tr = {
   'settings.revisionsNote':
     'Not başına saklanan en fazla sürüm sayısı. Geçmiş yalnızca bu cihazda tutulur; senkronlanmaz.',
   'settings.revisions.count': '{count} sürüm',
-  'settings.revisions.unlimited': 'Sınırsız',
   'settings.danger': 'Tehlikeli alan',
   'settings.resetConfirm': 'Tüm notlar ve vault bu cihazdan silinir. Bu işlem geri alınamaz.',
   'settings.resetDo': 'Kalıcı olarak sil',
@@ -719,7 +718,6 @@ export const en: Record<MessageKey, string> = {
   'settings.revisionsNote':
     'Versions kept per note. History is stored on this device only; never synced.',
   'settings.revisions.count': '{count} versions',
-  'settings.revisions.unlimited': 'Unlimited',
   'settings.danger': 'Danger zone',
   'settings.resetConfirm': 'All notes and the vault are deleted from this device. This cannot be undone.',
   'settings.resetDo': 'Delete permanently',

@@ -55,7 +55,7 @@ export async function createNote(dek: Bytes, content: NoteContent): Promise<Decr
 }
 
 /**
- * Keep only the newest `limit` snapshots for a note (`0` = unlimited). Oldest are dropped.
+ * Keep only the newest `limit` snapshots for a note. Oldest are dropped.
  */
 async function pruneRevisions(noteId: string): Promise<void> {
   const limit = getRevisionLimit()
