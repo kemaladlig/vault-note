@@ -293,6 +293,21 @@
   --animate-toast-in: toast-in var(--duration-base) var(--ease-emphasized) both;
   --animate-tab-in: tab-in var(--duration-fast) var(--ease-standard) both;
   --animate-shimmer: shimmer 1.6s linear infinite;
+  /* Slow enough to read as ambient, not urgent. */
+  --animate-ring-spin: ring-spin 1.8s linear infinite;
+}
+
+/* Registered so the conic gradient's start angle can animate smoothly. */
+@property --ring-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes ring-spin {
+  to {
+    --ring-angle: 360deg;
+  }
 }
 
 @keyframes fade-in {
@@ -391,6 +406,35 @@
   );
   background-size: 200% 100%;
   animation: var(--animate-shimmer);
+}
+
+/* Busy state: a soft primary arc traces the element's border. The mask keeps
+   only the padding ring visible, so it reads as an animated border, not a glow. */
+@utility ring-sync {
+  position: relative;
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1.5px;
+    background: conic-gradient(
+      from var(--ring-angle),
+      transparent 0deg 200deg,
+      color-mix(in srgb, var(--color-primary) 12%, transparent) 250deg,
+      color-mix(in srgb, var(--color-primary) 90%, transparent) 330deg,
+      transparent 360deg
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: var(--animate-ring-spin);
+  }
 }
 
 @layer base {
