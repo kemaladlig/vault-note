@@ -140,6 +140,7 @@ export function UnlockForm() {
               <Button type="submit" className="w-full" disabled={busy || !isValidPin(pin)}>
                 {busy ? t('vault.unlock.opening') : t('vault.unlock.openPin')}
               </Button>
+              <p className="text-xs text-muted-foreground">{t('vault.unlock.forgotDesc')}</p>
               {!isDevice && (
                 <button
                   type="button"
@@ -159,6 +160,7 @@ export function UnlockForm() {
                 {busy ? t('vault.unlock.opening') : t('vault.unlock.quick')}
               </Button>
               {error && <p className="text-sm text-destructive">{error}</p>}
+              <p className="text-xs text-muted-foreground">{t('vault.unlock.forgotDesc')}</p>
               {!isDevice && (
                 <div className="flex justify-center gap-4 text-xs">
                   <button
@@ -204,6 +206,25 @@ export function UnlockForm() {
               <Button type="submit" className="w-full" disabled={busy || !passphrase}>
                 {busy ? t('vault.unlock.verifying') : t('vault.unlock.title')}
               </Button>
+              {(quickAvailable || pinSet) ? (
+                <div className="space-y-1 text-center">
+                  <button
+                    type="button"
+                    className="mx-auto block text-xs text-muted-foreground underline-offset-4 hover:underline"
+                    onClick={() => {
+                      setWithPassphrase(false)
+                      setError(undefined)
+                    }}
+                  >
+                    {t('vault.unlock.forgot')}
+                  </button>
+                  <p className="text-xs text-muted-foreground">{t('vault.unlock.forgotDesc')}</p>
+                </div>
+              ) : (
+                <p className="text-center text-xs text-muted-foreground">
+                  {t('vault.unlock.forgotNoDevice')}
+                </p>
+              )}
               {pinSet && (
                 <button
                   type="button"

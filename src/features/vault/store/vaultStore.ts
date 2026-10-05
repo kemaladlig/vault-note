@@ -62,6 +62,13 @@ interface VaultState {
   enableQuickHere: () => Promise<void>
   /** Re-wrap the same DEK under a new passphrase. Notes are never re-encrypted. */
   changePassphrase: (current: string, next: string) => Promise<void>
+  /**
+   * Same as `changePassphrase` but without verifying the old passphrase. Only callable
+   * while unlocked (DEK in RAM), i.e. after a device/PIN/biometric unlock. Safe because
+   * holding the DEK already grants full read access — re-wrapping adds no new capability,
+   * it just restores passphrase access on a device the user still owns.
+   */
+  resetPassphrase: (next: string) => Promise<void>
   /** Adopt a vault header discovered on Drive (new-device setup). Lands in `locked`. */
   restore: (header: VaultHeader, mode: VaultMode) => Promise<void>
   /** Forget this device (disables quick unlock). */
@@ -203,6 +210,14 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     if (!header || !dek) throw new Error('Vault kilitli')
     // Verifies the current passphrase (throws WrongPassphraseError) before re-wrapping.
     await unlockVault(current, header)
+    const newHeader = await rekeyVault({ dek }, next)
+    const saved = await saveVault(newHeader, settings?.mode ?? 'passphrase')
+    set({ header: newHeader, settings: saved })
+  },
+
+  resetPassphrase: async (next) => {
+    const { header, dek, settings } = get()
+    if (!header || !dek) throw new Error('Vault kilitli')
     const newHeader = await rekeyVault({ dek }, next)
     const saved = await saveVault(newHeader, settings?.mode ?? 'passphrase')
     set({ header: newHeader, settings: saved })

@@ -252,7 +252,10 @@ src/
   device vaults still unlock (the unlock screen hides the passphrase fallback and offers a reset
   if the device key is gone).
 - **Passphrase change (rekey):** Settings → "Parolayı değiştir" verifies the current passphrase,
-  then `rekeyVault` re-wraps the same DEK. Hidden in passwordless mode (there is no passphrase).
+  then `rekeyVault` re-wraps the same DEK. Settings → "Yeni parola belirle (bu cihazla)"
+  (`resetPassphrase`) skips the current check — allowed only while unlocked, i.e. after a
+  device/PIN/biometric unlock that already proves DEK possession. Hidden in passwordless
+  mode (there is no passphrase).
 - **Passphrase policy (`crypto/strength.ts`):** hard gate = at least 8 characters
   (`MIN_PASSPHRASE_LENGTH`, enforced on create and rekey). A dependency-free entropy estimate
   (`estimateEntropyBits`, ~zxcvbn-class) additionally **advises** on create/rekey: character-class
@@ -280,7 +283,10 @@ block is the app's only browser-enforced security boundary:
 ## Features (user-facing)
 
 - Vault lifecycle: create (passphrase; the device is remembered by default), unlock (passphrase,
-  quick-unlock, PIN, biometric on native), lock, reset, forget device. Existing **open modes**
+  quick-unlock, PIN, biometric on native), lock, reset, forget device. Forgetting the passphrase
+  on a remembered device: quick/PIN unlock, then Settings → Security → new passphrase
+  (no current check — DEK is already in RAM). Drive is transport only: it carries ciphertext
+  the account holder still cannot open without the passphrase. Existing **open modes**
   (no lock / PIN / biometric on native) stay; "No lock" opens the boot directly, no gate.
   Settings → Security switches the open mode at any time and can add/change/remove the
   app-lock **PIN**.
@@ -388,8 +394,10 @@ block is the app's only browser-enforced security boundary:
     same redirect URI on the OAuth client.
   - Set `VITE_GOOGLE_CLIENT_ID` in `.env.local` (see `.env.example`). The Drive button is
     disabled until it is configured.
-- **New device:** "Drive'dan geri yükle" pulls the bootstrap, adopts the header locally, then
-  asks for the passphrase (lands in `locked`).
+- **New device:** "Drive'a bağla ve geri yükle" pulls the bootstrap, adopts the header locally, then
+  asks for the passphrase (lands in `locked`). `syncStore.restoredAt` is set on adopt and cleared
+  after the first sync attempt, so the notes empty state says "fetching" instead of inviting a
+  new vault while the first pull is in flight.
 - **Auto-sync:** `useAutoSync` pushes ~1.5s after any local edit (new note / save / delete /
   notebook change) and pulls every 5s plus on `online`/`focus`/`visibilitychange` — always
   `interactive: false`, so it never opens the OAuth popup and is a no-op until first sign-in.

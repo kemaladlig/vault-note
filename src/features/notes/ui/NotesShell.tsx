@@ -6,6 +6,7 @@ import {
   ArrowUpDown,
   CalendarDays,
   Clock,
+  Loader2,
   Menu as MenuIcon,
   Pin,
   Plus,
@@ -21,6 +22,7 @@ import { Input } from '@/components/ui/input'
 import { Menu, type MenuItem } from '@/components/ui/menu'
 import { Modal } from '@/components/ui/modal'
 import { useShellStore } from '@/features/shell/store/shellStore'
+import { useSyncStore } from '@/features/sync/store/syncStore'
 import { cn } from '@/lib/utils'
 import { folderSubtree } from '@/shared/folders'
 import { useT, type MessageKey } from '@/shared/i18n'
@@ -60,11 +62,14 @@ function SkeletonList() {
 function EmptyState({
   view,
   hasNotes,
+  syncing,
   onCreate,
   onClear,
 }: {
   view: NotesView
   hasNotes: boolean
+  /** Second device waiting on its first Drive pull: explain instead of inviting a new vault. */
+  syncing?: boolean
   onCreate: () => void
   onClear: () => void
 }) {
@@ -102,16 +107,22 @@ function EmptyState({
   return (
     <div className="flex h-full flex-col items-center justify-center gap-5 px-8 text-center animate-rise">
       <span className="grid size-16 place-items-center rounded-2xl bg-accent text-accent-foreground shadow-e1">
-        {icon[view]}
+        {syncing && view === 'all' && !hasNotes ? <Loader2 className="size-7 animate-spin" /> : icon[view]}
       </span>
       <div className="max-w-xs space-y-1">
         <p className="text-base font-medium">
-          {view === 'all' ? t('notes.empty.allTitle') : t(VIEW_LABELS[view])}
+          {syncing && view === 'all' && !hasNotes
+            ? t('notes.empty.syncingTitle')
+            : view === 'all'
+              ? t('notes.empty.allTitle')
+              : t(VIEW_LABELS[view])}
         </p>
-        <p className="text-sm text-muted-foreground">{t(message[view])}</p>
+        <p className="text-sm text-muted-foreground">
+          {syncing && view === 'all' && !hasNotes ? t('notes.empty.syncingMsg') : t(message[view])}
+        </p>
       </div>
       {view === 'all' && (
-        <Button size="lg" variant="cta" onClick={onCreate}>
+        <Button size="lg" variant={syncing && !hasNotes ? 'outline' : 'cta'} onClick={onCreate}>
           <Plus />
           {t('notes.empty.createButton')}
         </Button>
@@ -152,6 +163,9 @@ export function NotesShell() {
 
   const folders = useFolderStore((s) => s.folders)
   const loadFolders = useFolderStore((s) => s.load)
+
+  const syncStatus = useSyncStore((s) => s.status)
+  const restoredAt = useSyncStore((s) => s.restoredAt)
 
   const listOpen = useShellStore((s) => s.listOpen)
   const setListOpen = useShellStore((s) => s.setListOpen)
@@ -449,6 +463,11 @@ export function NotesShell() {
               <EmptyState
                 view={view}
                 hasNotes={filtered.length > 0}
+                syncing={
+                  !loading &&
+                  notes.length === 0 &&
+                  (syncStatus === 'syncing' || restoredAt !== undefined)
+                }
                 onCreate={() => void create()}
                 onClear={clearFilters}
               />

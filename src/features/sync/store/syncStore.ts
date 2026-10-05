@@ -43,6 +43,11 @@ interface SyncState {
   lastConflicts: number
   /** Notebook tree pulled while it had local edits (whole-doc LWW, local lost). */
   folderConflict: boolean
+  /**
+   * Set when a Drive vault is adopted on a new device, cleared after the first sync
+   * attempt completes. Lets the empty state say "fetching" instead of "create first".
+   */
+  restoredAt?: number
   sync: (options?: SyncOptions) => Promise<void>
   refreshPending: () => Promise<void>
   /** New-device setup: pull the vault header from Drive and adopt it locally. */
@@ -146,6 +151,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
         lastPushed: result.pushed,
         lastConflicts: conflictCount,
         folderConflict,
+        restoredAt: undefined,
       })
 
       // Conflicts always notify (even background polls), because local work was lost.
@@ -156,7 +162,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       }
     } catch (err) {
       const detail = err instanceof Error ? err.message : undefined
-      set({ status: 'error', error: detail ?? t('sync.failedTitle'), pending: await countPending() })
+      set({ status: 'error', error: detail ?? t('sync.failedTitle'), pending: await countPending(), restoredAt: undefined })
       // A user-triggered sync should say why it failed; background polls stay quiet (the error
       // is still stored and surfaced in Settings).
       if (interactive) toast(`${t('sync.failedTitle')} ${t('sync.failedHint')}`, 'error')
@@ -172,7 +178,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
         return false
       }
       await useVaultStore.getState().restore(bootstrap.header, bootstrap.settings.mode)
-      set({ status: 'idle' })
+      set({ status: 'idle', restoredAt: now() })
       return true
     } catch (err) {
       set({ status: 'error', error: err instanceof Error ? err.message : 'Geri yükleme başarısız' })
@@ -182,6 +188,6 @@ export const useSyncStore = create<SyncState>((set, get) => ({
 
   disconnect: () => {
     signOut()
-    set({ status: 'idle', lastSyncedAt: undefined, error: undefined, manifestModifiedTime: undefined, pending: 0, lastPulled: 0, lastPushed: 0, lastConflicts: 0, folderConflict: false })
+    set({ status: 'idle', lastSyncedAt: undefined, error: undefined, manifestModifiedTime: undefined, pending: 0, lastPulled: 0, lastPushed: 0, lastConflicts: 0, folderConflict: false, restoredAt: undefined })
   },
 }))

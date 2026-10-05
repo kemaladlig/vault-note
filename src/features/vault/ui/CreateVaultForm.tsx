@@ -77,6 +77,7 @@ export function CreateVaultForm() {
             )}
             {error && <p className="text-sm text-destructive">{error}</p>}
             <p className="text-xs text-muted-foreground">{t('vault.create.rememberHint')}</p>
+            <p className="text-xs text-muted-foreground">{t('vault.create.descRecovery')}</p>
             <Button type="submit" className="w-full" disabled={busy}>
               {busy ? t('vault.create.deriving') : t('vault.create.submit')}
             </Button>

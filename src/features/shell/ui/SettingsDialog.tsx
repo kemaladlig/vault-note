@@ -99,6 +99,7 @@ export function SettingsDialog() {
   const setAppLockBiometric = useVaultStore((s) => s.setAppLockBiometric)
   const enableQuickHere = useVaultStore((s) => s.enableQuickHere)
   const changePassphrase = useVaultStore((s) => s.changePassphrase)
+  const resetPassphrase = useVaultStore((s) => s.resetPassphrase)
   const reset = useVaultStore((s) => s.reset)
 
   const configured = useSyncStore((s) => s.configured)
@@ -118,7 +119,7 @@ export function SettingsDialog() {
   const renameTemplate = useTemplateStore((s) => s.rename)
   const removeTemplate = useTemplateStore((s) => s.remove)
 
-  const [rekeying, setRekeying] = useState(false)
+  const [rekeyMode, setRekeyMode] = useState<'change' | 'reset' | null>(null)
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -142,7 +143,7 @@ export function SettingsDialog() {
   function close() {
     setOpen(false)
     setTab('appearance')
-    setRekeying(false)
+    setRekeyMode(null)
     setCurrent('')
     setNext('')
     setConfirm('')
@@ -205,9 +206,12 @@ export function SettingsDialog() {
     setRekeyBusy(true)
     setRekeyError(undefined)
     try {
-      await changePassphrase(current, next)
+      // Reset via this device: DEK is already in RAM, so no current passphrase check.
+      // Change: verifies the current passphrase first (throws on mismatch).
+      if (rekeyMode === 'reset') await resetPassphrase(next)
+      else await changePassphrase(current, next)
       toast(t('settings.passphraseUpdated'), 'success')
-      setRekeying(false)
+      setRekeyMode(null)
       setCurrent('')
       setNext('')
       setConfirm('')
@@ -467,7 +471,7 @@ export function SettingsDialog() {
 
           {isDevice ? (
             <p className="text-xs text-muted-foreground">{t('settings.deviceModeNote')}</p>
-          ) : rekeying ? (
+          ) : rekeyMode ? (
             <form
               className="space-y-3 rounded-xl border p-3"
               onSubmit={(event) => {
@@ -475,16 +479,20 @@ export function SettingsDialog() {
                 void onRekey()
               }}
             >
-              <div className="space-y-1.5">
-                <Label htmlFor="rekey-current">{t('settings.currentPassphrase')}</Label>
-                <Input
-                  id="rekey-current"
-                  type="password"
-                  autoComplete="current-password"
-                  value={current}
-                  onChange={(event) => setCurrent(event.target.value)}
-                />
-              </div>
+              {rekeyMode === 'reset' ? (
+                <p className="text-xs text-muted-foreground">{t('settings.resetPassphraseDesc')}</p>
+              ) : (
+                <div className="space-y-1.5">
+                  <Label htmlFor="rekey-current">{t('settings.currentPassphrase')}</Label>
+                  <Input
+                    id="rekey-current"
+                    type="password"
+                    autoComplete="current-password"
+                    value={current}
+                    onChange={(event) => setCurrent(event.target.value)}
+                  />
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label htmlFor="rekey-next">{t('settings.newPassphrase')}</Label>
                 <Input
@@ -510,7 +518,7 @@ export function SettingsDialog() {
               )}
               {rekeyError && <p className="text-sm text-destructive">{rekeyError}</p>}
               <div className="flex justify-end gap-2">
-                <Button size="sm" variant="ghost" type="button" onClick={() => setRekeying(false)}>
+                <Button size="sm" variant="ghost" type="button" onClick={() => setRekeyMode(null)}>
                   {t('common.cancel')}
                 </Button>
                 <Button size="sm" type="submit" disabled={rekeyBusy}>
@@ -520,10 +528,22 @@ export function SettingsDialog() {
               </div>
             </form>
           ) : (
-            <Button size="sm" variant="outline" onClick={() => setRekeying(true)}>
-              <KeyRound />
-              {t('settings.changePassphrase')}
-            </Button>
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={() => setRekeyMode('change')}>
+                  <KeyRound />
+                  {t('settings.changePassphrase')}
+                </Button>
+                {quickAvailable && (
+                  <Button size="sm" variant="ghost" onClick={() => setRekeyMode('reset')}>
+                    {t('settings.resetPassphrase')}
+                  </Button>
+                )}
+              </div>
+              {quickAvailable && (
+                <p className="text-xs text-muted-foreground">{t('settings.resetPassphraseDesc')}</p>
+              )}
+            </div>
           )}
         </Section>
           </>

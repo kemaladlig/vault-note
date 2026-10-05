@@ -3,6 +3,7 @@ import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { useT } from '@/shared/i18n'
+import { toast } from '@/shared/toast'
 
 import { useSyncStore } from '../store/syncStore'
 
@@ -19,7 +20,10 @@ export function RestoreFromDrive() {
     setNotice(undefined)
     const restored = await restore()
     setBusy(false)
-    if (!restored) setNotice(t('sync.restore.notFound'))
+    // Success flips VaultGate to the passphrase screen; say what happens next so the
+    // second device feels like one continuous step instead of two disconnected screens.
+    if (restored) toast(t('sync.restore.found'), 'success')
+    else setNotice(t('sync.restore.notFound'))
   }
 
   return (
@@ -29,6 +33,7 @@ export function RestoreFromDrive() {
         {t('common.or')}
         <span className="h-px flex-1 bg-border" />
       </div>
+      <p className="text-xs text-muted-foreground">{t('sync.restore.desc')}</p>
       <Button
         type="button"
         variant="outline"

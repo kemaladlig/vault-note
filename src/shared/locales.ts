@@ -205,6 +205,8 @@ export const tr = {
   'notes.empty.archiveMsg': 'Arşivlediğin notlar burada saklanır.',
   'notes.empty.trashMsg': 'Çöp kutusu boş.',
   'notes.empty.createButton': 'Bir not oluştur',
+  'notes.empty.syncingTitle': 'Notların getiriliyor',
+  'notes.empty.syncingMsg': 'Drive’dan şifreli notların indiriliyor. Birazdan burada görünür.',
   'notes.shell.nav': 'Gezinme',
   'notes.shell.menu': 'Menü',
   'notes.shell.closeMenu': 'Menüyü kapat',
@@ -307,6 +309,9 @@ export const tr = {
   'settings.newPassphrase': 'Yeni parola',
   'settings.confirmPassphrase': 'Yeni parolayı doğrula',
   'settings.changePassphrase': 'Parolayı değiştir',
+  'settings.resetPassphrase': 'Yeni parola belirle (bu cihazla)',
+  'settings.resetPassphraseDesc':
+    'Mevcut parolayı bilmiyorsan: bu cihaz zaten açık olduğu için yeni parola belirleyebilirsin. Notlar yeniden şifrelenmez.',
   'settings.passphraseShort': 'Yeni parola en az {n} karakter olmalı.',
   'settings.passphraseMismatch': 'Yeni parolalar eşleşmiyor.',
   'settings.passphraseWrong': 'Mevcut parola hatalı.',
@@ -344,7 +349,9 @@ export const tr = {
   // Vault — create / unlock
   'vault.create.title': 'Vault oluştur',
   'vault.create.desc':
-    'Notların bu parola ile şifrelenir. Kaybedersen verilere kimse erişemez; kurtarma yolu yoktur.',
+    'Notların bu parola ile şifrelenir. Bu cihaz hatırlarsa parolasız açılır; yeni cihazda parola gerekir.',
+  'vault.create.descRecovery':
+    'Parolayı unutursan ve bu cihaz da unutulmuşsa kurtarma yoktur; Drive yedeği de parolasız açılmaz.',
   'vault.create.passphrase': 'Ana parola',
   'vault.create.confirm': 'Parolayı doğrula',
   'vault.create.passShort': 'Ana parola en az {n} karakter olmalı.',
@@ -365,6 +372,11 @@ export const tr = {
   'vault.unlock.quick': 'Hızlı aç',
   'vault.unlock.opening': 'Açılıyor…',
   'vault.unlock.withPassphrase': 'Parolayla aç',
+  'vault.unlock.forgot': 'Parolayı unuttum',
+  'vault.unlock.forgotDesc':
+    'Bu cihaz parolanı hatırlıyor. Hızlı açma ile gir, sonra Ayarlar → Güvenlik’ten yeni parola belirle.',
+  'vault.unlock.forgotNoDevice':
+    'Bu cihaz parolanı hatırlamıyor. Parola olmadan açılamaz; Drive yedeği de parolanı ister.',
   'vault.unlock.forget': 'Bu cihazı unut',
   'vault.unlock.remember': 'Bu cihazda hatırla',
   'vault.unlock.verifying': 'Doğrulanıyor…',
@@ -398,7 +410,11 @@ export const tr = {
   'sync.failedTitle': 'Senkronizasyon tamamlanamadı.',
   'sync.failedHint': 'Bağlantını ve Google Drive izinlerini kontrol et.',
   'sync.restore.notFound': "Bu Drive hesabında bir VaultNote vault'u bulunamadı.",
-  'sync.restore.button': "Drive'dan geri yükle",
+  'sync.restore.button': "Drive'a bağla ve geri yükle",
+  'sync.restore.desc':
+    'Google yalnızca şifreli veriyi taşır, notlarını okuyamaz. Açmak için yine parolan gerekir.',
+  'sync.restore.found': 'Vault bulundu. Şimdi parolanla aç; notların birazdan iner.',
+  'sync.syncing': 'Senkronize ediliyor…',
   'sync.summary': '{pulled} alındı, {pushed} gönderildi.',
   'sync.pending': '{n} bekleyen değişiklik.',
   'sync.conflict': 'Çakışma: {n} yerde Drive sürümü kazandı, yerel taslak üzerine yazıldı.',
@@ -591,6 +607,8 @@ export const en: Record<MessageKey, string> = {
   'notes.empty.archiveMsg': 'Notes you archive are kept here.',
   'notes.empty.trashMsg': 'Trash is empty.',
   'notes.empty.createButton': 'Create a note',
+  'notes.empty.syncingTitle': 'Fetching your notes',
+  'notes.empty.syncingMsg': 'Downloading your encrypted notes from Drive. They will appear here shortly.',
   'notes.shell.nav': 'Navigation',
   'notes.shell.menu': 'Menu',
   'notes.shell.closeMenu': 'Close menu',
@@ -690,6 +708,9 @@ export const en: Record<MessageKey, string> = {
   'settings.newPassphrase': 'New passphrase',
   'settings.confirmPassphrase': 'Confirm new passphrase',
   'settings.changePassphrase': 'Change passphrase',
+  'settings.resetPassphrase': 'Set new passphrase (with this device)',
+  'settings.resetPassphraseDesc':
+    'If you do not know the current one: this device is already open, so you can set a new one. Notes are not re-encrypted.',
   'settings.passphraseShort': 'New passphrase must be at least {n} characters.',
   'settings.passphraseMismatch': 'New passphrases do not match.',
   'settings.passphraseWrong': 'Current passphrase is wrong.',
@@ -725,7 +746,9 @@ export const en: Record<MessageKey, string> = {
 
   'vault.create.title': 'Create vault',
   'vault.create.desc':
-    'Your notes are encrypted with this passphrase. If you lose it, no one can reach your data; there is no recovery.',
+    'Your notes are encrypted with this passphrase. This device can reopen without it; a new device needs it.',
+  'vault.create.descRecovery':
+    'If you lose the passphrase and this device is forgotten too, there is no recovery; the Drive backup needs it as well.',
   'vault.create.passphrase': 'Master passphrase',
   'vault.create.confirm': 'Confirm passphrase',
   'vault.create.passShort': 'Master passphrase must be at least {n} characters.',
@@ -746,6 +769,11 @@ export const en: Record<MessageKey, string> = {
   'vault.unlock.quick': 'Quick unlock',
   'vault.unlock.opening': 'Unlocking…',
   'vault.unlock.withPassphrase': 'Unlock with passphrase',
+  'vault.unlock.forgot': 'Forgot passphrase',
+  'vault.unlock.forgotDesc':
+    'This device remembers you. Unlock quickly, then set a new passphrase in Settings → Security.',
+  'vault.unlock.forgotNoDevice':
+    'This device does not remember you. It cannot open without the passphrase; the Drive backup needs it too.',
   'vault.unlock.forget': 'Forget this device',
   'vault.unlock.remember': 'Remember on this device',
   'vault.unlock.verifying': 'Verifying…',
@@ -777,7 +805,11 @@ export const en: Record<MessageKey, string> = {
   'sync.failedTitle': 'Sync could not complete.',
   'sync.failedHint': 'Check your connection and Google Drive permissions.',
   'sync.restore.notFound': 'No VaultNote vault was found in this Drive account.',
-  'sync.restore.button': 'Restore from Drive',
+  'sync.restore.button': 'Connect Drive and restore',
+  'sync.restore.desc':
+    'Google only carries encrypted data and cannot read your notes. You still need your passphrase to open.',
+  'sync.restore.found': 'Vault found. Now unlock with your passphrase; your notes will arrive shortly.',
+  'sync.syncing': 'Syncing…',
   'sync.summary': '{pulled} pulled, {pushed} pushed.',
   'sync.pending': '{n} pending changes.',
   'sync.conflict': 'Conflict: Drive version won in {n} places, overwriting local drafts.',
