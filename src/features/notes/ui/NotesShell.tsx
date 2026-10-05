@@ -197,7 +197,6 @@ export function NotesShell() {
   const groupField = groupFieldFor(sortBy)
   const selected = notes.find((note) => note.id === selectedId)
   const splitNote = notes.find((note) => note.id === splitId && note.id !== selectedId)
-  const deferredSearching = deferredQuery.trim().length > 0
   const filtering = query.trim().length > 0 || Boolean(tagFilter)
   // Mobile: with no note selected (empty view, closed tabs…) the list is always the surface.
   const showList = listOpen || !selected
@@ -430,7 +429,7 @@ export function NotesShell() {
               <NoteEditor
                 key={selected.id}
                 note={selected}
-                initialSearch={deferredSearching ? deferredQuery.trim() : undefined}
+                initialSearch={query.trim() || undefined}
               />
             ) : (
               <EmptyState
@@ -463,7 +462,7 @@ export function NotesShell() {
                 <NoteEditor
                   key={splitNote.id}
                   note={splitNote}
-                  initialSearch={deferredSearching ? deferredQuery.trim() : undefined}
+                  initialSearch={query.trim() || undefined}
                 />
               </div>
             </div>
