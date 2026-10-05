@@ -117,6 +117,7 @@ src/
         Highlight.tsx        Turkish-aware substring highlight (list + palette)
         CodeEditor.tsx       CodeMirror 6 wrapper: markdown, search, [[ completion, token theme
         EditorToolbar.tsx    Markdown format bar + text-appearance (size/line) popover
+        livePreview.ts       Obsidian-style live preview decorations + active-format detection
         MarkdownPreview.tsx  read-only preview: marked + sanitized HTML; wiki links navigate in-app
       search.test.ts
       links.test.ts
@@ -379,6 +380,11 @@ src/
   (active match `--search-highlight-active`). `SearchBar.tsx` drives term + Next/Prev via the
   `CodeEditorHandle`; Mod-F opens our bar (a high-precedence keymap overrides basicSetup's).
 - Match counting uses the query's own cursor, so the count matches exactly what is highlighted.
+- **Live preview**: `livePreview.ts` decorates the source (never rewrites it) — inline markers
+  (`**`, `*`, `` ` ``, `# `, `> `, `- `, `[[ ]]`) hide while the selection is outside them and
+  render styled (bold/italic/heading/quote/bullet) otherwise. `CodeEditor.onActiveFormats`
+  reports `activeFormatsAt()` on selection/doc changes; `EditorToolbar` lights the matching
+  buttons with `aria-pressed`. Stored content stays plain Markdown either way.
 - **Export:** `features/notes/export.ts` downloads a note/all notes as Markdown or all as JSON.
   Export is **plaintext**; the UI states this before offering it.
 

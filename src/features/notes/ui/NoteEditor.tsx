@@ -17,7 +17,7 @@ import type { DecryptedNote, NoteContent } from '../model'
 import { countWords } from '../stats'
 import { useNotesStore } from '../store/notesStore'
 import { useTemplateStore } from '../store/templateStore'
-import type { CodeEditorHandle, LinkTarget } from './CodeEditor'
+import type { CodeEditorHandle, EditorFormat, LinkTarget } from './CodeEditor'
 import { EditorToolbar } from './EditorToolbar'
 import { MoveNoteDialog } from './MoveNoteDialog'
 import { NoteHistory } from './NoteHistory'
@@ -34,6 +34,8 @@ const MarkdownPreview = lazy(() =>
 const SAVE_DELAY_MS = 500
 
 const TOOLS_KEY = 'vaultnote.toolsOpen'
+
+const EMPTY_FORMATS: ReadonlySet<EditorFormat> = new Set()
 
 /** Header tools start open on desktop, closed on small screens; then the choice sticks. */
 function readToolsOpen(): boolean {
@@ -144,6 +146,7 @@ export function NoteEditor({ note, initialSearch }: NoteEditorProps) {
   const [templateOpen, setTemplateOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [toolsOpen, setToolsOpen] = useState(readToolsOpen)
+  const [activeFormats, setActiveFormats] = useState<ReadonlySet<EditorFormat>>(EMPTY_FORMATS)
 
   const editorRef = useRef<CodeEditorHandle>(null)
   const tagFieldRef = useRef<HTMLInputElement>(null)
@@ -588,6 +591,7 @@ export function NoteEditor({ note, initialSearch }: NoteEditorProps) {
             initialQuery={term || undefined}
             linkTargets={linkTargets}
             onMatchCount={setMatchCount}
+            onActiveFormats={(formats) => setActiveFormats(new Set(formats))}
             onRequestSearch={() => setSearchOpen(true)}
             onChange={(next) => {
               setBody(next)
@@ -600,6 +604,7 @@ export function NoteEditor({ note, initialSearch }: NoteEditorProps) {
 
       <EditorToolbar
         formattingEnabled={!preview}
+        activeFormats={preview ? EMPTY_FORMATS : activeFormats}
         onFormat={(action) => editorRef.current?.format(action)}
       />
 

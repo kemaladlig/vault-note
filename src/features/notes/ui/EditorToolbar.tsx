@@ -151,9 +151,12 @@ function TextPrefsMenu() {
  */
 export function EditorToolbar({
   formattingEnabled,
+  activeFormats,
   onFormat,
 }: {
   formattingEnabled: boolean
+  /** Formats active at the caret; a pressed button both looks and reads as toggled. */
+  activeFormats: ReadonlySet<EditorFormat>
   onFormat: (action: EditorFormat) => void
 }) {
   const t = useT()
@@ -165,19 +168,28 @@ export function EditorToolbar({
       className="shrink-0 border-t border-border/70 bg-surface animate-slide-up"
     >
       <div className="no-scrollbar flex items-center gap-0.5 overflow-x-auto px-2 py-1">
-        {FORMATS.map(({ id, labelKey, icon: Icon }) => (
-          <button
-            key={id}
-            type="button"
-            aria-label={t(labelKey)}
-            title={t(labelKey)}
-            disabled={!formattingEnabled}
-            onClick={() => onFormat(id)}
-            className="grid size-10 shrink-0 place-items-center rounded-lg text-muted-foreground transition-[background-color,color,transform] duration-[var(--duration-fast)] hover:bg-muted hover:text-foreground active:scale-95 disabled:pointer-events-none disabled:opacity-40"
-          >
-            <Icon className="size-[18px]" />
-          </button>
-        ))}
+        {FORMATS.map(({ id, labelKey, icon: Icon }) => {
+          const active = formattingEnabled && activeFormats.has(id)
+          return (
+            <button
+              key={id}
+              type="button"
+              aria-label={t(labelKey)}
+              title={t(labelKey)}
+              aria-pressed={active}
+              disabled={!formattingEnabled}
+              onClick={() => onFormat(id)}
+              className={cn(
+                'grid size-10 shrink-0 place-items-center rounded-lg transition-[background-color,color,transform] duration-[var(--duration-fast)] active:scale-95 disabled:pointer-events-none disabled:opacity-40',
+                active
+                  ? 'bg-accent text-accent-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+              )}
+            >
+              <Icon className="size-[18px]" />
+            </button>
+          )
+        })}
         <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-border/70" />
         <TextPrefsMenu />
       </div>

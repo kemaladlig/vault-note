@@ -13,6 +13,7 @@ import { basicSetup } from 'codemirror'
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 
 import { normalizeTr } from '../search'
+import { activeFormatsAt, livePreview, livePreviewTheme } from './livePreview'
 
 export interface CodeEditorHandle {
   /** Set the active search term ('' clears it) and jump to the first match. */
@@ -54,6 +55,8 @@ interface CodeEditorProps {
   initialQuery?: string
   /** Candidates offered after `[[`. Read live, so it can change while editing. */
   linkTargets?: LinkTarget[]
+  /** Formats active at the selection; lets the toolbar show pressed states. */
+  onActiveFormats?: (formats: EditorFormat[]) => void
   className?: string
 }
 
@@ -277,7 +280,16 @@ const FORMATTERS: Record<EditorFormat, (view: EditorView) => void> = {
  * to avoid clobbering the cursor while typing. Search is driven imperatively through the ref.
  */
 export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function CodeEditor(
-  { value, onChange, onMatchCount, onRequestSearch, initialQuery, linkTargets, className },
+  {
+    value,
+    onChange,
+    onMatchCount,
+    onRequestSearch,
+    initialQuery,
+    linkTargets,
+    onActiveFormats,
+    className,
+  },
   ref,
 ) {
   const host = useRef<HTMLDivElement>(null)
@@ -288,6 +300,9 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
   const matchRef = useRef(onMatchCount)
   const requestRef = useRef(onRequestSearch)
   const linkRef = useRef<LinkTarget[]>(linkTargets ?? [])
+  const formatsRef = useRef(onActiveFormats)
+  // Serialized active-format set; the report only fires when it actually changes.
+  const formatsKey = useRef('')
   // Active in-note query; kept so the match count can be refreshed as the doc changes.
   const activeQuery = useRef<SearchQuery | null>(null)
   // True while we dispatch a programmatic doc change, so it is not reported as a user edit.
@@ -298,6 +313,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
     matchRef.current = onMatchCount
     requestRef.current = onRequestSearch
     linkRef.current = linkTargets ?? []
+    formatsRef.current = onActiveFormats
   })
 
   useImperativeHandle(ref, () => ({
@@ -354,12 +370,23 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
         validFor: /^[^[\]\n]*$/,
       }
     }
+    const reportFormats = (view: EditorView) => {
+      const callback = formatsRef.current
+      if (!callback) return
+      const list = [...activeFormatsAt(view.state)]
+      const key = list.join('|')
+      if (key === formatsKey.current) return
+      formatsKey.current = key
+      callback(list)
+    }
     const extensions: Extension[] = [
       basicSetup,
       markdown(),
       EditorState.languageData.of(() => [{ autocomplete: linkSource }]),
       EditorView.lineWrapping,
       theme,
+      livePreview,
+      livePreviewTheme,
       search(),
       // Own Mod-F beats basicSetup's searchKeymap so we can drive our own UI.
       Prec.high(
@@ -372,6 +399,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
             matchRef.current?.(countMatches(update.state, activeQuery.current))
           }
         }
+        if (update.docChanged || update.selectionSet) reportFormats(update.view)
       }),
     ]
     const view = new EditorView({
@@ -379,6 +407,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
       parent: host.current,
     })
     viewRef.current = view
+    reportFormats(view)
     if (initialQueryRef.current) {
       const query = queryFor(initialQueryRef.current)
       if (query) {
