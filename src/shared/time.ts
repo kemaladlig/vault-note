@@ -33,10 +33,34 @@ type ShortUnit = 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'year
 export function relativeTime(ts: number, from = Date.now()): string {
   const diff = ts - from
   const formatter = relativeFormatter()
+  // Floor, never round: "2 gün önce" must not appear while the calendar
+  // grouping still calls the row "Dün".
+  const signed = (ms: number) => (diff >= 0 ? 1 : -1) * Math.floor(Math.abs(diff) / ms)
   for (const [unit, ms] of UNITS) {
-    if (Math.abs(diff) >= ms) return formatter.format(Math.round(diff / ms), unit)
+    if (Math.abs(diff) >= ms) return formatter.format(signed(ms), unit)
   }
-  return formatter.format(Math.round(diff / 1000), 'second')
+  return formatter.format(signed(1_000), 'second')
+}
+
+const SHORT_DATE = new Map<string, Intl.DateTimeFormat>()
+const SHORT_DATE_WITH_YEAR = new Map<string, Intl.DateTimeFormat>()
+
+/** "12 Şub" — past a few weeks a real date tells you more than "45g". */
+export function shortDate(ts: number): string {
+  const locale = useI18nStore.getState().locale
+  const date = new Date(ts)
+  const withYear = date.getFullYear() !== new Date().getFullYear()
+  const cache = withYear ? SHORT_DATE_WITH_YEAR : SHORT_DATE
+  let formatter = cache.get(locale)
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(locale, {
+      day: 'numeric',
+      month: 'short',
+      ...(withYear ? { year: 'numeric' } : {}),
+    })
+    cache.set(locale, formatter)
+  }
+  return formatter.format(date)
 }
 
 const SHORT_SUFFIX: Record<Locale, Record<ShortUnit, string>> = {
@@ -50,9 +74,9 @@ export function relativeTimeShort(ts: number, from = Date.now()): string {
   if (abs < 10_000) return t('time.now')
   const suffix = SHORT_SUFFIX[useI18nStore.getState().locale]
   for (const [unit, ms] of UNITS) {
-    if (abs >= ms) return `${Math.round(abs / ms)}${suffix[unit as ShortUnit]}`
+    if (abs >= ms) return `${Math.floor(abs / ms)}${suffix[unit as ShortUnit]}`
   }
-  return `${Math.round(abs / 1000)}${suffix.second}`
+  return `${Math.floor(abs / 1000)}${suffix.second}`
 }
 
 export type DateBucket = 'today' | 'yesterday' | 'week' | 'older'

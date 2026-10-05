@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
 import { useT, type MessageKey } from '@/shared/i18n'
-import { bucketOf, relativeTimeShort, type DateBucket } from '@/shared/time'
+import { bucketOf, relativeTimeShort, shortDate, type DateBucket } from '@/shared/time'
 
 import type { DecryptedNote, NotesView } from '../model'
 import { matchInfo } from '../search'
@@ -202,7 +202,7 @@ function NoteRow({
         className={cn(
           'w-full rounded-xl px-3 py-2.5 pr-20 text-left select-none transition-[background-color,color,box-shadow] duration-[var(--duration-base)] md:pr-25',
           active
-            ? 'bg-accent text-accent-foreground shadow-e2 ring-1 ring-primary/10'
+            ? 'bg-accent text-accent-foreground'
             : 'hover:bg-muted/60 hover:shadow-e1',
         )}
       >
@@ -211,14 +211,22 @@ function NoteRow({
             {note.title ? <Highlight text={note.title} query={query} /> : t('common.untitled')}
           </span>
           <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-            {relativeTimeShort(note.updatedAt)}
+            {bucketOf(note.updatedAt) === 'older'
+              ? shortDate(note.updatedAt)
+              : relativeTimeShort(note.updatedAt)}
           </span>
         </span>
-        {bodyPreview && (
-          <span className="mt-0.5 line-clamp-2 block text-xs leading-relaxed text-muted-foreground">
-            <Highlight text={bodyPreview} query={query} />
-          </span>
-        )}
+        {/* The preview line is always reserved, even when empty, so one-line
+            and two-line rows keep the same visual rhythm. */}
+        <span
+          aria-hidden={!bodyPreview}
+          className={cn(
+            'mt-0.5 block text-xs leading-relaxed',
+            bodyPreview ? 'line-clamp-2 text-muted-foreground' : 'invisible',
+          )}
+        >
+          {bodyPreview ? <Highlight text={bodyPreview} query={query} /> : '\u00A0'}
+        </span>
         {note.tags.length > 0 && (
           <span className="mt-1.5 flex flex-wrap items-center gap-1">
             {note.tags.slice(0, 3).map((tag) => (
