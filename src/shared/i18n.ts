@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import { create } from 'zustand'
 
+import type { Strength } from '@/features/vault/crypto/strength'
+
 import { messages, type MessageKey } from './locales'
 
 export type { MessageKey } from './locales'
@@ -66,4 +68,17 @@ export function useT(): (key: MessageKey, params?: Record<string, string | numbe
 /** Current locale, read once at boot to align `<html lang>`. */
 export function initI18n(): void {
   document.documentElement.lang = useI18nStore.getState().locale
+}
+
+/**
+ * Copy for a passphrase strength verdict. `undefined` for `strong` — a good passphrase gets no
+ * commentary, so the hint appears only when there is something to say.
+ */
+const STRENGTH_HINT: Partial<Record<Strength, MessageKey>> = {
+  weak: 'vault.create.strength.weak',
+  fair: 'vault.create.strength.fair',
+}
+
+export function passphraseHintKey(strength: Strength): MessageKey | undefined {
+  return STRENGTH_HINT[strength]
 }

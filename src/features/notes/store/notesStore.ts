@@ -371,7 +371,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   },
 
   remove: async (id) => {
-    await repo.deleteNote(id)
+    await repo.deleteNote(requireDek(), id)
     set((state) => ({
       notes: state.notes.map((n) => (n.id === id ? { ...n, deleted: true } : n)),
       revision: state.revision + 1,
@@ -379,7 +379,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   },
 
   restore: async (id) => {
-    await repo.restoreNote(id)
+    await repo.restoreNote(requireDek(), id)
     set((state) => ({
       notes: state.notes.map((n) => (n.id === id ? { ...n, deleted: false } : n)),
       revision: state.revision + 1,

@@ -54,8 +54,8 @@ describe('noteRepo (encrypted at rest)', () => {
 
   it('the raw ciphertext cannot be opened with the wrong key', async () => {
     const { id } = await createNote(dek, { title: 't', body: 'b', tags: [] })
-    const row = await db.notes.get(id)
-    await expect(openNote(randomBytes(32), id, row!.version, row!.sealed)).rejects.toThrow()
+    const row = (await db.notes.get(id))!
+    await expect(openNote(randomBytes(32), row!, row!.sealed)).rejects.toThrow()
   })
 
   it('update bumps the version and replaces the ciphertext', async () => {
@@ -71,7 +71,7 @@ describe('noteRepo (encrypted at rest)', () => {
 
   it('delete soft-hides the note as a trashed row', async () => {
     const { id } = await createNote(dek, { title: 't', body: 'b', tags: [] })
-    await deleteNote(id)
+    await deleteNote(dek, id)
     const notes = await listNotes(dek)
     expect(notes).toHaveLength(1)
     expect(notes[0].deleted).toBe(true)
@@ -81,11 +81,30 @@ describe('noteRepo (encrypted at rest)', () => {
 
   it('restore clears the tombstone and destroy removes the row', async () => {
     const { id } = await createNote(dek, { title: 't', body: 'b', tags: [] })
-    await deleteNote(id)
-    await restoreNote(id)
+    await deleteNote(dek, id)
+    await restoreNote(dek, id)
     expect((await listNotes(dek))[0].deleted).toBe(false)
     await destroyNote(id)
     expect(await listNotes(dek)).toHaveLength(0)
+  })
+
+  it('trash and restore keep the ciphertext readable', async () => {
+    // Both move `updatedAt` without touching the content, so both must re-seal. If they did not,
+    // the timestamp would stop matching the AAD and the note would stop opening at all.
+    const { id } = await createNote(dek, { title: 'başlık', body: 'gövde', tags: ['x'] })
+    await deleteNote(dek, id)
+    expect((await listNotes(dek))[0]).toMatchObject({ title: 'başlık', body: 'gövde' })
+    await restoreNote(dek, id)
+    expect((await listNotes(dek))[0]).toMatchObject({ title: 'başlık', body: 'gövde', tags: ['x'] })
+  })
+
+  it('trash re-seals, so the old timestamp no longer opens the row', async () => {
+    const created = await createNote(dek, { title: 't', body: 'b', tags: [] })
+    const before = (await db.notes.get(created.id))!
+    await deleteNote(dek, created.id)
+    const after = (await db.notes.get(created.id))!
+    expect(after.updatedAt).toBeGreaterThanOrEqual(before.updatedAt)
+    expect(after.sealed.ct).not.toBe(before.sealed.ct)
   })
 })
 

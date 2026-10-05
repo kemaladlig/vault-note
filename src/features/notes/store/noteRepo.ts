@@ -1,4 +1,4 @@
-import { openNote, sealNote, type Bytes } from '@/features/vault/crypto'
+import { openNote, restampNote, sealNote, type Bytes } from '@/features/vault/crypto'
 import { db, type NoteRow } from '@/shared/db'
 import { newId } from '@/shared/ids'
 import { getRevisionLimit } from '@/shared/revisions'
@@ -20,7 +20,7 @@ export interface NoteRevision {
 }
 
 async function decrypt(row: NoteRow, dek: Bytes): Promise<DecryptedNote> {
-  const payload = await openNote(dek, row.id, row.version, row.sealed)
+  const payload = await openNote(dek, row, row.sealed)
   return {
     id: row.id,
     version: row.version,
@@ -48,7 +48,7 @@ export async function createNote(dek: Bytes, content: NoteContent): Promise<Decr
     updatedAt: ts,
     deleted: 0,
     dirty: 1,
-    sealed: await sealNote(dek, id, 1, content),
+    sealed: await sealNote(dek, { id, version: 1, updatedAt: ts }, content),
   }
   await db.notes.put(row)
   return { id, version: 1, createdAt: ts, updatedAt: ts, deleted: false, ...content }
@@ -99,7 +99,7 @@ export async function updateNote(
     updatedAt: ts,
     deleted: note.deleted ? 1 : 0,
     dirty: 1,
-    sealed: await sealNote(dek, note.id, version, content),
+    sealed: await sealNote(dek, { id: note.id, version, updatedAt: ts }, content),
   }
   await db.notes.put(row)
   return { ...note, ...content, version, updatedAt: ts }
@@ -110,7 +110,11 @@ export async function listRevisions(dek: Bytes, noteId: string): Promise<NoteRev
   const rows = await db.revisions.where('noteId').equals(noteId).toArray()
   const revisions = await Promise.all(
     rows.map(async (row) => {
-      const payload = await openNote(dek, row.noteId, row.version, row.sealed)
+      const payload = await openNote(
+        dek,
+        { id: row.noteId, version: row.version, updatedAt: row.updatedAt },
+        row.sealed,
+      )
       return { version: row.version, updatedAt: row.updatedAt, ...payload }
     }),
   )
@@ -129,17 +133,19 @@ export async function pruneAllRevisions(): Promise<void> {
 }
 
 /** Soft delete: move to the trash. The tombstone syncs so other devices follow. */
-export async function deleteNote(id: string): Promise<void> {
+export async function deleteNote(dek: Bytes, id: string): Promise<void> {
   const row = await db.notes.get(id)
   if (!row) return
-  await db.notes.put({ ...row, deleted: 1, dirty: 1, updatedAt: now() })
+  const updatedAt = now()
+  await db.notes.put({ ...row, deleted: 1, dirty: 1, updatedAt, sealed: await restampNote(dek, row, updatedAt) })
 }
 
 /** Restore from the trash (undelete). */
-export async function restoreNote(id: string): Promise<void> {
+export async function restoreNote(dek: Bytes, id: string): Promise<void> {
   const row = await db.notes.get(id)
   if (!row) return
-  await db.notes.put({ ...row, deleted: 0, dirty: 1, updatedAt: now() })
+  const updatedAt = now()
+  await db.notes.put({ ...row, deleted: 0, dirty: 1, updatedAt, sealed: await restampNote(dek, row, updatedAt) })
 }
 
 /** Permanently remove a note from this device (and its local history). */

@@ -13,7 +13,13 @@ import { useNotesStore } from '@/features/notes/store/notesStore'
 import { useTemplateStore } from '@/features/notes/store/templateStore'
 import type { NoteTemplate } from '@/features/notes/templates'
 import { useSyncStore } from '@/features/sync/store/syncStore'
-import { WrongPassphraseError } from '@/features/vault/crypto'
+import {
+  MIN_PASSPHRASE_LENGTH,
+  WrongPassphraseError,
+  isAcceptablePassphrase,
+  passphraseStrength,
+} from '@/features/vault/crypto'
+import { passphraseHintKey } from '@/shared/i18n'
 import { PinDialog, type PinDialogMode } from '@/features/vault/ui/PinDialog'
 import { biometricAvailable, type AppLockMode } from '@/features/vault/store/appLock'
 import { AUTO_LOCK_OPTIONS, getAutoLockMinutes, setAutoLockMinutes } from '@/features/vault/store/autoLock'
@@ -53,8 +59,6 @@ const TABS: ReadonlyArray<{
   { id: 'sync', labelKey: 'settings.syncSection' },
   { id: 'data', labelKey: 'settings.data' },
 ]
-
-const MIN_LENGTH = 8
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -127,6 +131,7 @@ export function SettingsDialog() {
   const [deleteTarget, setDeleteTarget] = useState<NoteTemplate | null>(null)
   const [pinMode, setPinMode] = useState<PinDialogMode | null>(null)
   const [tab, setTab] = useState<(typeof TABS)[number]['id']>('appearance')
+  const hintKey = next ? passphraseHintKey(passphraseStrength(next)) : undefined
   /** Target mode to apply once the current PIN has been verified and removed. */
   const [pendingLock, setPendingLock] = useState<'none' | 'biometric' | null>(null)
   const [autoLock, setAutoLockState] = useState(() => getAutoLockMinutes())
@@ -189,8 +194,8 @@ export function SettingsDialog() {
   }
 
   async function onRekey() {
-    if (next.length < MIN_LENGTH) {
-      setRekeyError(t('settings.passphraseShort', { n: MIN_LENGTH }))
+    if (!isAcceptablePassphrase(next)) {
+      setRekeyError(t('settings.passphraseShort', { n: MIN_PASSPHRASE_LENGTH }))
       return
     }
     if (next !== confirm) {
@@ -298,12 +303,16 @@ export function SettingsDialog() {
                   aria-label={t(labelKey)}
                   title={t(labelKey)}
                   onClick={() => setAccent(id)}
-                  className={cn(
-                    'grid size-9 place-items-center rounded-full transition-transform duration-[var(--duration-fast)] hover:scale-110 active:scale-95',
-                    accent === id && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
-                  )}
+                  className="grid size-9 place-items-center rounded-full transition-transform duration-[var(--duration-fast)] hover:scale-110 active:scale-95"
                 >
-                  <span aria-hidden className="size-5 rounded-full" style={{ backgroundColor: swatch }} />
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'size-5 rounded-full',
+                      accent === id && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
+                    )}
+                    style={{ backgroundColor: swatch }}
+                  />
                 </button>
               ))}
             </div>
@@ -496,6 +505,9 @@ export function SettingsDialog() {
                   onChange={(event) => setConfirm(event.target.value)}
                 />
               </div>
+              {hintKey && (
+                <p className="text-xs text-muted-foreground">{t(hintKey)}</p>
+              )}
               {rekeyError && <p className="text-sm text-destructive">{rekeyError}</p>}
               <div className="flex justify-end gap-2">
                 <Button size="sm" variant="ghost" type="button" onClick={() => setRekeying(false)}>

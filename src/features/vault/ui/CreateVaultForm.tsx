@@ -5,12 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RestoreFromDrive } from '@/features/sync/ui/RestoreFromDrive'
-import { useT } from '@/shared/i18n'
+import { passphraseHintKey, useT } from '@/shared/i18n'
 
+import { MIN_PASSPHRASE_LENGTH, isAcceptablePassphrase, passphraseStrength } from '../crypto'
 import { useVaultStore } from '../store/vaultStore'
 import { VaultFrame } from './VaultFrame'
-
-const MIN_LENGTH = 8
 
 export function CreateVaultForm() {
   const t = useT()
@@ -20,12 +19,14 @@ export function CreateVaultForm() {
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
 
+  const hintKey = passphrase ? passphraseHintKey(passphraseStrength(passphrase)) : undefined
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
     setError(undefined)
 
-    if (passphrase.length < MIN_LENGTH) {
-      setError(t('vault.create.passShort', { n: MIN_LENGTH }))
+    if (!isAcceptablePassphrase(passphrase)) {
+      setError(t('vault.create.passShort', { n: MIN_PASSPHRASE_LENGTH }))
       return
     }
     if (passphrase !== confirm) {
@@ -71,6 +72,9 @@ export function CreateVaultForm() {
                 onChange={(e) => setConfirm(e.target.value)}
               />
             </div>
+            {hintKey && (
+              <p className="text-xs text-muted-foreground">{t(hintKey)}</p>
+            )}
             {error && <p className="text-sm text-destructive">{error}</p>}
             <p className="text-xs text-muted-foreground">{t('vault.create.rememberHint')}</p>
             <Button type="submit" className="w-full" disabled={busy}>

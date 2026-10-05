@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { randomBytes, sealNote, type Bytes, type NotePayload } from '@/features/vault/crypto'
+import { openNote, randomBytes, sealNote, type Bytes, type NotePayload } from '@/features/vault/crypto'
 import { db, type NoteRow } from '@/shared/db'
 
 import { MANIFEST_NAME, noteFileName, syncNotes } from './engine'
@@ -37,7 +37,7 @@ async function makeRow(id: string, payload: NotePayload, opts: RowOptions): Prom
     updatedAt: opts.updatedAt,
     deleted: opts.deleted ?? 0,
     dirty: opts.dirty ?? 1,
-    sealed: await sealNote(dek, id, version, payload),
+    sealed: await sealNote(dek, { id, version, updatedAt: opts.updatedAt }, payload),
   }
 }
 
@@ -127,7 +127,23 @@ describe('syncNotes', () => {
 
     await syncNotes({ drive, dek })
 
-    expect((await db.notes.get('d1'))!.deleted).toBe(1)
+    const local = (await db.notes.get('d1'))!
+    expect(local.deleted).toBe(1)
+    expect(local.updatedAt).toBe(3000)
+  })
+
+  it('re-seals a locally tombstoned row so it still opens', async () => {
+    // The remote timestamp is written onto a ciphertext that was sealed against the old one, so
+    // without the re-stamp the trashed note would be permanently undecryptable.
+    await db.notes.put(await makeRow('d2', payload('silinecek'), { updatedAt: 1000, dirty: 0 }))
+    await seedRemote([
+      await makeRow('d2', payload('silinecek'), { updatedAt: 3000, deleted: 1, dirty: 0 }),
+    ])
+
+    await syncNotes({ drive, dek })
+
+    const local = (await db.notes.get('d2'))!
+    expect(await openNote(dek, local, local.sealed)).toEqual(payload('silinecek'))
   })
 
   it('never leaks note ids or titles into the manifest', async () => {

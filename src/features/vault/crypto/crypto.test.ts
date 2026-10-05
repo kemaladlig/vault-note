@@ -4,16 +4,20 @@ import {
   CorruptCiphertextError,
   WrongPassphraseError,
   createVault,
+  deriveNoteKey,
   importAesKey,
   open,
   openNote,
   rekeyVault,
+  restampNote,
   seal,
   sealNote,
   unlockVault,
   utf8ToBytes,
   bytesToUtf8,
   randomBytes,
+  type Bytes,
+  type Sealed,
 } from './index'
 
 /** Fast KDF params so the suite runs in milliseconds instead of seconds. */
@@ -89,21 +93,69 @@ describe('note payloads', () => {
 
   it('round-trips a full note payload', async () => {
     const dek = randomBytes(32)
-    const sealed = await sealNote(dek, noteId, 1, payload)
-    expect(await openNote(dek, noteId, 1, sealed)).toEqual(payload)
+    const binding = { id: noteId, version: 1, updatedAt: 1000 }
+    const sealed = await sealNote(dek, binding, payload)
+    expect(await openNote(dek, binding, sealed)).toEqual(payload)
   })
 
   it('isolates notes — a different noteId cannot decrypt', async () => {
     const dek = randomBytes(32)
-    const sealed = await sealNote(dek, noteId, 1, payload)
-    await expect(openNote(dek, 'note-999', 1, sealed)).rejects.toBeInstanceOf(
-      CorruptCiphertextError,
-    )
+    const sealed = await sealNote(dek, { id: noteId, version: 1, updatedAt: 1 }, payload)
+    await expect(
+      openNote(dek, { id: 'note-999', version: 1, updatedAt: 1 }, sealed),
+    ).rejects.toBeInstanceOf(CorruptCiphertextError)
   })
 
   it('binds the version — rollback to an older revision fails', async () => {
     const dek = randomBytes(32)
-    const sealed = await sealNote(dek, noteId, 2, payload)
-    await expect(openNote(dek, noteId, 1, sealed)).rejects.toBeInstanceOf(CorruptCiphertextError)
+    const sealed = await sealNote(dek, { id: noteId, version: 2, updatedAt: 1 }, payload)
+    await expect(openNote(dek, { id: noteId, version: 1, updatedAt: 1 }, sealed)).rejects.toBeInstanceOf(
+      CorruptCiphertextError,
+    )
+  })
+
+  it('binds the timestamp — a bumped updatedAt cannot open the old ciphertext', async () => {
+    // The replay case: a stale row re-uploaded with a newer timestamp must not decrypt.
+    const dek = randomBytes(32)
+    const sealed = await sealNote(dek, { id: noteId, version: 1, updatedAt: 1000 }, payload)
+    await expect(
+      openNote(dek, { id: noteId, version: 1, updatedAt: 9999 }, sealed),
+    ).rejects.toBeInstanceOf(CorruptCiphertextError)
+  })
+})
+
+describe('note binding backward compatibility', () => {
+  const noteId = 'note-legacy'
+  const payload = { title: 'Eski', body: 'gövde', tags: [] }
+
+  /** A row sealed under the v1 binding, which carried no timestamp. */
+  async function legacySeal(dek: Bytes): Promise<Sealed> {
+    const key = await deriveNoteKey(dek, noteId)
+    return seal(key, utf8ToBytes(JSON.stringify(payload)), utf8ToBytes(`vaultnote:v1:note:${noteId}:1`))
+  }
+
+  it('still opens a v1-sealed row through the legacy binding', async () => {
+    const dek = randomBytes(32)
+    const sealed = await legacySeal(dek)
+    const note = await openNote(dek, { id: noteId, version: 1, updatedAt: 5000 }, sealed)
+    expect(note).toEqual(payload)
+  })
+
+  it('restamp moves a legacy row onto the v2 binding', async () => {
+    const dek = randomBytes(32)
+    const sealed = await restampNote(dek, { id: noteId, version: 1, updatedAt: 1, sealed: await legacySeal(dek) }, 2000)
+    expect(await openNote(dek, { id: noteId, version: 1, updatedAt: 2000 }, sealed)).toEqual(payload)
+    // And the old timestamp no longer works, so the row is now tamper-evident.
+    await expect(openNote(dek, { id: noteId, version: 1, updatedAt: 1 }, sealed)).rejects.toBeInstanceOf(
+      CorruptCiphertextError,
+    )
+  })
+
+  it('rejects a v1 row whose version does not match', async () => {
+    const dek = randomBytes(32)
+    const sealed = await legacySeal(dek)
+    await expect(
+      openNote(dek, { id: noteId, version: 2, updatedAt: 1 }, sealed),
+    ).rejects.toBeInstanceOf(CorruptCiphertextError)
   })
 })

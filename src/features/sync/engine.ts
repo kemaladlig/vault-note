@@ -1,4 +1,4 @@
-import type { Bytes } from '@/features/vault/crypto'
+import { restampNote, type Bytes } from '@/features/vault/crypto'
 import { db, type NoteRow } from '@/shared/db'
 import { now } from '@/shared/time'
 
@@ -90,9 +90,11 @@ export async function syncNotes(deps: SyncDeps): Promise<SyncResult> {
     if (local?.dirty) conflicts.push(id)
 
     if (entry.deleted) {
-      // Remote tombstone: mirror it locally without downloading a body.
+      // Remote tombstone: mirror it locally without downloading a body. The local ciphertext was
+      // sealed against the old `updatedAt`, so re-stamp it or the note stops opening.
       if (local) {
-        await db.notes.update(id, { deleted: 1, dirty: 0, updatedAt: entry.updatedAt })
+        const sealed = await restampNote(deps.dek, local, entry.updatedAt)
+        await db.notes.update(id, { deleted: 1, dirty: 0, updatedAt: entry.updatedAt, sealed })
         pulled++
       }
       continue

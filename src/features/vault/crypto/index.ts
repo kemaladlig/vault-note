@@ -23,7 +23,16 @@ export {
 export {
   sealNote,
   openNote,
-  sealText,
-  openText,
+  restampNote,
+  type NoteBinding,
   type NotePayload,
+  type SealedNoteRow,
 } from './note'
+export {
+  MIN_PASSPHRASE_LENGTH,
+  WARN_ENTROPY_BITS,
+  estimateEntropyBits,
+  isAcceptablePassphrase,
+  passphraseStrength,
+  type Strength,
+} from './strength'

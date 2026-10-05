@@ -57,7 +57,7 @@ src/
         CommandPalette.tsx    search + actions: note hits with match snippet, mobile search surface
         SettingsDialog.tsx    theme, rekey, app-open mode + PIN, sync, export/import, templates, reset
     vault/
-      crypto/                cryptographic core (implemented, 11 tests)
+      crypto/                cryptographic core (implemented, 17 tests)
         types.ts             Sealed, KdfParams, VaultHeader, CreatedVault
         encoding.ts          Bytes type, base64/utf8 helpers, randomBytes
         errors.ts            typed errors (WrongPassphraseError, ...)
@@ -65,8 +65,9 @@ src/
         aead.ts              AES-256-GCM seal/open + per-note HKDF key
         keys.ts              key hierarchy: create/unlock/rekey/wrap
         note.ts              note payload + body encryption
+        strength.ts          passphrase length gate + entropy estimate (advisory)
         index.ts             public barrel
-        crypto.test.ts
+        crypto.test.ts, strength.test.ts
       store/
         vaultRepo.ts         header/settings persistence in Dexie meta
         vaultStore.ts        Zustand: lifecycle + quick-unlock state, app-open mode, DEK in RAM
@@ -197,8 +198,25 @@ src/
   encrypted at rest. **Version history** adds no key: each snapshot is a copy of the note's
   already-sealed `NoteRow` (same `HKDF(DEK, "vaultnote:note:<id>")` key and AAD), kept in the
   `revisions` table and never synced.
-- **AAD binds context** (`vaultnote:v1:note:<id>:<version>`) → blocks ciphertext swapping
-  between notes and version rollback.
+- **AAD binds context** (`vaultnote:v2:note:<id>:<version>:<updatedAt>`) → blocks ciphertext
+  swapping between notes, version rollback, and **timestamp replay**. `updatedAt` is in the
+  binding because it is the field sync trusts for last-write-wins: an attacker who could move it
+  forward could make a stale row win, so re-uploading old content under a newer timestamp now
+  fails the GCM tag instead of silently restoring old text.
+  - **v1 (`vaultnote:v1:note:<id>:<version>`, no timestamp) is read-only.** `openNote` falls back
+    to it, so notes sealed before this change keep opening with no migration pass. They gain the
+    timestamp guarantee the next time they are written.
+  - **Any write that moves `updatedAt` without changing content must go through `restampNote`**
+    (decrypt + re-seal, one decrypt/encrypt) or the row's timestamp stops matching its ciphertext
+    and the note stops opening. Three call sites, all of them required: `deleteNote`, `restoreNote`
+    (trash/restore) and the tombstone branch in `sync/engine.ts` (mirroring a remote delete).
+    Losing one is a silent data-loss bug, not a validation error.
+  - **Breaks older app builds on other devices:** a build without v2 support cannot read a v2
+    note. It lands with the PWA auto-update; a device stuck on an old cached bundle will report
+    the note as undecryptable rather than lose it.
+- **Note API takes a `NoteBinding`** (`{ id, version, updatedAt }`) rather than loose scalars, so
+  the binding cannot be assembled with a field missing. `sealText`/`openText` were removed: dead
+  code with no caller, and the body-only shortcut would have bypassed the binding.
 - **Every seal uses a fresh 12-byte IV.** `Sealed = { v, alg, iv, ct }`, all base64.
 - **Access modes:** `passphrase` (cross-device) and `device` (keystore-held DEK, no
   cross-device without key transfer) — `VaultMode` in types.
@@ -235,6 +253,29 @@ src/
   if the device key is gone).
 - **Passphrase change (rekey):** Settings → "Parolayı değiştir" verifies the current passphrase,
   then `rekeyVault` re-wraps the same DEK. Hidden in passwordless mode (there is no passphrase).
+- **Passphrase policy (`crypto/strength.ts`):** hard gate = at least 8 characters
+  (`MIN_PASSPHRASE_LENGTH`, enforced on create and rekey). A dependency-free entropy estimate
+  (`estimateEntropyBits`, ~zxcvbn-class) additionally **advises** on create/rekey: character-class
+  pool, length bonus, then discounts for low unique-character ratio, repeated runs/blocks,
+  keyboard/alpha sequences and common tokens (`password`, `1234`, digits-only, …). The verdict
+  drives an advisory hint only — a long memorable non-Latin phrase must not be blocked, so the
+  estimator never gates. `passphraseHintKey` maps a verdict to its message and returns
+  `undefined` for `strong`, so a good passphrase gets no commentary.
+
+## Web deployment (contract)
+
+`vercel.json` serves `dist/` as static files — there is no server runtime, no API and no
+database, so no user data (plaintext or ciphertext) is ever handled by the host. Its `headers`
+block is the app's only browser-enforced security boundary:
+
+- **CSP** — `default-src 'self'`, `script-src` limited to self + `accounts.google.com` (the GIS
+  script), `connect-src` to the Drive/OAuth hosts, `frame-ancestors 'none'`, `object-src 'none'`,
+  `base-uri 'none'`. Any new outbound host or injected script must be added here explicitly.
+- **Also set:** `X-Content-Type-Options`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`,
+  a restrictive `Permissions-Policy`.
+- **Serving account is a trust boundary:** whoever can publish to the domain serves JS that runs
+  inside the unlocked vault. Protect the Vercel account with 2FA; `VITE_GOOGLE_CLIENT_ID` is a
+  public OAuth client id and is expected to appear in the bundle — it is not a secret.
 
 ## Features (user-facing)
 

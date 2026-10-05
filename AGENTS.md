@@ -43,8 +43,10 @@ test green. No green check, no done — report what you ran.
 - Key hierarchy: passphrase → Argon2id → **KEK** wraps a random **DEK**. Changing the
   passphrase re-wraps the DEK only — never re-encrypt notes.
 - Per-note key = `HKDF-SHA256(DEK, info="vaultnote:note:<id>")`, AES-256-GCM.
-- AAD binds context (`vaultnote:v1:note:<id>:<version>`). Every seal uses a **fresh
-  12-byte IV**. Never reuse an IV.
+- AAD binds context (`vaultnote:v2:note:<id>:<version>:<updatedAt>`; v1 without the timestamp is
+  read-only, for rows sealed before it). Every seal uses a **fresh 12-byte IV**. Never reuse an IV.
+- Anything that moves a note row's `updatedAt` without changing its content (trash, restore,
+  mirroring a remote tombstone) **must re-seal via `restampNote`**, or the row stops opening.
 - Sealed auxiliary docs: notebook tree `vaultnote:folders` (synced), smart views
   `vaultnote:views` (device-local, never synced), manifest `vaultnote:manifest`.
 - Any change to a sealed document or AAD format is a **contract change**: bump/version it,
