@@ -381,6 +381,9 @@ export const tr = {
     'Bu cihaz parolanı hatırlıyor. Hızlı açma ile gir, sonra Ayarlar → Güvenlik’ten yeni parola belirle.',
   'vault.unlock.forgotNoDevice':
     'Bu cihaz parolanı hatırlamıyor. Parola olmadan açılamaz; Drive yedeği de parolanı ister.',
+  'vault.unlock.startOver': 'Baştan başla',
+  'vault.unlock.startOverDesc':
+    'Bu cihazdaki vault silinir ve yeni kasa açabilirsin. Drive’daki şifreli kopya durur; parolanı hatırlarsan sonra geri yükleyebilirsin.',
   'vault.unlock.forget': 'Bu cihazı unut',
   'vault.unlock.remember': 'Bu cihazda hatırla',
   'vault.unlock.verifying': 'Doğrulanıyor…',
@@ -782,6 +785,9 @@ export const en: Record<MessageKey, string> = {
     'This device remembers you. Unlock quickly, then set a new passphrase in Settings → Security.',
   'vault.unlock.forgotNoDevice':
     'This device does not remember you. It cannot open without the passphrase; the Drive backup needs it too.',
+  'vault.unlock.startOver': 'Start over',
+  'vault.unlock.startOverDesc':
+    'The vault on this device is deleted and you can create a new one. The encrypted Drive copy stays; if you remember your passphrase you can restore it later.',
   'vault.unlock.forget': 'Forget this device',
   'vault.unlock.remember': 'Remember on this device',
   'vault.unlock.verifying': 'Verifying…',

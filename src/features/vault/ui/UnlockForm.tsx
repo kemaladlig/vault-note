@@ -31,6 +31,7 @@ export function UnlockForm() {
   const [remember, setRemember] = useState(true)
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
+  const [confirmStartOver, setConfirmStartOver] = useState(false)
 
   async function onQuickUnlock() {
     setBusy(true)
@@ -224,6 +225,43 @@ export function UnlockForm() {
                 <p className="text-center text-xs text-muted-foreground">
                   {t('vault.unlock.forgotNoDevice')}
                 </p>
+              )}
+              {confirmStartOver ? (
+                <div className="space-y-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3">
+                  <p className="text-xs text-muted-foreground">{t('vault.unlock.startOverDesc')}</p>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      type="button"
+                      className="flex-1"
+                      onClick={() => setConfirmStartOver(false)}
+                    >
+                      {t('common.cancel')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      type="button"
+                      className="flex-1"
+                      disabled={busy}
+                      onClick={() => {
+                        setBusy(true)
+                        void reset()
+                      }}
+                    >
+                      {t('vault.unlock.startOver')}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="mx-auto block text-xs text-muted-foreground underline-offset-4 hover:underline"
+                  onClick={() => setConfirmStartOver(true)}
+                >
+                  {t('vault.unlock.startOver')}
+                </button>
               )}
               {pinSet && (
                 <button
