@@ -8,7 +8,15 @@ import {
   setSearchQuery,
 } from '@codemirror/search'
 import { EditorState, Prec, type Extension } from '@codemirror/state'
-import { EditorView, keymap } from '@codemirror/view'
+import {
+  Decoration,
+  EditorView,
+  keymap,
+  ViewPlugin,
+  WidgetType,
+  type DecorationSet,
+  type ViewUpdate,
+} from '@codemirror/view'
 import { basicSetup } from 'codemirror'
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 
@@ -57,7 +65,49 @@ interface CodeEditorProps {
   linkTargets?: LinkTarget[]
   /** Formats active at the selection; lets the toolbar show pressed states. */
   onActiveFormats?: (formats: EditorFormat[]) => void
+  /** Faint guide text drawn on the first line while the document is empty. */
+  placeholder?: string
   className?: string
+}
+
+/** Guide text shown on the first line while the document is empty. */
+class PlaceholderWidget extends WidgetType {
+  private readonly text: string
+  constructor(text: string) {
+    super()
+    this.text = text
+  }
+  eq(other: PlaceholderWidget): boolean {
+    return other.text === this.text
+  }
+  toDOM(): HTMLElement {
+    const span = document.createElement('span')
+    span.className = 'cm-placeholder'
+    span.textContent = this.text
+    span.setAttribute('role', 'presentation')
+    return span
+  }
+}
+
+function placeholderExtension(text: string): Extension {
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet
+      constructor(view: EditorView) {
+        this.decorations = this.build(view)
+      }
+      update(update: ViewUpdate) {
+        if (update.docChanged) this.decorations = this.build(update.view)
+      }
+      build(view: EditorView): DecorationSet {
+        if (view.state.doc.length > 0) return Decoration.none
+        return Decoration.set([
+          Decoration.widget({ widget: new PlaceholderWidget(text), side: 1 }).range(0),
+        ])
+      }
+    },
+    { decorations: (value) => value.decorations },
+  )
 }
 
 /** CodeMirror theme wired to design tokens; also styles search matches. */
@@ -80,6 +130,9 @@ const theme = EditorView.theme({
     borderLeftWidth: '2px',
   },
   '.cm-content': { caretColor: 'var(--color-foreground)' },
+  '.cm-placeholder': {
+    color: 'color-mix(in oklch, var(--color-muted-foreground) 55%, transparent)',
+  },
   '.cm-gutters': { display: 'none' },
   '.cm-activeLine': { backgroundColor: 'transparent' },
   '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
@@ -288,6 +341,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
     initialQuery,
     linkTargets,
     onActiveFormats,
+    placeholder: placeholderText,
     className,
   },
   ref,
@@ -295,6 +349,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
   const host = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const initialDoc = useRef(value)
+  const placeholderRef = useRef(placeholderText)
   const initialQueryRef = useRef(initialQuery)
   const changeRef = useRef(onChange)
   const matchRef = useRef(onMatchCount)
@@ -388,6 +443,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
       livePreview,
       livePreviewTheme,
       search(),
+      ...(placeholderRef.current ? [placeholderExtension(placeholderRef.current)] : []),
       // Own Mod-F beats basicSetup's searchKeymap so we can drive our own UI.
       Prec.high(
         keymap.of([{ key: 'Mod-f', run: () => (requestRef.current?.(), true) }]),
