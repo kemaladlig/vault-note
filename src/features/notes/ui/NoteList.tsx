@@ -47,13 +47,13 @@ function staggerDelay(index: number): string {
 }
 
 function preview(body: string): string {
+  // Rows show a single line, so the first non-empty line is all a row needs.
   const text = body
     .split('\n')
     .map((line) => line.trim())
-    .filter(Boolean)
-    .slice(0, 2)
-    .join(' ')
-  // A body may be one giant paragraph; the row must not build DOM for all of it.
+    .find(Boolean)
+  if (!text) return ''
+  // A body line can be a giant paragraph; the row must not build DOM for all of it.
   return text.length > 200 ? `${text.slice(0, 200)}…` : text
 }
 
@@ -218,15 +218,13 @@ function NoteRow({
               : relativeTimeShort(note.updatedAt)}
           </span>
         </span>
-        {/* The preview line is always reserved, even when empty, so one-line
-            and two-line rows keep the same visual rhythm. `line-clamp` owns
-            the display (block would disable the clamp); the empty case is an
-            inline nbsp that still creates a line box. */}
+        {/* One preview line, always reserved: every row is exactly two lines
+            tall, whether the note has one paragraph, many, or none. */}
         <span
           aria-hidden={!bodyPreview}
           className={cn(
             'mt-0.5 text-xs leading-relaxed',
-            bodyPreview ? 'line-clamp-2 text-muted-foreground' : 'invisible',
+            bodyPreview ? 'line-clamp-1 text-muted-foreground' : 'invisible',
           )}
         >
           {bodyPreview ? <Highlight text={bodyPreview} query={query} /> : '\u00A0'}
@@ -250,7 +248,7 @@ function NoteRow({
 
       <div
         className={cn(
-          'absolute top-1.5 right-1.5 flex items-center gap-0.5 rounded-lg bg-surface/80 backdrop-blur-sm transition-[opacity,transform] duration-[var(--duration-base)]',
+          'absolute top-1.5 right-1.5 flex items-center gap-0.5 rounded-lg bg-surface shadow-e1 backdrop-blur-sm transition-[opacity,transform] duration-[var(--duration-base)]',
           alwaysShowActions
             ? 'opacity-100'
             : active
