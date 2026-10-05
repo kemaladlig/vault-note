@@ -363,9 +363,17 @@ export function NoteEditor({ note, initialSearch }: NoteEditorProps) {
 
   return (
     <div className="flex h-full flex-col animate-slide-up">
-      {/* The header is pure chrome now; the title lives in the writing column
-          above the body, so both share one centered measure. */}
-      <header className="flex h-12 shrink-0 items-center justify-end gap-1.5 border-b border-border/70 px-2">
+      <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-border/70 px-2">
+        <Input
+          value={title}
+          placeholder={t('common.untitled')}
+          className="min-w-0 flex-1 border-none bg-transparent text-[17px] font-semibold tracking-tight shadow-none focus-visible:ring-0"
+          onChange={(event) => {
+            setTitle(event.target.value)
+            draft.current.title = event.target.value
+            scheduleSave()
+          }}
+        />
         <span
           aria-live="polite"
           className={cn(
@@ -558,59 +566,41 @@ export function NoteEditor({ note, initialSearch }: NoteEditorProps) {
         />
       )}
 
-      {/* Writing column: title + body share a readable measure (~70ch) and stay
-          centered as the pane widens, instead of lines running edge to edge. */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="mx-auto flex min-h-0 w-full max-w-[70ch] flex-1 flex-col px-4">
-          <Input
-            value={title}
-            placeholder={t('common.untitled')}
-            aria-label={t('common.untitled')}
-            className="mt-3 w-full shrink-0 rounded-lg border-none bg-transparent px-1 py-1 text-[22px] leading-snug font-semibold tracking-tight shadow-none transition-colors focus-visible:bg-muted/40 focus-visible:ring-0"
-            onChange={(event) => {
-              setTitle(event.target.value)
-              draft.current.title = event.target.value
+      {preview ? (
+        <Suspense fallback={<div className="min-h-0 flex-1" />}>
+          {body.trim() ? (
+            <MarkdownPreview
+              className="min-h-0 flex-1 overflow-y-auto px-4 py-3"
+              source={body}
+              resolveLink={resolveTargetId}
+              onOpenNote={(id) => void select(id)}
+            />
+          ) : (
+            <p className="px-4 py-6 text-sm text-muted-foreground">
+              {t('notes.editor.emptyPreview')}
+            </p>
+          )}
+        </Suspense>
+      ) : (
+        <Suspense fallback={<div className="min-h-0 flex-1" />}>
+          <CodeEditor
+            ref={editorRef}
+            key={note.id}
+            className="min-h-0 flex-1 overflow-auto"
+            value={body}
+            initialQuery={term || undefined}
+            linkTargets={linkTargets}
+            onMatchCount={setMatchCount}
+            onActiveFormats={(formats) => setActiveFormats(new Set(formats))}
+            onRequestSearch={() => setSearchOpen(true)}
+            onChange={(next) => {
+              setBody(next)
+              draft.current.body = next
               scheduleSave()
             }}
           />
-          {preview ? (
-            <Suspense fallback={<div className="min-h-0 flex-1" />}>
-              {body.trim() ? (
-                <MarkdownPreview
-                  className="min-h-0 flex-1 overflow-y-auto px-1 py-3"
-                  source={body}
-                  resolveLink={resolveTargetId}
-                  onOpenNote={(id) => void select(id)}
-                />
-              ) : (
-                <p className="px-1 py-6 text-sm text-muted-foreground">
-                  {t('notes.editor.emptyPreview')}
-                </p>
-              )}
-            </Suspense>
-          ) : (
-            <Suspense fallback={<div className="min-h-0 flex-1" />}>
-              <CodeEditor
-                ref={editorRef}
-                key={note.id}
-                className="mt-1 min-h-0 flex-1 overflow-auto"
-                value={body}
-                initialQuery={term || undefined}
-                linkTargets={linkTargets}
-                placeholder={t('notes.editor.startWriting')}
-                onMatchCount={setMatchCount}
-                onActiveFormats={(formats) => setActiveFormats(new Set(formats))}
-                onRequestSearch={() => setSearchOpen(true)}
-                onChange={(next) => {
-                  setBody(next)
-                  draft.current.body = next
-                  scheduleSave()
-                }}
-              />
-            </Suspense>
-          )}
-        </div>
-      </div>
+        </Suspense>
+      )}
 
       <EditorToolbar
         formattingEnabled={!preview}
