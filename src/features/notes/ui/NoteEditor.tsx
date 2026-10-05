@@ -150,6 +150,7 @@ export function NoteEditor({ note, initialSearch }: NoteEditorProps) {
 
   const editorRef = useRef<CodeEditorHandle>(null)
   const tagFieldRef = useRef<HTMLInputElement>(null)
+  const titleRef = useRef<HTMLInputElement>(null)
   const draft = useRef<NoteContent>({
     title: note.title,
     body: note.body,
@@ -269,6 +270,16 @@ export function NoteEditor({ note, initialSearch }: NoteEditorProps) {
     if (tagsOpen) tagFieldRef.current?.focus()
   }, [tagsOpen])
 
+  // A freshly created note is empty — land the cursor in the title so typing starts
+  // immediately (and the mobile keyboard opens). Existing notes keep their focus.
+  useEffect(() => {
+    if (note.version === 1 && !note.title.trim() && !note.body.trim()) {
+      titleRef.current?.focus()
+    }
+    // Mount-only: the editor is keyed by note id, so this runs once per opened note.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Keep the sealed organizational fields aligned with the store, so a pending text save
   // can never roll back a pin / move / archive made from elsewhere.
   useEffect(() => {
@@ -365,6 +376,7 @@ export function NoteEditor({ note, initialSearch }: NoteEditorProps) {
     <div className="flex h-full flex-col animate-slide-up">
       <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-border/70 px-2">
         <Input
+          ref={titleRef}
           value={title}
           placeholder={t('common.untitled')}
           className="min-w-0 flex-1 border-none bg-transparent text-[17px] font-semibold tracking-tight shadow-none focus-visible:ring-0"
