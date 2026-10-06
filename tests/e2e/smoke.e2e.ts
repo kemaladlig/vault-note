@@ -1,6 +1,13 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 const PASS = 'correct horse battery staple'
+
+/** Lock lives in the app menu (the top bar has no dedicated button). */
+async function lockVault(page: Page) {
+  await page.getByRole('button', { name: 'Uygulama menüsü' }).click()
+  await page.getByRole('menuitem', { name: 'Kilitle' }).click()
+  await page.getByRole('dialog', { name: 'Vault kilitlensin mi?' }).getByRole('button', { name: 'Kilitle' }).click()
+}
 
 /** End-to-end smoke test in a real browser: crypto, Dexie, editor and search all live. */
 test('create vault → note → in-note search → lock/unlock, encrypted at rest', async ({ page }) => {
@@ -50,15 +57,13 @@ test('create vault → note → in-note search → lock/unlock, encrypted at res
 
   // 6. Lock, then quick-unlock without a passphrase (device key). The TopBar lock asks
   // for confirmation first, so every lock is a two-step click.
-  await page.getByRole('button', { name: 'Kilitle' }).click()
-  await page.getByRole('dialog', { name: 'Vault kilitlensin mi?' }).getByRole('button', { name: 'Kilitle' }).click()
+  await lockVault(page)
   await expect(page.getByRole('button', { name: 'Hızlı aç' })).toBeVisible()
   await page.getByRole('button', { name: 'Hızlı aç' }).click()
   await expect(page.getByRole('complementary').getByRole('button', { name: /gizli-baslik/ })).toBeVisible()
 
   // 7. Lock again and fall back to the passphrase.
-  await page.getByRole('button', { name: 'Kilitle' }).click()
-  await page.getByRole('dialog', { name: 'Vault kilitlensin mi?' }).getByRole('button', { name: 'Kilitle' }).click()
+  await lockVault(page)
   await page.getByRole('button', { name: 'Parolayla aç' }).click()
   await page.getByLabel('Ana parola').fill(PASS)
   await page.getByRole('button', { name: 'Kilidi aç' }).click()
@@ -104,8 +109,7 @@ test('app lock: a PIN gates quick unlock on this device', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: 'Ayarlar' })).toHaveCount(0)
 
   // Lock: the PIN screen replaces quick unlock.
-  await page.getByRole('button', { name: 'Kilitle' }).click()
-  await page.getByRole('dialog', { name: 'Vault kilitlensin mi?' }).getByRole('button', { name: 'Kilitle' }).click()
+  await lockVault(page)
   await expect(page.getByRole('button', { name: 'Aç', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Hızlı aç' })).toHaveCount(0)
 
@@ -244,31 +248,35 @@ test('organization: notebook, pin, trash and restore', async ({ page }) => {
   await expect(page.getByRole('complementary').getByRole('button', { name: /Organize not/ })).toHaveCount(0)
 })
 
-test('mobile search: reachable, shows note and match location', async ({ page }) => {
+test('mobile: merged bar search, palette jump, in-note match', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 780 })
   await page.goto('/')
   await page.getByLabel('Ana parola').fill(PASS)
   await page.getByLabel('Parolayı doğrula').fill(PASS)
   await page.getByRole('button', { name: 'Vault oluştur' }).click()
 
-  // Two notes; only one contains the needle, deep in the body.
-  await page.getByRole('button', { name: 'Yeni not' }).click()
+  // One note; the needle sits deep in its body. Created from the FAB,
+  // since mobile has no top bar at all.
+  await page.getByRole('button', { name: 'Not oluştur', exact: true }).click()
   await page.getByPlaceholder('Başlıksız').fill('Alışveriş listesi')
   const editor = page.locator('.cm-content')
   await editor.click()
   await editor.pressSequentially('kahve, zeytinyağı ve son olarak mandalina al', { delay: 4 })
   await page.waitForTimeout(1000)
 
-  await page.getByRole('button', { name: 'Yeni not' }).click()
-  await expect(page.getByPlaceholder('Başlıksız')).toHaveValue('')
-  await page.getByPlaceholder('Başlıksız').fill('Başka not')
-  await page.waitForTimeout(1000)
+  // Back on the list: the merged bar's search field filters the list in place.
+  await page.getByRole('button', { name: 'Notlara dön' }).click()
+  const barSearch = page.locator('aside[data-pane="list"] input')
+  await barSearch.fill('mandalina')
+  await expect(page.getByRole('complementary').getByRole('button', { name: /Alışveriş listesi/ })).toBeVisible()
+  await barSearch.fill('')
 
-  // The mobile top bar exposes a search button that opens the palette.
-  await page.getByRole('button', { name: 'Ara', exact: true }).click()
+  // The app menu (⋯) carries the palette on mobile; it names the note and
+  // shows a snippet containing the hit. Scoped to the list bar: the (hidden)
+  // editor pane keeps its own app menu mounted.
+  page.locator('aside[data-pane="list"]').getByRole('button', { name: 'Uygulama menüsü' }).click()
+  await page.getByRole('menuitem', { name: 'Komut paletini aç' }).click()
   await page.getByLabel('Komut ara').fill('mandalina')
-
-  // The result names the note and shows a snippet containing the hit.
   const palette = page.getByRole('dialog', { name: 'Komut paleti' })
   await expect(palette.getByRole('button', { name: /Alışveriş listesi/ })).toBeVisible()
   await expect(palette.getByText(/mandalina/)).toBeVisible()
@@ -706,7 +714,9 @@ test('install: the top bar offers install when the browser allows it', async ({ 
   await expect(page.getByRole('button', { name: 'Yeni not' })).toBeVisible()
 
   // No install affordance until the browser fires beforeinstallprompt.
-  await expect(page.getByRole('button', { name: 'Uygulamayı yükle' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Uygulama menüsü' }).click()
+  await expect(page.getByRole('menuitem', { name: 'Uygulamayı yükle' })).toHaveCount(0)
+  await page.keyboard.press('Escape')
 
   await page.evaluate(() => {
     ;(window as unknown as { __installPrompted: boolean }).__installPrompted = false
@@ -721,7 +731,9 @@ test('install: the top bar offers install when the browser allows it', async ({ 
     window.dispatchEvent(event)
   })
 
-  const install = page.getByRole('button', { name: 'Uygulamayı yükle' })
+  // The app menu gains the install item; selecting it consumes the prompt.
+  await page.getByRole('button', { name: 'Uygulama menüsü' }).click()
+  const install = page.getByRole('menuitem', { name: 'Uygulamayı yükle' })
   await expect(install).toBeVisible()
   await install.click()
 
@@ -729,5 +741,6 @@ test('install: the top bar offers install when the browser allows it', async ({ 
     .poll(() => page.evaluate(() => (window as unknown as { __installPrompted: boolean }).__installPrompted))
     .toBe(true)
   // A single-use prompt is consumed, so the affordance disappears.
-  await expect(page.getByRole('button', { name: 'Uygulamayı yükle' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Uygulama menüsü' }).click()
+  await expect(page.getByRole('menuitem', { name: 'Uygulamayı yükle' })).toHaveCount(0)
 })

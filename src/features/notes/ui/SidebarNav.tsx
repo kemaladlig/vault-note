@@ -20,6 +20,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Menu } from '@/components/ui/menu'
 import { Modal } from '@/components/ui/modal'
+import { VaultStatusRow } from '@/features/shell/ui/VaultStatusRow'
 import { cn } from '@/lib/utils'
 import { motionMs } from '@/shared/exitMotion'
 import {
@@ -69,7 +70,7 @@ function folderCounts(folders: Folder[], notes: DecryptedNote[]): Map<string, nu
 
 function SectionTitle({ children }: { children: ReactNode }) {
   return (
-    <h2 className="px-2.5 pb-1 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground/90 uppercase">
+    <h2 className="px-2.5 pb-1 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
       {children}
     </h2>
   )
@@ -549,7 +550,8 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
         )}
       </nav>
 
-      <footer className="mt-auto shrink-0 border-t border-border/70 bg-sidebar p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
+      <footer className="mt-auto shrink-0 space-y-1.5 border-t border-border/70 bg-sidebar p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
+        <VaultStatusRow />
         <span className="flex items-center gap-2 rounded-lg border border-primary/15 bg-gradient-to-r from-accent/80 to-transparent px-2.5 py-2 text-[11px] font-medium text-muted-foreground">
           <ShieldCheck className="size-3.5 shrink-0 text-success" />
           {t('notes.sidebar.encryptedBadge')}

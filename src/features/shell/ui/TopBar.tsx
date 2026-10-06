@@ -1,72 +1,34 @@
-import {
-  Cloud,
-  CloudOff,
-  Download,
-  Lock,
-  Monitor,
-  Moon,
-  PanelLeft,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Plus,
-  Search,
-  Settings,
-  Sun,
-  X,
-} from 'lucide-react'
-import { useRef, useState } from 'react'
+import { PanelLeft, PanelLeftClose, PanelLeftOpen, Plus, Search, X } from 'lucide-react'
+import { useRef } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Kbd } from '@/components/ui/kbd'
-import { Menu, type MenuItem } from '@/components/ui/menu'
-import { Modal } from '@/components/ui/modal'
 import { VaultNoteIcon } from '@/components/ui/vault-note-icon'
 import { useNotesStore } from '@/features/notes/store/notesStore'
-import { useSyncStore } from '@/features/sync/store/syncStore'
-import { useVaultStore } from '@/features/vault/store/vaultStore'
-import { cn } from '@/lib/utils'
 import { useT } from '@/shared/i18n'
-import { promptInstall, useCanInstall } from '@/shared/pwaInstall'
-import { relativeTime } from '@/shared/time'
-import { useThemeStore } from '@/shared/theme'
 import { toast } from '@/shared/toast'
 
 import { useShellStore } from '../store/shellStore'
+import { AppMenuButton } from './AppMenuButton'
 
-/** Floating command bar over the gradient shell: brand, search, sync, primary action. */
+/**
+ * Desktop bar: brand, panel toggle, the centered search pill and the primary
+ * action. Sync, lock and settings live in the sidebar footer and the app
+ * menu; mobile has no bar at all — the list header owns that surface.
+ */
 export function TopBar() {
   const t = useT()
-  const lock = useVaultStore((s) => s.lock)
 
   const query = useNotesStore((s) => s.query)
   const setQuery = useNotesStore((s) => s.setQuery)
   const create = useNotesStore((s) => s.create)
 
   const setCommandOpen = useShellStore((s) => s.setCommandOpen)
-  const setSettingsOpen = useShellStore((s) => s.setSettingsOpen)
   const setListOpen = useShellStore((s) => s.setListOpen)
   const panelMode = useShellStore((s) => s.panelMode)
   const cyclePanels = useShellStore((s) => s.cyclePanels)
 
-  const syncStatus = useSyncStore((s) => s.status)
-  const configured = useSyncStore((s) => s.configured)
-  const connected = useSyncStore((s) => s.connected)
-  const syncError = useSyncStore((s) => s.error)
-  const pending = useSyncStore((s) => s.pending)
-  const lastSyncedAt = useSyncStore((s) => s.lastSyncedAt)
-  const lastConflicts = useSyncStore((s) => s.lastConflicts)
-  const sync = useSyncStore((s) => s.sync)
-  const disconnect = useSyncStore((s) => s.disconnect)
-
-  const mode = useThemeStore((s) => s.mode)
-  const setMode = useThemeStore((s) => s.setMode)
-
-  const canInstall = useCanInstall()
-
-  const [confirmLock, setConfirmLock] = useState(false)
-
-  const syncing = syncStatus === 'syncing'
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   const panelLabel = t(
@@ -77,37 +39,6 @@ export function TopBar() {
         : 'shell.panels.show',
   )
 
-  const menuItems: MenuItem[] = [
-    ...(canInstall
-      ? ([
-          { label: t('shell.install'), icon: <Download />, onSelect: () => void promptInstall() },
-          { type: 'separator' },
-        ] satisfies MenuItem[])
-      : []),
-    { label: t('shell.settings'), icon: <Settings />, onSelect: () => setSettingsOpen(true) },
-    { type: 'separator' },
-    {
-      label: t('shell.theme.system'),
-      icon: <Monitor />,
-      selected: mode === 'system',
-      onSelect: () => setMode('system'),
-    },
-    {
-      label: t('shell.theme.light'),
-      icon: <Sun />,
-      selected: mode === 'light',
-      onSelect: () => setMode('light'),
-    },
-    {
-      label: t('shell.theme.dark'),
-      icon: <Moon />,
-      selected: mode === 'dark',
-      onSelect: () => setMode('dark'),
-    },
-    { type: 'separator' },
-    { label: t('shell.disconnect'), icon: <CloudOff />, onSelect: disconnect, disabled: !connected },
-  ]
-
   async function onNewNote() {
     try {
       await create()
@@ -116,23 +47,6 @@ export function TopBar() {
       toast(err instanceof Error ? err.message : t('notes.editor.createFailed'), 'error')
     }
   }
-
-  const syncIcon = syncError ? (
-    <CloudOff className="size-4 text-destructive" />
-  ) : !connected && configured ? (
-    <CloudOff className="size-4 text-muted-foreground" />
-  ) : (
-    <Cloud className="size-4" />
-  )
-
-  const syncTitle = syncError
-    ?? (lastConflicts > 0 ? t('sync.conflict', { n: lastConflicts }) : undefined)
-    ?? (pending > 0 ? t('sync.pending', { n: pending }) : undefined)
-    ?? (!configured
-      ? t('shell.syncNoClient')
-      : !connected
-        ? t('settings.syncDisconnected')
-        : (lastSyncedAt ? t('settings.syncLast', { time: relativeTime(lastSyncedAt) }) : t('shell.syncNow')))
 
   return (
     <header className="relative z-30 grid h-14 shrink-0 grid-cols-[1fr_auto] items-center gap-2 px-3 sm:grid-cols-[1fr_minmax(0,36rem)_1fr] sm:gap-4 md:px-4">
@@ -211,52 +125,6 @@ export function TopBar() {
 
       <div className="flex items-center gap-1.5 justify-self-end">
         <Button
-          size="icon-sm"
-          variant="ghost"
-          className="bg-surface/70 backdrop-blur-sm sm:hidden"
-          aria-label={t('shell.search')}
-          onClick={() => setCommandOpen(true)}
-        >
-          <Search />
-        </Button>
-
-        <Button
-          size="sm"
-          variant="ghost"
-          className={cn(
-            'hidden gap-1.5 rounded-full border border-border/60 bg-surface/70 px-3 shadow-e1 backdrop-blur-sm transition-shadow hover:shadow-e2 sm:inline-flex',
-            syncing && 'ring-sync',
-          )}
-          aria-label={t('shell.syncAria')}
-          aria-busy={syncing}
-          title={syncTitle}
-          disabled={!configured || syncing}
-          onClick={() => void sync()}
-        >
-          {syncIcon}
-          <span className="hidden md:inline">{t('shell.sync')}{pending > 0 ? ` · ${pending}` : ''}</span>
-          <span
-            aria-hidden
-            className={cn(
-              'hidden size-1.5 rounded-full md:block',
-              syncError || lastConflicts > 0 ? 'bg-destructive' : !connected ? 'bg-muted-foreground/50' : pending > 0 ? 'bg-amber-500' : 'bg-success/70',
-            )}
-          />
-        </Button>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          className={cn('bg-surface/70 backdrop-blur-sm sm:hidden', syncing && 'ring-sync')}
-          aria-label={t('shell.syncAria')}
-          aria-busy={syncing}
-          title={syncTitle}
-          disabled={!configured || syncing}
-          onClick={() => void sync()}
-        >
-          {syncIcon}
-        </Button>
-
-        <Button
           size="sm"
           variant="cta"
           className="h-8 gap-1.5 px-3.5"
@@ -267,62 +135,8 @@ export function TopBar() {
           <span className="hidden md:inline">{t('shell.newNote')}</span>
         </Button>
 
-        {canInstall && (
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            className="bg-surface/70 text-primary backdrop-blur-sm hover:bg-surface"
-            aria-label={t('shell.install')}
-            title={t('shell.install')}
-            onClick={() => void promptInstall()}
-          >
-            <Download />
-          </Button>
-        )}
-
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          className="bg-transparent text-muted-foreground hover:bg-surface/70"
-          aria-label={t('shell.lock')}
-          title={t('shell.lock')}
-          aria-haspopup="dialog"
-          onClick={() => setConfirmLock(true)}
-        >
-          <Lock />
-        </Button>
-
-        <Menu
-          label={t('shell.appMenu')}
-          icon={<Settings />}
-          align="end"
-          items={menuItems}
-          triggerClassName="text-muted-foreground hover:bg-surface/70"
-        />
+        <AppMenuButton triggerClassName="text-muted-foreground hover:bg-surface/70" />
       </div>
-
-      <Modal
-        open={confirmLock}
-        onClose={() => setConfirmLock(false)}
-        title={t('shell.lockTitle')}
-        description={t('shell.lockDesc')}
-        icon={<Lock />}
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setConfirmLock(false)}>
-              {t('common.cancel')}
-            </Button>
-            <Button
-              onClick={() => {
-                setConfirmLock(false)
-                lock()
-              }}
-            >
-              {t('shell.lock')}
-            </Button>
-          </>
-        }
-      />
     </header>
   )
 }

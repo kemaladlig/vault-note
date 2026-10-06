@@ -3,8 +3,10 @@ import { useEffect, useRef } from 'react'
 
 import { Menu, type MenuItem } from '@/components/ui/menu'
 import { useShellStore } from '@/features/shell/store/shellStore'
+import { AppMenuButton } from '@/features/shell/ui/AppMenuButton'
 import { cn } from '@/lib/utils'
 import { useT } from '@/shared/i18n'
+import { useMediaQuery } from '@/shared/useMediaQuery'
 
 import { useNotesStore } from '../store/notesStore'
 
@@ -30,6 +32,8 @@ export function TabBar({ onBack }: TabBarProps) {
   const setSplitId = useShellStore((s) => s.setSplitId)
 
   const t = useT()
+  // From md up the top bar carries the app menu; below it the strip is the only chrome.
+  const isWide = useMediaQuery('(min-width: 768px)')
 
   const activeRef = useRef<HTMLDivElement | null>(null)
 
@@ -158,6 +162,7 @@ export function TabBar({ onBack }: TabBarProps) {
           items={menuItems}
           triggerClassName="size-7"
         />
+        {!isWide && <AppMenuButton triggerClassName="size-7" />}
       </div>
     </div>
   )

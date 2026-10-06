@@ -6,6 +6,7 @@ import {
   ArrowUpDown,
   CalendarDays,
   Clock,
+  Ellipsis,
   Loader2,
   Menu as MenuIcon,
   Pin,
@@ -22,11 +23,13 @@ import { Input } from '@/components/ui/input'
 import { Menu, type MenuItem } from '@/components/ui/menu'
 import { Modal } from '@/components/ui/modal'
 import { useShellStore } from '@/features/shell/store/shellStore'
+import { AppMenuButton } from '@/features/shell/ui/AppMenuButton'
 import { useSyncStore } from '@/features/sync/store/syncStore'
 import { cn } from '@/lib/utils'
 import { folderSubtree } from '@/shared/folders'
 import { useT, type MessageKey } from '@/shared/i18n'
 import { toast } from '@/shared/toast'
+import { useMediaQuery } from '@/shared/useMediaQuery'
 
 import type { NotesView } from '../model'
 import { selectNotes } from '../search'
@@ -137,6 +140,8 @@ function EmptyState({
  */
 export function NotesShell() {
   const t = useT()
+  // sm breakpoint: below it the list bar is the compact merged one.
+  const isWide = useMediaQuery('(min-width: 640px)')
   const notes = useNotesStore((s) => s.notes)
   const selectedId = useNotesStore((s) => s.selectedId)
   const loading = useNotesStore((s) => s.loading)
@@ -219,6 +224,11 @@ export function NotesShell() {
   const scopeName = folderId
     ? (folders.find((folder) => folder.id === folderId)?.name ?? t(VIEW_LABELS.all))
     : t(VIEW_LABELS[view])
+  // The mobile bar has no title row, so the scope lives in the placeholder.
+  const searchPlaceholder =
+    view === 'all' && !folderId
+      ? t('shell.search.placeholder')
+      : t('shell.search.placeholderIn', { scope: scopeName })
 
   function onSelect(id: string) {
     select(id)
@@ -327,61 +337,91 @@ export function NotesShell() {
               : 'hidden md:flex',
         )}
       >
-        <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border/70 px-2.5">
-          <Button
-            size="icon-lg"
-            variant="ghost"
-            className="xl:hidden"
-            aria-label={t('notes.shell.menu')}
-            title={t('notes.shell.menu')}
-            aria-haspopup="dialog"
-            onClick={() => setNavOpen(true)}
-          >
-            <MenuIcon />
-          </Button>
-          <span className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-tight">
-            {scopeName}
-          </span>
-          <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums text-muted-foreground">
-            {filtered.length}
-          </span>
-          <Menu
-            label={t('notes.sort.label')}
-            icon={<ArrowUpDown />}
-            items={sortItems}
-            triggerClassName="size-7"
-          />
-        </header>
-
-        {/* Mobile search: the top-bar field is desktop-only, so the list owns search below sm. */}
-        <div className="shrink-0 border-b border-border/70 px-2.5 py-1.5 sm:hidden">
-          <div className="relative">
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              placeholder={t('shell.search.placeholder')}
-              aria-label={t('shell.search.label')}
-              className="h-9 rounded-full bg-muted/60 pr-8 pl-9 text-sm shadow-none"
-              onChange={(event) => setQuery(event.target.value)}
+        {isWide ? (
+          <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border/70 px-2.5">
+            <Button
+              size="icon-lg"
+              variant="ghost"
+              className="xl:hidden"
+              aria-label={t('notes.shell.menu')}
+              title={t('notes.shell.menu')}
+              aria-haspopup="dialog"
+              onClick={() => setNavOpen(true)}
+            >
+              <MenuIcon />
+            </Button>
+            <span className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-tight">
+              {scopeName}
+            </span>
+            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums text-muted-foreground">
+              {filtered.length}
+            </span>
+            <Menu
+              label={t('notes.sort.label')}
+              icon={<ArrowUpDown />}
+              items={sortItems}
+              triggerClassName="size-7"
             />
-            {query && (
-              <button
-                type="button"
-                aria-label={t('notes.empty.clearFilters')}
-                onClick={() => setQuery('')}
-                className="absolute top-1/2 right-2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <X className="size-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
+          </header>
+        ) : (
+          // Compact: nav toggle, search and sort share one bar; the scope reads
+          // through the placeholder instead of a title row.
+          <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border/70 px-2">
+            <Button
+              size="icon-lg"
+              variant="ghost"
+              aria-label={t('notes.shell.menu')}
+              title={t('notes.shell.menu')}
+              aria-haspopup="dialog"
+              onClick={() => setNavOpen(true)}
+            >
+              <MenuIcon />
+            </Button>
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                placeholder={searchPlaceholder}
+                aria-label={t('shell.search.label')}
+                className="h-9 rounded-full bg-muted/60 pr-8 pl-9 text-sm shadow-none"
+                onChange={(event) => setQuery(event.target.value)}
+              />
+              {query && (
+                <button
+                  type="button"
+                  aria-label={t('notes.empty.clearFilters')}
+                  onClick={() => setQuery('')}
+                  className="absolute top-1/2 right-2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
+            </div>
+            <Menu
+              label={t('notes.sort.label')}
+              icon={<ArrowUpDown />}
+              items={sortItems}
+              triggerClassName="size-9"
+            />
+            {/* The bar replaces the (mobile-less) top bar, so the app menu
+                lives here too: palette, settings, sync now, lock. */}
+            <AppMenuButton icon={<Ellipsis />} triggerClassName="size-9 text-muted-foreground" />
+          </header>
+        )}
 
         {(filtering || (view === 'trash' && filtered.length > 0)) && (
           <div className="flex shrink-0 items-center gap-1 border-b border-border/70 bg-sidebar/60 px-3 py-1.5 text-xs text-muted-foreground">
             {filtering ? (
               <>
                 <span className="flex-1 truncate">
+                  {!isWide && (
+                    <>
+                      <span className="tabular-nums">
+                        {t('notes.shell.resultCount', { count: filtered.length })}
+                      </span>
+                      <span aria-hidden>{' · '}</span>
+                    </>
+                  )}
                   {tagFilter ? `#${tagFilter}` : ''}
                   {tagFilter && query.trim() ? ' · ' : ''}
                   {query.trim() ? `“${query.trim()}”` : ''}
