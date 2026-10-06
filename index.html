@@ -133,6 +133,9 @@
             '--editor-line-height',
             line === 'compact' ? '1.55' : line === 'relaxed' ? '2' : '1.75',
           )
+          if (localStorage.getItem('vaultnote.editorWidth') === 'wide') {
+            root.style.setProperty('--editor-measure', '100%')
+          }
         } catch (e) {
           /* localStorage unavailable — fall back to the CSS defaults. */
         }

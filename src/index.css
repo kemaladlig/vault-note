@@ -93,6 +93,9 @@
   /* Editor reading prefs (personal delta over the root size + line height). */
   --editor-delta: 0px;
   --editor-line-height: 1.75;
+  /* Shared reading column for editor + preview; long lines stay scannable.
+     The "Geniş/Wide" text setting overrides it to 100% on :root. */
+  --editor-measure: 46rem;
 }
 
 /* Accent themes: blue is the `:root` default; these override brand + ring + glow. */
@@ -611,6 +614,12 @@
 }
 
 @layer components {
+  /* Centered reading column; the CodeMirror analogue lives in its theme. */
+  .editor-measure {
+    margin-inline: auto;
+    max-width: var(--editor-measure);
+    width: 100%;
+  }
   /*
    * Read-only Markdown preview. Token-based so it tracks the theme; kept minimal
    * until a typography plugin is worth its weight. Scoped to the editor preview only.

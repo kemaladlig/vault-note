@@ -43,6 +43,14 @@ export interface LinkTarget {
   insert: string
 }
 
+/** Viewport-space bounds of a non-empty selection; anchors the desktop bubble toolbar. */
+export interface SelectionRect {
+  top: number
+  bottom: number
+  left: number
+  right: number
+}
+
 interface CodeEditorProps {
   /** Initial document. Change notes by remounting via `key`. */
   value: string
@@ -57,6 +65,8 @@ interface CodeEditorProps {
   linkTargets?: LinkTarget[]
   /** Formats active at the selection; lets the toolbar show pressed states. */
   onActiveFormats?: (formats: EditorFormat[]) => void
+  /** Non-empty selection bounds in viewport coords; null when empty or scrolled away. */
+  onSelectionRect?: (rect: SelectionRect | null) => void
   className?: string
 }
 
@@ -79,7 +89,12 @@ const theme = EditorView.theme({
     borderLeftColor: 'var(--color-foreground)',
     borderLeftWidth: '2px',
   },
-  '.cm-content': { caretColor: 'var(--color-foreground)' },
+  '.cm-content': {
+    caretColor: 'var(--color-foreground)',
+    // Reading measure from index.css: text column is capped and centered; under
+    // the cap it collapses to a comfortable gutter so lines never touch the edge.
+    paddingInline: 'max(0.75rem, calc((100% - var(--editor-measure)) / 2))',
+  },
   '.cm-gutters': { display: 'none' },
   '.cm-activeLine': { backgroundColor: 'transparent' },
   '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
@@ -354,6 +369,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
     initialQuery,
     linkTargets,
     onActiveFormats,
+    onSelectionRect,
     className,
   },
   ref,
@@ -367,6 +383,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
   const requestRef = useRef(onRequestSearch)
   const linkRef = useRef<LinkTarget[]>(linkTargets ?? [])
   const formatsRef = useRef(onActiveFormats)
+  const selectionRectRef = useRef(onSelectionRect)
   // Serialized active-format set; the report only fires when it actually changes.
   const formatsKey = useRef('')
   // Active in-note query; kept so the match count can be refreshed as the doc changes.
@@ -380,6 +397,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
     requestRef.current = onRequestSearch
     linkRef.current = linkTargets ?? []
     formatsRef.current = onActiveFormats
+    selectionRectRef.current = onSelectionRect
   })
 
   useImperativeHandle(ref, () => ({
@@ -452,6 +470,23 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
       formatsKey.current = key
       callback(list)
     }
+    const reportSelection = (view: EditorView) => {
+      const callback = selectionRectRef.current
+      if (!callback) return
+      const sel = view.state.selection.main
+      const start = sel.empty ? null : view.coordsAtPos(sel.from)
+      const end = sel.empty ? null : view.coordsAtPos(sel.to)
+      if (!start || !end) {
+        callback(null)
+        return
+      }
+      callback({
+        top: Math.min(start.top, end.top),
+        bottom: Math.max(start.bottom, end.bottom),
+        left: Math.min(start.left, end.left),
+        right: Math.max(start.right, end.right),
+      })
+    }
     const extensions: Extension[] = [
       basicSetup,
       markdown(),
@@ -472,7 +507,15 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
             matchRef.current?.(countMatches(update.state, activeQuery.current))
           }
         }
-        if (update.docChanged || update.selectionSet) reportFormats(update.view)
+        if (update.docChanged || update.selectionSet) {
+          reportFormats(update.view)
+          reportSelection(update.view)
+        }
+        // Scroll-only updates leave stale anchors; the bubble hides and returns with
+        // the next selection. (Edits also flip viewportChanged, so guard for pure scrolls.)
+        if (update.viewportChanged && !update.docChanged && !update.selectionSet) {
+          selectionRectRef.current?.(null)
+        }
       }),
     ]
     const view = new EditorView({
@@ -492,6 +535,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
       }
     }
     return () => {
+      selectionRectRef.current?.(null)
       view.destroy()
       viewRef.current = null
     }

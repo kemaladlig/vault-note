@@ -8,6 +8,7 @@ import { Modal } from '@/components/ui/modal'
 import { Popover } from '@/components/ui/popover'
 import { useT } from '@/shared/i18n'
 import { cn } from '@/lib/utils'
+import { useMediaQuery } from '@/shared/useMediaQuery'
 import { relativeTime } from '@/shared/time'
 import { toast } from '@/shared/toast'
 
@@ -17,8 +18,8 @@ import type { DecryptedNote, NoteContent } from '../model'
 import { countWords } from '../stats'
 import { useNotesStore } from '../store/notesStore'
 import { useTemplateStore } from '../store/templateStore'
-import type { CodeEditorHandle, EditorFormat, LinkTarget } from './CodeEditor'
-import { EditorToolbar } from './EditorToolbar'
+import type { CodeEditorHandle, EditorFormat, LinkTarget, SelectionRect } from './CodeEditor'
+import { EditorToolbar, SelectionFormatBubble, TextPrefsMenu } from './EditorToolbar'
 import { MoveNoteDialog } from './MoveNoteDialog'
 import { NoteHistory } from './NoteHistory'
 import { PromptDialog } from './PromptDialog'
@@ -334,6 +335,12 @@ export function NoteEditor({ note, initialSearch }: NoteEditorProps) {
     [body, linkIndex],
   )
   const linkCount = backlinks.length + brokenLinks.length
+  // Desktop formats via the selection bubble; the fixed bar stays on small screens.
+  const isWide = useMediaQuery('(min-width: 768px)')
+  const [selRect, setSelRect] = useState<SelectionRect | null>(null)
+  useEffect(() => {
+    setSelRect(null)
+  }, [note.id])
   const resolveTargetId = useCallback(
     (target: string) => resolveTarget(target, linkIndex)?.id,
     [linkIndex],
@@ -401,12 +408,12 @@ export function NoteEditor({ note, initialSearch }: NoteEditorProps) {
 
   return (
     <div className="flex h-full flex-col animate-slide-up">
-      <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-border/70 px-2">
+      <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-border/70 px-2 md:h-14">
         <Input
           ref={titleRef}
           value={title}
           placeholder={t('common.untitled')}
-          className="min-w-0 flex-1 border-none bg-transparent text-[17px] font-semibold tracking-tight shadow-none focus-visible:ring-0"
+          className="min-w-0 flex-1 border-none bg-transparent text-[17px] font-semibold tracking-tight shadow-none focus-visible:ring-0 md:h-auto md:text-[22px] md:leading-tight"
           onChange={(event) => {
             setTitle(event.target.value)
             draft.current.title = event.target.value
@@ -492,6 +499,7 @@ export function NoteEditor({ note, initialSearch }: NoteEditorProps) {
           >
             <SlidersHorizontal className={cn(toolsOpen && 'text-primary')} />
           </Button>
+          <TextPrefsMenu compact />
           <span
             aria-hidden={!toolsOpen}
             className={cn(
@@ -608,12 +616,14 @@ export function NoteEditor({ note, initialSearch }: NoteEditorProps) {
       {preview ? (
         <Suspense fallback={<div className="min-h-0 flex-1" />}>
           {body.trim() ? (
-            <MarkdownPreview
-              className="min-h-0 flex-1 overflow-y-auto px-4 py-3"
-              source={body}
-              resolveLink={resolveTargetId}
-              onOpenNote={(id) => void select(id)}
-            />
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <MarkdownPreview
+                className="editor-measure px-4 py-3"
+                source={body}
+                resolveLink={resolveTargetId}
+                onOpenNote={(id) => void select(id)}
+              />
+            </div>
           ) : (
             <p className="px-4 py-6 text-sm text-muted-foreground">
               {t('notes.editor.emptyPreview')}
@@ -631,6 +641,7 @@ export function NoteEditor({ note, initialSearch }: NoteEditorProps) {
             linkTargets={linkTargets}
             onMatchCount={setMatchCount}
             onActiveFormats={(formats) => setActiveFormats(new Set(formats))}
+            onSelectionRect={setSelRect}
             onRequestSearch={() => setSearchOpen(true)}
             onChange={(next) => {
               setBody(next)
@@ -641,11 +652,23 @@ export function NoteEditor({ note, initialSearch }: NoteEditorProps) {
         </Suspense>
       )}
 
-      <EditorToolbar
-        formattingEnabled={!preview}
-        activeFormats={preview ? EMPTY_FORMATS : activeFormats}
-        onFormat={(action) => editorRef.current?.format(action)}
-      />
+      {/* Thumb-reach strip for small screens; desktop formats through the
+          selection bubble and keeps text prefs in the header pill. */}
+      <div className="shrink-0 md:hidden">
+        <EditorToolbar
+          formattingEnabled={!preview}
+          activeFormats={preview ? EMPTY_FORMATS : activeFormats}
+          onFormat={(action) => editorRef.current?.format(action)}
+        />
+      </div>
+
+      {isWide && !preview && selRect && (
+        <SelectionFormatBubble
+          rect={selRect}
+          activeFormats={activeFormats}
+          onFormat={(action) => editorRef.current?.format(action)}
+        />
+      )}
 
       {linksOpen && (
         <aside

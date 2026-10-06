@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Bold,
   Code,
@@ -20,11 +21,12 @@ import {
   EDITOR_DELTA_MAX,
   EDITOR_DELTA_MIN,
   EDITOR_LINES,
+  EDITOR_WIDTHS,
   useEditorPrefsStore,
 } from '@/shared/editorPrefs'
 import { useT, type MessageKey } from '@/shared/i18n'
 
-import type { EditorFormat } from './CodeEditor'
+import type { EditorFormat, SelectionRect } from './CodeEditor'
 
 /** Toolbar registry: one entry per Markdown action, no conditionals at render. */
 const FORMATS: ReadonlyArray<{
@@ -42,21 +44,64 @@ const FORMATS: ReadonlyArray<{
   { id: 'link', labelKey: 'notes.editor.format.link', icon: Link2 },
 ]
 
+/** One Markdown action; shared by the fixed bar (thumb targets) and the bubble (compact). */
+function FormatButton({
+  id,
+  labelKey,
+  icon: Icon,
+  active,
+  disabled,
+  compact = false,
+  onFormat,
+}: {
+  id: EditorFormat
+  labelKey: MessageKey
+  icon: typeof Bold
+  active: boolean
+  disabled?: boolean
+  compact?: boolean
+  onFormat: (action: EditorFormat) => void
+}) {
+  const t = useT()
+  return (
+    <button
+      type="button"
+      aria-label={t(labelKey)}
+      title={t(labelKey)}
+      aria-pressed={active}
+      disabled={disabled}
+      onClick={() => onFormat(id)}
+      className={cn(
+        'grid shrink-0 place-items-center rounded-lg transition-[background-color,color,transform] duration-[var(--duration-fast)] active:scale-95 disabled:pointer-events-none disabled:opacity-40',
+        compact ? 'size-8' : 'size-10',
+        active
+          ? 'bg-accent text-accent-foreground'
+          : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+      )}
+    >
+      <Icon className={compact ? 'size-4' : 'size-[18px]'} />
+    </button>
+  )
+}
+
 /** Text-appearance menu: editor size delta (live) + line spacing. Opens upward. */
-function TextPrefsMenu() {
+export function TextPrefsMenu({ compact = false }: { compact?: boolean }) {
   const t = useT()
   const delta = useEditorPrefsStore((s) => s.delta)
   const line = useEditorPrefsStore((s) => s.line)
+  const width = useEditorPrefsStore((s) => s.width)
   const stepDelta = useEditorPrefsStore((s) => s.stepDelta)
   const setLine = useEditorPrefsStore((s) => s.setLine)
+  const setWidth = useEditorPrefsStore((s) => s.setWidth)
   const [open, setOpen] = useState(false)
-  const customized = delta !== 0 || line !== 'normal'
+  const customized = delta !== 0 || line !== 'normal' || width !== 'reading'
 
   return (
     <Popover
       open={open}
       onOpenChange={setOpen}
-      side="above"
+      // The pill sits near the top of the pane; the mobile bottom bar opens upward.
+      side={compact ? 'below' : 'above'}
       align="end"
       label={t('notes.editor.textPrefs')}
       className="w-64 p-3"
@@ -70,13 +115,14 @@ function TextPrefsMenu() {
             aria-expanded={open}
             onClick={() => setOpen((value) => !value)}
             className={cn(
-              'grid size-10 place-items-center rounded-lg transition-[background-color,color,transform] duration-[var(--duration-fast)] active:scale-95',
+              'grid place-items-center rounded-lg transition-[background-color,color,transform] duration-[var(--duration-fast)] active:scale-95',
+              compact ? 'size-8' : 'size-10',
               open || customized
                 ? 'bg-accent text-accent-foreground'
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground',
             )}
           >
-            <Type className="size-[18px]" />
+            <Type className={compact ? 'size-4' : 'size-[18px]'} />
           </button>
           {customized && !open && (
             <span
@@ -139,15 +185,38 @@ function TextPrefsMenu() {
             ))}
           </div>
         </div>
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+            {t('notes.editor.textWidth')}
+          </p>
+          <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1 text-sm">
+            {EDITOR_WIDTHS.map(({ id, labelKey }) => (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={width === id}
+                onClick={() => setWidth(id)}
+                className={cn(
+                  'rounded-lg px-2 py-1.5 transition-colors',
+                  width === id
+                    ? 'bg-background shadow-e1'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {t(labelKey)}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </Popover>
   )
 }
 
 /**
- * Single-line Markdown bar. On mobile it is the thumb-reachable strip above the
- * footer (horizontal scroll, safe touch targets); on desktop the same strip sits
- * under the editor. Only transform/opacity animate.
+ * Single-line Markdown bar for small screens: the thumb-reachable strip above the
+ * footer (horizontal scroll, safe touch targets). On `md` and up the fixed bar is
+ * replaced by the selection bubble below; only transform/opacity animate.
  */
 export function EditorToolbar({
   formattingEnabled,
@@ -168,31 +237,62 @@ export function EditorToolbar({
       className="shrink-0 border-t border-border/70 bg-surface animate-slide-up"
     >
       <div className="no-scrollbar flex items-center gap-0.5 overflow-x-auto px-2 py-1">
-        {FORMATS.map(({ id, labelKey, icon: Icon }) => {
-          const active = formattingEnabled && activeFormats.has(id)
-          return (
-            <button
-              key={id}
-              type="button"
-              aria-label={t(labelKey)}
-              title={t(labelKey)}
-              aria-pressed={active}
-              disabled={!formattingEnabled}
-              onClick={() => onFormat(id)}
-              className={cn(
-                'grid size-10 shrink-0 place-items-center rounded-lg transition-[background-color,color,transform] duration-[var(--duration-fast)] active:scale-95 disabled:pointer-events-none disabled:opacity-40',
-                active
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-              )}
-            >
-              <Icon className="size-[18px]" />
-            </button>
-          )
-        })}
+        {FORMATS.map((format) => (
+          <FormatButton
+            key={format.id}
+            {...format}
+            active={formattingEnabled && activeFormats.has(format.id)}
+            disabled={!formattingEnabled}
+            onFormat={onFormat}
+          />
+        ))}
         <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-border/70" />
         <TextPrefsMenu />
       </div>
     </div>
+  )
+}
+
+/**
+ * Desktop Markdown toolbar (selection-anchored, Notion-style): floats over the
+ * selected text where the fixed bottom bar used to be. `mousedown` is suppressed
+ * so the click never blurs CodeMirror or collapses the selection.
+ */
+export function SelectionFormatBubble({
+  rect,
+  activeFormats,
+  onFormat,
+}: {
+  rect: SelectionRect
+  activeFormats: ReadonlySet<EditorFormat>
+  onFormat: (action: EditorFormat) => void
+}) {
+  const t = useT()
+  const above = rect.top > 72
+  // Keep the bubble fully on screen when the selection sits near a viewport edge.
+  const half = 168
+  const left = Math.min(Math.max((rect.left + rect.right) / 2, half), window.innerWidth - half)
+  return createPortal(
+    <div
+      role="toolbar"
+      aria-label={t('notes.editor.formatBar')}
+      onMouseDown={(event) => event.preventDefault()}
+      style={{ top: above ? rect.top - 8 : rect.bottom + 8, left }}
+      className={cn(
+        'fixed z-50 flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-border/70 bg-surface p-1 shadow-e2 animate-pop-in',
+        above && '-translate-y-full',
+      )}
+    >
+      {FORMATS.map((format) => (
+        <FormatButton
+          key={format.id}
+          {...format}
+          compact
+          active={activeFormats.has(format.id)}
+          onFormat={onFormat}
+        />
+      ))}
+    </div>,
+    document.body,
   )
 }

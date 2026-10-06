@@ -52,9 +52,11 @@ src/
       useBoot.ts              hands the screen from the inline boot splash to the first screen
       useShortcuts.ts         Ctrl/Cmd+K palette, Ctrl/Cmd+N new note
       ui/
-        AppShell.tsx          top bar + notes surface + global overlays (palette, template picker, import, settings)
+        AppShell.tsx          top bar (sm+ only) + notes surface + global overlays (palette, template picker, import, settings)
         Splash.tsx            brand screen for the vault-loading phase
-        TopBar.tsx            brand, global search, sync, new note, lock, app menu
+        TopBar.tsx            desktop bar: brand, global search, new note, app menu
+        AppMenuButton.tsx     shared overflow menu (palette, install, settings, theme, sync now, lock, disconnect) + lock confirm
+        VaultStatusRow.tsx    sidebar-footer sync state (click = sync now) + vault lock
         CommandPalette.tsx    search + actions: note hits with match snippet, mobile search surface
         SettingsDialog.tsx    theme, rekey, app-open mode + PIN, sync, export/import, templates, reset
     vault/
@@ -108,7 +110,7 @@ src/
         SidebarNav.tsx       scope + smart views, notebook tree (drag-to-reparent, colors), tags
         TabBar.tsx           open-note tabs; content-width tabs joined into the editor; bulk close; split indicator
         NoteList.tsx         pinned section + date groups (or flat when title-sorted); row actions
-        NoteEditor.tsx       title + tag popover + links panel (backlinks/broken) + note menu (incl. save-as-template)
+        NoteEditor.tsx       title + tag popover + links panel (backlinks/broken) + note menu (incl. save-as-template) + selection-bubble host
         MoveNoteDialog.tsx   notebook picker for "Not defterine taşı"
         MoveFolderDialog.tsx notebook picker for "Taşı…" (reparent fallback)
         PromptDialog.tsx     single-field dialog for notebook/template create/rename
@@ -117,8 +119,8 @@ src/
         NoteHistory.tsx      version-history panel: list snapshots, read-only preview, restore
         SearchBar.tsx        in-note search controls (count, next/prev)
         Highlight.tsx        Turkish-aware substring highlight (list + palette)
-        CodeEditor.tsx       CodeMirror 6 wrapper: markdown, search, [[ completion, token theme
-        EditorToolbar.tsx    Markdown format bar + text-appearance (size/line) popover
+        CodeEditor.tsx       CodeMirror 6 wrapper: markdown, search, [[ completion, token theme, reading measure, selection-rect reporting
+        EditorToolbar.tsx    Markdown format bar (small screens) + selection bubble (md+) + text-appearance popover
         livePreview.ts       Obsidian-style live preview decorations + active-format detection
         MarkdownPreview.tsx  read-only preview: marked + sanitized HTML; wiki links navigate in-app
       search.test.ts
@@ -440,6 +442,14 @@ block is the app's only browser-enforced security boundary:
   render styled (bold/italic/heading/quote/bullet) otherwise. `CodeEditor.onActiveFormats`
   reports `activeFormatsAt()` on selection/doc changes; `EditorToolbar` lights the matching
   buttons with `aria-pressed`. Stored content stays plain Markdown either way.
+- **Formatting surface**: below `md` a fixed `EditorToolbar` strip sits under the editor (thumb
+  targets); at `md`+ the strip is gone and `SelectionFormatBubble` floats over the selection
+  instead — `CodeEditor.onSelectionRect` reports viewport bounds, the bubble portals to the body,
+  suppresses `mousedown` to keep the CM selection, and hides on scroll. The bar's text-appearance
+  menu moves into the header pill (compact variant). Both surfaces share the `FORMATS` registry.
+- **Reading measure**: editor and preview share `--editor-measure` (centered text column).
+  CodeMirror applies it as `.cm-content` `padding-inline: max(gutter, (100% − measure)/2)`; the
+  preview uses the `.editor-measure` component class inside its own scroll container.
 - **Export:** `features/notes/export.ts` downloads a note/all notes as Markdown or all as JSON.
   Export is **plaintext**; the UI states this before offering it.
 
