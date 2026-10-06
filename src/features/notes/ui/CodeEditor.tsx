@@ -103,6 +103,12 @@ const theme = EditorView.theme({
   '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
     backgroundColor: 'color-mix(in oklch, var(--color-primary) 22%, transparent)',
   },
+  // basicSetup ships highlightSelectionMatches with a default green wash that
+  // fights our yellow search pills — disable it, search has its own marks.
+  '.cm-selectionMatch': {
+    backgroundColor: 'transparent',
+    outline: 'none',
+  },
   '.cm-searchMatch': {
     backgroundColor: 'var(--search-highlight)',
     color: 'var(--search-highlight-ink)',
