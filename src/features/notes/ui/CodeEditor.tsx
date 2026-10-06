@@ -3,12 +3,14 @@ import type { CompletionContext, CompletionResult } from '@codemirror/autocomple
 import {
   findNext as cmFindNext,
   findPrevious as cmFindPrevious,
+  getSearchQuery,
+  RegExpCursor,
   SearchQuery,
   search,
   setSearchQuery,
 } from '@codemirror/search'
-import { EditorState, Prec, type Extension } from '@codemirror/state'
-import { EditorView, keymap } from '@codemirror/view'
+import { EditorState, Prec, RangeSetBuilder, type Extension } from '@codemirror/state'
+import { Decoration, EditorView, keymap, ViewPlugin, type ViewUpdate } from '@codemirror/view'
 import { basicSetup } from 'codemirror'
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 
@@ -128,6 +130,55 @@ function countMatches(state: EditorState, query: SearchQuery): number {
   while (!cursor.next().done) count++
   return count
 }
+
+/**
+ * Our own match highlighter. CodeMirror's built-in `searchHighlighter` only
+ * paints when its own search panel is open (`panel != null`), but we drive the
+ * query from our custom SearchBar and never open that panel — so without this
+ * nothing ever got the `.cm-searchMatch` class. Count + jump worked, the
+ * yellow paint did not (only the green `selectionMatch` leftovers showed).
+ */
+const searchMatchMark = Decoration.mark({ class: 'cm-searchMatch' })
+const searchSelectedMark = Decoration.mark({ class: 'cm-searchMatch cm-searchMatch-selected' })
+
+const inNoteSearchHighlighter = ViewPlugin.fromClass(
+  class {
+    decorations: ReturnType<typeof Decoration.set>
+    constructor(view: EditorView) {
+      this.decorations = this.build(view)
+    }
+    update(update: ViewUpdate) {
+      const prevQuery = getSearchQuery(update.startState)
+      const nextQuery = getSearchQuery(update.state)
+      if (
+        update.docChanged ||
+        update.selectionSet ||
+        update.viewportChanged ||
+        !prevQuery.eq(nextQuery)
+      ) {
+        this.decorations = this.build(update.view)
+      }
+    }
+    build(view: EditorView) {
+      const spec = getSearchQuery(view.state)
+      if (!spec.valid || !spec.search) return Decoration.none
+      const builder = new RangeSetBuilder<Decoration>()
+      for (const { from, to } of view.visibleRanges) {
+        const cursor = new RegExpCursor(view.state.doc, spec.search, { ignoreCase: !spec.caseSensitive }, from, to)
+        while (!cursor.next().done) {
+          const { from: matchFrom, to: matchTo } = cursor.value
+          if (matchTo <= matchFrom) continue
+          const selected = view.state.selection.ranges.some(
+            (r) => r.from === matchFrom && r.to === matchTo,
+          )
+          builder.add(matchFrom, matchTo, selected ? searchSelectedMark : searchMatchMark)
+        }
+      }
+      return builder.finish()
+    }
+  },
+  { decorations: (v) => v.decorations },
+)
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -497,6 +548,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
       livePreview,
       livePreviewTheme,
       search(),
+      inNoteSearchHighlighter,
       // Own Mod-F beats basicSetup's searchKeymap so we can drive our own UI.
       Prec.high(
         keymap.of([{ key: 'Mod-f', run: () => (requestRef.current?.(), true) }]),
