@@ -337,6 +337,9 @@ export function NoteEditor({ note, initialSearch }: NoteEditorProps) {
   const linkCount = backlinks.length + brokenLinks.length
   // Desktop formats via the selection bubble; the fixed bar stays on small screens.
   const isWide = useMediaQuery('(min-width: 768px)')
+  // The inline tool group (pin/links/history) needs a wide pane; below lg those
+  // actions live in the overflow menu instead of clipping the header.
+  const isLg = useMediaQuery('(min-width: 1024px)')
   const [selRect, setSelRect] = useState<SelectionRect | null>(null)
   useEffect(() => {
     setSelRect(null)
@@ -496,6 +499,7 @@ export function NoteEditor({ note, initialSearch }: NoteEditorProps) {
             title={t('notes.editor.tools')}
             aria-expanded={toolsOpen}
             onClick={toggleTools}
+            className={cn(!isLg && 'hidden')}
           >
             <SlidersHorizontal className={cn(toolsOpen && 'text-primary')} />
           </Button>
@@ -505,6 +509,7 @@ export function NoteEditor({ note, initialSearch }: NoteEditorProps) {
             className={cn(
               'grid transition-[grid-template-columns,opacity] duration-[var(--duration-base)] ease-[var(--ease-emphasized)]',
               toolsOpen ? 'grid-cols-[1fr] opacity-100' : 'grid-cols-[0fr] opacity-0',
+              !isLg && 'hidden',
             )}
           >
             <span className="flex min-w-0 items-center gap-0.5 overflow-hidden">
@@ -549,7 +554,7 @@ export function NoteEditor({ note, initialSearch }: NoteEditorProps) {
               </Button>
             </span>
           </span>
-          <Menu label={t('notes.editor.more')} icon={<MoreVertical />} items={menuItems} />
+          <Menu label={t('notes.editor.more')} icon={<MoreVertical />} items={isLg ? menuItems : mobileMenuItems} />
         </div>
 
         {/* Mobile: tags + preview/edit, everything else one tap deeper. */}

@@ -254,7 +254,7 @@ export function SettingsDialog() {
       description={t('settings.description')}
       className="w-[min(94vw,34rem)]"
     >
-      <div role="tablist" aria-label={t('settings.title')} className="grid grid-cols-4 gap-1 rounded-xl bg-muted p-1 text-[13px]">
+      <div role="tablist" aria-label={t('settings.title')} className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1 text-[13px] sm:grid-cols-4">
         {TABS.map(({ id, labelKey }) => (
           <button
             key={id}
@@ -271,7 +271,7 @@ export function SettingsDialog() {
           </button>
         ))}
       </div>
-      <div key={tab} role="tabpanel" className="max-h-[60vh] min-h-48 space-y-5 overflow-y-auto pr-1 animate-fade-in">
+      <div key={tab} role="tabpanel" className="max-h-[60vh] min-h-48 space-y-5 overflow-x-hidden overflow-y-auto pr-1 animate-fade-in">
         {tab === 'appearance' && (
           <>
         <Section title={t('settings.appearance')}>

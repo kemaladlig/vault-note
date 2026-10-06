@@ -60,7 +60,7 @@ export function Modal({
         if (event.target === ref.current) onClose()
       }}
       className={cn(
-        'm-auto max-h-[calc(100dvh-2rem)] w-[min(92vw,32rem)] overflow-y-auto rounded-2xl border border-border/70 bg-popover p-0 text-popover-foreground shadow-pop',
+        'm-auto max-h-[calc(100dvh-2rem)] w-[min(92vw,32rem)] overflow-x-hidden overflow-y-auto rounded-2xl border border-border/70 bg-popover p-0 text-popover-foreground shadow-pop',
         className,
       )}
     >

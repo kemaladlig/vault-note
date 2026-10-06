@@ -49,7 +49,7 @@ export function TopBar() {
   }
 
   return (
-    <header className="relative z-30 grid h-14 shrink-0 grid-cols-[1fr_auto] items-center gap-2 px-3 sm:grid-cols-[1fr_minmax(0,36rem)_1fr] sm:gap-4 md:px-4">
+    <header className="relative z-30 grid h-14 shrink-0 grid-cols-[1fr_auto] items-center gap-2 px-3 sm:grid-cols-[minmax(min-content,1fr)_minmax(0,36rem)_minmax(min-content,1fr)] sm:gap-4 md:px-4">
       {/* Left: brand, then the panel toggle next to the surface it controls. */}
       <div className="flex min-w-0 items-center gap-1.5">
         <div className="flex min-w-0 items-center gap-2 pl-0.5">
