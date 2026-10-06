@@ -27,6 +27,7 @@ import { useVaultStore } from '@/features/vault/store/vaultStore'
 import { cn } from '@/lib/utils'
 import { useExitMotion } from '@/shared/exitMotion'
 import { useT } from '@/shared/i18n'
+import { useMediaQuery } from '@/shared/useMediaQuery'
 import { relativeTime } from '@/shared/time'
 import { useThemeStore } from '@/shared/theme'
 import { toast } from '@/shared/toast'
@@ -37,6 +38,8 @@ interface Command {
   id: string
   label: string
   hint?: string
+  /** Marks a keyboard-shortcut hint; hidden on touch, where it is meaningless. */
+  shortcut?: boolean
   /** Optional secondary line (e.g. the match snippet for a note hit). */
   detail?: ReactNode
   /** Optional rich label (e.g. a highlighted title). */
@@ -81,6 +84,8 @@ function Palette({ onClose, closing = false }: { onClose: () => void; closing?: 
   const [active, setActive] = useState(0)
   // Keep the input instant; the full-body scan runs on the deferred value.
   const deferredTerm = useDeferredValue(term)
+  // Touch devices have no keyboard; drop the shortcut-only hints.
+  const coarse = useMediaQuery('(pointer: coarse)')
 
   const commands = useMemo<Command[]>(
     () => [
@@ -132,6 +137,7 @@ function Palette({ onClose, closing = false }: { onClose: () => void; closing?: 
               : 'shell.panels.show',
         ),
         hint: t('shell.panels.hint'),
+        shortcut: true,
         icon:
           panelMode === 'editor' ? (
             <PanelLeftOpen />
@@ -349,7 +355,7 @@ function Palette({ onClose, closing = false }: { onClose: () => void; closing?: 
                         </span>
                       )}
                     </span>
-                    {item.hint && (
+                    {item.hint && !(item.shortcut && coarse) && (
                       <span className="shrink-0 text-xs text-muted-foreground">{item.hint}</span>
                     )}
                   </button>

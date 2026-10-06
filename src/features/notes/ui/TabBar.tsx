@@ -153,9 +153,11 @@ export function TabBar({ onBack }: TabBarProps) {
       </div>
 
       <div className="flex shrink-0 items-center gap-1 self-center">
-        <span className="rounded-full bg-muted/80 px-2 text-[11px] font-medium tabular-nums text-muted-foreground">
-          {openIds.length}
-        </span>
+        {openIds.length > 1 && (
+          <span className="rounded-full bg-muted/80 px-2 text-[11px] font-medium tabular-nums text-muted-foreground">
+            {openIds.length}
+          </span>
+        )}
         <Menu
           label={t('notes.tabs.options')}
           icon={<Ellipsis className="size-4" />}
