@@ -16,7 +16,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import { useDeferredValue, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -230,15 +230,47 @@ export function NotesShell() {
       ? t('shell.search.placeholder')
       : t('shell.search.placeholderIn', { scope: scopeName })
 
-  function onSelect(id: string) {
-    select(id)
-    setListOpen(false)
-  }
+  // Stable handlers so the memoized note rows skip re-rendering when an unrelated note is saved.
+  const onSelect = useCallback(
+    (id: string) => {
+      select(id)
+      setListOpen(false)
+    },
+    [select, setListOpen],
+  )
 
-  function onOpenBeside(id: string) {
-    if (id === selectedId) return
-    setSplitId(id)
-  }
+  const onOpenBeside = useCallback(
+    (id: string) => {
+      // Read the live selection so this can stay referentially stable across selections.
+      if (id === useNotesStore.getState().selectedId) return
+      setSplitId(id)
+    },
+    [setSplitId],
+  )
+
+  const handleTogglePin = useCallback((id: string) => void togglePin(id), [togglePin])
+
+  const handleArchive = useCallback(
+    (id: string, archived: boolean) =>
+      void setArchived(id, archived).then(() =>
+        toast(t(archived ? 'notes.list.archived' : 'notes.list.unarchived'), 'success'),
+      ),
+    [setArchived, t],
+  )
+
+  const handleRestore = useCallback(
+    (id: string) => void restore(id).then(() => toast(t('notes.list.restored'), 'success')),
+    [restore, t],
+  )
+
+  const handleDestroy = useCallback((id: string) => setPendingDestroy(id), [])
+
+  const handleRemove = useCallback(
+    (id: string) => void remove(id).then(() => toast(t('notes.editor.deleted'), 'success')),
+    [remove, t],
+  )
+
+  const handleMove = useCallback((id: string) => setMoveNoteId(id), [])
 
   function clearFilters() {
     setQuery('')
@@ -462,21 +494,13 @@ export function NotesShell() {
               groupPinned={view === 'all' && !folderId}
               grouped={groupField !== null}
               dateField={groupField ?? 'updatedAt'}
-              onTogglePin={(id) => void togglePin(id)}
-              onArchive={(id, archived) =>
-                void setArchived(id, archived).then(() =>
-                  toast(t(archived ? 'notes.list.archived' : 'notes.list.unarchived'), 'success'),
-                )
-              }
+              onTogglePin={handleTogglePin}
+              onArchive={handleArchive}
               onOpenBeside={onOpenBeside}
-              onRestore={(id) =>
-                void restore(id).then(() => toast(t('notes.list.restored'), 'success'))
-              }
-              onDestroy={(id) => setPendingDestroy(id)}
-              onRemove={(id) =>
-                void remove(id).then(() => toast(t('notes.editor.deleted'), 'success'))
-              }
-              onMove={(id) => setMoveNoteId(id)}
+              onRestore={handleRestore}
+              onDestroy={handleDestroy}
+              onRemove={handleRemove}
+              onMove={handleMove}
             />
           )}
         </div>

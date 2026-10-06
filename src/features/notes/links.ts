@@ -96,6 +96,9 @@ export function backlinksFor(
   const result: Backlink[] = []
   for (const note of notes) {
     if (note.id === target.id || note.deleted) continue
+    // A cheap raw scan first: most notes carry no wiki-link at all, so skip the parse for them.
+    // This keeps opening a note O(linkers) instead of O(every body) on large vaults.
+    if (!note.body.includes('[[')) continue
     const links = resolveLinks(note.body, idx).filter((link) => link.note?.id === target.id)
     if (links.length > 0) result.push({ note, links })
   }

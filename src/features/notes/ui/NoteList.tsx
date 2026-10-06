@@ -1,5 +1,5 @@
 import { Archive, ArchiveRestore, Columns2, Pin, RotateCcw, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
 import { useT, type MessageKey } from '@/shared/i18n'
@@ -106,7 +106,28 @@ function RowAction({
   )
 }
 
-function NoteRow({
+interface NoteRowProps {
+  note: DecryptedNote
+  active: boolean
+  query: string
+  view: NotesView
+  onSelect: (id: string) => void
+  onTogglePin?: (id: string) => void
+  onArchive?: (id: string, archived: boolean) => void
+  onOpenBeside?: (id: string) => void
+  onRestore?: (id: string) => void
+  onDestroy?: (id: string) => void
+  onMenu: (note: DecryptedNote, anchor: NoteMenuAnchor | null) => void
+  /** Row position for the entrance stagger; already capped by the caller. */
+  staggerIndex: number
+}
+
+/**
+ * Memoized so a store mutation that replaces `notes` (every debounced save) re-renders only the
+ * row whose note object changed, not the whole list. Props stay referentially stable: the store
+ * replaces a note object only when that note is edited, and the parent's handlers are useCallback'd.
+ */
+const NoteRow = memo(function NoteRow({
   note,
   active,
   query,
@@ -119,21 +140,7 @@ function NoteRow({
   onDestroy,
   onMenu,
   staggerIndex,
-}: {
-  note: DecryptedNote
-  active: boolean
-  query: string
-  view: NotesView
-  onSelect: (id: string) => void
-  onTogglePin?: (id: string) => void
-  onArchive?: (id: string, archived: boolean) => void
-  onOpenBeside?: (id: string) => void
-  onRestore?: (id: string) => void
-  onDestroy?: (id: string) => void
-  onMenu: (note: DecryptedNote, anchor: NoteMenuAnchor | null) => void
-  /** Row position for the entrance stagger; capped by staggerDelay(). */
-  staggerIndex: number
-}) {
+}: NoteRowProps) {
   const t = useT()
   const info = query.trim() ? matchInfo(note, query) : null
   const bodyPreview = info ? info.snippet : preview(note.body)
@@ -308,7 +315,7 @@ function NoteRow({
       </div>
     </li>
   )
-}
+})
 
 function GroupHeader({ children }: { children: ReactNode }) {
   return (
@@ -345,15 +352,16 @@ export function NoteList({
   const [menuNote, setMenuNote] = useState<DecryptedNote | null>(null)
   const [menuAnchor, setMenuAnchor] = useState<NoteMenuAnchor | null>(null)
 
-  function openMenu(note: DecryptedNote, anchor: NoteMenuAnchor | null) {
+  // Stable so the memoized rows are not invalidated when the list re-renders.
+  const openMenu = useCallback((note: DecryptedNote, anchor: NoteMenuAnchor | null) => {
     setMenuNote(note)
     setMenuAnchor(anchor)
-  }
+  }, [])
 
-  function closeMenu() {
+  const closeMenu = useCallback(() => {
     setMenuNote(null)
     setMenuAnchor(null)
-  }
+  }, [])
 
   if (notes.length === 0) {
     return (
@@ -374,7 +382,7 @@ export function NoteList({
           <GroupHeader>{t('notes.view.pinned')}</GroupHeader>
           <ul className="space-y-1">
             {pinned.map((note) => (
-              <NoteRow key={note.id} note={note} active={note.id === selectedId} staggerIndex={shown++} {...rowProps} />
+              <NoteRow key={note.id} note={note} active={note.id === selectedId} staggerIndex={Math.min(shown++, STAGGER_LAST)} {...rowProps} />
             ))}
           </ul>
         </section>
@@ -385,7 +393,7 @@ export function NoteList({
             <GroupHeader>{t(GROUP_LABELS[group.key])}</GroupHeader>
             <ul className="space-y-1">
               {group.items.map((note) => (
-                <NoteRow key={note.id} note={note} active={note.id === selectedId} staggerIndex={shown++} {...rowProps} />
+                <NoteRow key={note.id} note={note} active={note.id === selectedId} staggerIndex={Math.min(shown++, STAGGER_LAST)} {...rowProps} />
               ))}
             </ul>
           </section>
@@ -393,7 +401,7 @@ export function NoteList({
       ) : (
         <ul className="space-y-1">
           {rest.map((note) => (
-            <NoteRow key={note.id} note={note} active={note.id === selectedId} staggerIndex={shown++} {...rowProps} />
+            <NoteRow key={note.id} note={note} active={note.id === selectedId} staggerIndex={Math.min(shown++, STAGGER_LAST)} {...rowProps} />
           ))}
         </ul>
       )}
