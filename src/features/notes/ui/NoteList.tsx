@@ -364,9 +364,21 @@ export function NoteList({
   }, [])
 
   if (notes.length === 0) {
+    // A live search keeps the "no match" wording; an empty scope gets its own copy so
+    // an empty Trash/Archive does not read as a failed search.
+    const emptyKey: MessageKey =
+      query.trim().length > 0
+        ? 'notes.list.empty'
+        : view === 'trash'
+          ? 'notes.empty.trashMsg'
+          : view === 'archive'
+            ? 'notes.empty.archiveMsg'
+            : view === 'pinned'
+              ? 'notes.empty.pinnedMsg'
+              : 'notes.list.empty'
     return (
       <p className="px-4 py-8 text-center text-sm text-muted-foreground animate-fade-in">
-        {t('notes.list.empty')}
+        {t(emptyKey)}
       </p>
     )
   }
