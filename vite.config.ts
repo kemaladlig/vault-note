@@ -13,7 +13,9 @@ export default defineConfig({
     // Installable PWA + offline app shell. The workbox precache covers only the built
     // same-origin assets; Drive/OAuth traffic is explicitly network-only (never cached).
     VitePWA({
-      registerType: 'autoUpdate',
+      // A waiting SW surfaces as a reload toast (see src/main.tsx); the page is never
+      // reloaded under the user's hands.
+      registerType: 'prompt',
       includeAssets: ['favicon-32.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'VaultNote',

@@ -215,7 +215,7 @@ src/
     (trash/restore) and the tombstone branch in `sync/engine.ts` (mirroring a remote delete).
     Losing one is a silent data-loss bug, not a validation error.
   - **Breaks older app builds on other devices:** a build without v2 support cannot read a v2
-    note. It lands with the PWA auto-update; a device stuck on an old cached bundle will report
+    note. It lands with the PWA reload prompt; a device stuck on an old cached bundle will report
     the note as undecryptable rather than lose it.
 - **Note API takes a `NoteBinding`** (`{ id, version, updatedAt }`) rather than loose scalars, so
   the binding cannot be assembled with a field missing. `sealText`/`openText` were removed: dead
@@ -472,6 +472,9 @@ block is the app's only browser-enforced security boundary:
 - `vite-plugin-pwa` (Workbox `generateSW`) builds `dist/sw.js` + `dist/manifest.webmanifest`
   on every `npm run build`. Config lives in `vite.config.ts`; `src/main.tsx` calls
   `registerSW({ immediate: true })` (a no-op in dev — `devOptions.enabled` is false).
+  `registerType: 'prompt'`: a waiting SW raises a sticky "new version ready" toast (with a
+  Reload action) instead of auto-reloading, and `registration.update()` runs when the tab
+  returns to the foreground so long-open installs notice deploys promptly.
 - Precaching covers only built same-origin assets (js/css/html/svg/png/woff). Drive and
   Google auth origins are explicit `NetworkOnly` rules, so the service worker never caches
   ciphertext or API traffic; offline data stays the app's concern, not the SW's.

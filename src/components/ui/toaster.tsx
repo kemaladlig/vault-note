@@ -9,7 +9,7 @@ const ICONS: Record<ToastTone, typeof Info> = {
   error: XCircle,
 }
 
-/** Bottom-centered transient status messages. Mount once, near the app root. */
+/** Bottom-centered status messages. Mount once, near the app root. */
 export function Toaster() {
   const toasts = useToastStore((s) => s.toasts)
   const dismiss = useToastStore((s) => s.dismiss)
@@ -18,17 +18,19 @@ export function Toaster() {
     <div className="pointer-events-none fixed bottom-4 left-1/2 z-[100] flex w-[min(92vw,26rem)] -translate-x-1/2 flex-col items-stretch gap-2">
       {toasts.map((item) => {
         const Icon = ICONS[item.tone]
+        // Action toasts are prompts: only the action (or its dismissal) acts on them.
+        const interactive = !item.action
         return (
-          <button
+          <div
             key={item.id}
-            type="button"
             role="status"
-            onClick={() => dismiss(item.id)}
+            onClick={interactive ? () => dismiss(item.id) : undefined}
             className={cn(
               'pointer-events-auto flex items-center gap-2.5 rounded-full border border-border/60 bg-popover/95 px-4 py-2.5 text-left text-sm shadow-e3 backdrop-blur-md',
               item.leaving ? 'animate-toast-out' : 'animate-toast-in',
               item.tone === 'error' && 'border-destructive/40 text-destructive',
               item.tone === 'success' && 'border-success/40',
+              interactive && 'cursor-pointer',
             )}
           >
             <Icon
@@ -40,7 +42,16 @@ export function Toaster() {
               )}
             />
             <span className="flex-1">{item.message}</span>
-          </button>
+            {item.action && (
+              <button
+                type="button"
+                onClick={() => item.action?.run()}
+                className="shrink-0 rounded-full px-2.5 py-1 text-sm font-medium text-primary transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+              >
+                {item.action.label}
+              </button>
+            )}
+          </div>
         )
       })}
     </div>

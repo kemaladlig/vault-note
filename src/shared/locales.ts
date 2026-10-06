@@ -14,6 +14,10 @@ export const tr = {
   'common.or': 'veya',
   'common.untitled': 'Başlıksız',
   'common.notebookName': 'Not defteri adı',
+
+  // App update (service worker)
+  'app.updateAvailable': 'Yeni sürüm hazır',
+  'app.updateAction': 'Yenile',
   'time.now': 'şimdi',
 
   // Notes — scopes / views
@@ -451,6 +455,10 @@ export const en: Record<MessageKey, string> = {
   'common.or': 'or',
   'common.untitled': 'Untitled',
   'common.notebookName': 'Notebook name',
+
+  // App update (service worker)
+  'app.updateAvailable': 'New version ready',
+  'app.updateAction': 'Reload',
   'time.now': 'now',
 
   'notes.view.all': 'Notes',
