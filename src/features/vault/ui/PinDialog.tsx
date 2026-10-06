@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState, type Ref } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,23 +24,43 @@ function PinField({
   label,
   value,
   onChange,
+  inputRef,
+  last,
 }: {
   id: string
   label: string
   value: string
   onChange: (value: string) => void
+  /** First visible field: receives focus when the dialog opens. */
+  inputRef?: Ref<HTMLInputElement>
+  /** Last field: Enter submits via the form. */
+  last?: boolean
 }) {
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id}>{label}</Label>
       <Input
         id={id}
+        ref={inputRef}
         type="password"
         inputMode="numeric"
-        autoComplete="off"
+        pattern="[0-9]*"
+        enterKeyHint={last ? 'done' : 'next'}
+        autoComplete={id === 'pin-new' ? 'new-password' : 'off'}
         maxLength={8}
         value={value}
         onChange={(event) => onChange(event.target.value.replace(/\D/g, ''))}
+        onFocus={(event) => {
+          requestAnimationFrame(() => {
+            window.setTimeout(() => {
+              try {
+                event.currentTarget.scrollIntoView({ block: 'nearest' })
+              } catch {
+                /* older webviews — the dialog resize still keeps it visible */
+              }
+            }, 250)
+          })
+        }}
       />
     </div>
   )
@@ -71,6 +91,17 @@ export function PinDialog({ open, mode, onClose, onSubmit }: PinDialogProps) {
   const needsCurrent = mode !== 'set'
   const needsNext = mode !== 'remove'
   const canSubmit = (!needsCurrent || isValidPin(current)) && (!needsNext || (isValidPin(next) && next === confirm))
+
+  const firstFieldRef = useRef<HTMLInputElement>(null)
+
+  // The dialog content swaps with `mode` while staying open; land focus on
+  // the first visible field each time it (re)opens. Modal also focuses the
+  // first input generically — this is the explicit backup for mode switches.
+  useEffect(() => {
+    if (!open) return
+    const frame = requestAnimationFrame(() => firstFieldRef.current?.focus({ preventScroll: true }))
+    return () => cancelAnimationFrame(frame)
+  }, [open, mode])
 
   async function submit() {
     if (needsNext && !isValidPin(next)) {
@@ -131,11 +162,31 @@ export function PinDialog({ open, mode, onClose, onSubmit }: PinDialogProps) {
         }}
       >
         {needsCurrent && (
-          <PinField id="pin-current" label={t('pin.current')} value={current} onChange={setCurrent} />
+          <PinField
+            id="pin-current"
+            label={t('pin.current')}
+            value={current}
+            onChange={setCurrent}
+            inputRef={firstFieldRef}
+          />
         )}
-        {needsNext && <PinField id="pin-new" label={t('pin.new')} value={next} onChange={setNext} />}
         {needsNext && (
-          <PinField id="pin-confirm" label={t('pin.confirm')} value={confirm} onChange={setConfirm} />
+          <PinField
+            id="pin-new"
+            label={t('pin.new')}
+            value={next}
+            onChange={setNext}
+            inputRef={needsCurrent ? undefined : firstFieldRef}
+          />
+        )}
+        {needsNext && (
+          <PinField
+            id="pin-confirm"
+            label={t('pin.confirm')}
+            value={confirm}
+            onChange={setConfirm}
+            last
+          />
         )}
         {error && <p className="text-sm text-destructive">{error}</p>}
       </form>

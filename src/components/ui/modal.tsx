@@ -34,8 +34,18 @@ export function Modal({
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    if (open && !el.open) el.showModal()
-    else if (!open && el.open) el.close()
+    if (open && !el.open) {
+      el.showModal()
+      // Native <dialog> focuses itself, not the first field. Move focus into
+      // the dialog so PIN / form inputs open focused (and mobile keyboards up).
+      requestAnimationFrame(() => {
+        const target = el.querySelector<HTMLElement>(
+          '[data-autofocus], input:not([disabled]), textarea:not([disabled]), select:not([disabled])',
+        )
+        target?.focus({ preventScroll: true })
+        target?.scrollIntoView({ block: 'nearest' })
+      })
+    } else if (!open && el.open) el.close()
   }, [open])
 
   return (
@@ -50,7 +60,7 @@ export function Modal({
         if (event.target === ref.current) onClose()
       }}
       className={cn(
-        'm-auto w-[min(92vw,32rem)] rounded-2xl border border-border/70 bg-popover p-0 text-popover-foreground shadow-pop',
+        'm-auto max-h-[calc(100dvh-2rem)] w-[min(92vw,32rem)] overflow-y-auto rounded-2xl border border-border/70 bg-popover p-0 text-popover-foreground shadow-pop',
         className,
       )}
     >

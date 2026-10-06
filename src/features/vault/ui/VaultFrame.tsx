@@ -11,7 +11,7 @@ import { useT } from '@/shared/i18n'
 export function VaultFrame({ children }: { children: ReactNode }) {
   const t = useT()
   return (
-    <div className="flex min-h-full flex-col items-center justify-center gap-7 bg-shell-gradient p-6">
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-7 overflow-y-auto bg-shell-gradient p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
       <div className="flex flex-col items-center gap-3 animate-brand-in">
         <span className="relative grid size-16 place-items-center">
           <span aria-hidden className="absolute inset-0 rounded-3xl bg-primary/25 blur-2xl" />

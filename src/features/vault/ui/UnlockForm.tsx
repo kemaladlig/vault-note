@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,6 +32,29 @@ export function UnlockForm() {
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
   const [confirmStartOver, setConfirmStartOver] = useState(false)
+
+  const pinRef = useRef<HTMLInputElement>(null)
+  const passRef = useRef<HTMLInputElement>(null)
+
+  // PIN is digits-only (4–8); password masking + numeric inputMode keeps it
+  // masked while opening the numeric keyboard on mobile.
+  function onPinInput(value: string) {
+    setPin(value.replace(/\D/g, ''))
+  }
+
+  // Keyboard opened by the OS can cover a centered card; let the focused
+  // field pull itself above it once the resize settles.
+  function revealOnFocus(element: HTMLInputElement) {
+    requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        try {
+          element.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        } catch {
+          /* older webviews — the viewport resize still moves the card up */
+        }
+      }, 250)
+    })
+  }
 
   async function onQuickUnlock() {
     setBusy(true)
@@ -89,6 +112,17 @@ export function UnlockForm() {
   // Device mode with neither the key nor a PIN: nothing can recover it.
   const brokenDevice = isDevice && !quickAvailable && !pinSet
 
+  // autoFocus only fires reliably on first mount; the PIN / passphrase forms
+  // swap without remounting the screen, so focus the visible field explicitly.
+  // (Mobile browsers still need a user gesture for the keyboard itself —
+  // the cursor lands in the field either way.)
+  useEffect(() => {
+    const target = showPin ? pinRef.current : showQuick || brokenDevice ? null : passRef.current
+    if (!target) return
+    const frame = requestAnimationFrame(() => target.focus({ preventScroll: true }))
+    return () => cancelAnimationFrame(frame)
+  }, [showPin, showQuick, brokenDevice])
+
   return (
     <VaultFrame>
       <Card className="w-full max-w-md">
@@ -128,13 +162,16 @@ export function UnlockForm() {
                 <Label htmlFor="pin">{t('vault.unlock.pinLabel')}</Label>
                 <Input
                   id="pin"
+                  ref={pinRef}
                   type="password"
                   inputMode="numeric"
-                  autoComplete="off"
-                  autoFocus
+                  pattern="[0-9]*"
+                  enterKeyHint="go"
+                  autoComplete="one-time-code"
                   maxLength={8}
                   value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                  onChange={(e) => onPinInput(e.target.value)}
+                  onFocus={(e) => revealOnFocus(e.currentTarget)}
                 />
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
@@ -187,11 +224,13 @@ export function UnlockForm() {
                 <Label htmlFor="passphrase">{t('vault.create.passphrase')}</Label>
                 <Input
                   id="passphrase"
+                  ref={passRef}
                   type="password"
                   autoComplete="current-password"
-                  autoFocus
+                  enterKeyHint="go"
                   value={passphrase}
                   onChange={(e) => setPassphrase(e.target.value)}
+                  onFocus={(e) => revealOnFocus(e.currentTarget)}
                 />
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
