@@ -614,9 +614,9 @@
 }
 
 @layer components {
-  /* Centered reading column; the CodeMirror analogue lives in its theme. */
+  /* Reading column for editor + preview; capped on the right, flush-left like the
+     title and chrome so one text edge rules the pane. Wide sets the var to 100%. */
   .editor-measure {
-    margin-inline: auto;
     max-width: var(--editor-measure);
     width: 100%;
   }

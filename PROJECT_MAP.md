@@ -447,9 +447,10 @@ block is the app's only browser-enforced security boundary:
   instead — `CodeEditor.onSelectionRect` reports viewport bounds, the bubble portals to the body,
   suppresses `mousedown` to keep the CM selection, and hides on scroll. The bar's text-appearance
   menu moves into the header pill (compact variant). Both surfaces share the `FORMATS` registry.
-- **Reading measure**: editor and preview share `--editor-measure` (centered text column).
-  CodeMirror applies it as `.cm-content` `padding-inline: max(gutter, (100% − measure)/2)`; the
-  preview uses the `.editor-measure` component class inside its own scroll container.
+- **Reading measure**: editor and preview share `--editor-measure` (a flush-left text column; the
+  cap falls away on the right so the body keeps the title's edge). CodeMirror applies it as
+  `.cm-content` right padding; the preview uses the `.editor-measure` component class inside its
+  own scroll container. The Text-appearance "Wide" pref overrides the variable to `100%`.
 - **Export:** `features/notes/export.ts` downloads a note/all notes as Markdown or all as JSON.
   Export is **plaintext**; the UI states this before offering it.
 

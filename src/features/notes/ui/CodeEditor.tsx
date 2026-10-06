@@ -91,9 +91,10 @@ const theme = EditorView.theme({
   },
   '.cm-content': {
     caretColor: 'var(--color-foreground)',
-    // Reading measure from index.css: text column is capped and centered; under
-    // the cap it collapses to a comfortable gutter so lines never touch the edge.
-    paddingInline: 'max(0.75rem, calc((100% - var(--editor-measure)) / 2))',
+    // Reading measure from index.css: flush-left so the body shares the title's
+    // edge; the cap is absorbed as right padding. Wide collapses both to gutter.
+    paddingLeft: '0.75rem',
+    paddingRight: 'max(0.75rem, calc(100% - var(--editor-measure) - 0.75rem))',
   },
   '.cm-gutters': { display: 'none' },
   '.cm-activeLine': { backgroundColor: 'transparent' },
