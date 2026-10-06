@@ -15,11 +15,15 @@ Severity: **P0** = görünür/kırık, **P1** = can sıkıcı, **P2** = cila.
 - ✅ **#1** üst bar sütun çökmesi — `src/features/shell/ui/TopBar.tsx` düzeltildi.
 - ✅ **#2** düzenleyici başlık taşması — `src/features/notes/ui/NoteEditor.tsx` düzeltildi.
 - ✅ **#4** Ayarlar yatay kaydırma çubuğu — `src/components/ui/modal.tsx` + `SettingsDialog.tsx` düzeltildi.
+- ✅ **#5** tek sekmede gereksiz sayaç rozeti — `TabBar.tsx` düzeltildi (kısmen; kırpılma tasarım kararı).
+- ✅ **#9** dokunmatikte kısayol ipuçları — `CommandPalette.tsx` düzeltildi (kısmen; sıralama karar).
 - ✅ **#10** Ayarlar sekmeleri 390px'te 2×2 — `SettingsDialog.tsx` düzeltildi.
+- ✅ **#12** `VaultNoteIcon` kırık-resim fallback'i — `src/components/ui/vault-note-icon.tsx` düzeltildi.
 - ✓ **#3** tasarım gereği: şerit zaten `overflow-x-auto` ile kaydırılabilir (yalnız ipucu yok).
 - ✓ **#7** geçersiz çıktı (metin zaten doğru), aksiyon yok.
 - ✓ **#8** kasıtlı: son commit (`bcf4688`) global arama vurgusunu notta koruyor.
-- ⏸ **#5, #6, #9, #11, #12, #13** — iyileştirme/tasarım kararı gerektiriyor, kullanıcıya bırakıldı.
+- ⏸ **#6** yeni i18n anahtarı ister (`locales.ts` başka işle iç içe) — kullanıcıya bırakıldı.
+- ⏸ **#11/#13** tasarım/inceleme kararı — kullanıcıya bırakıldı.
 - Doğrulama: `npm run lint` (yalnız mevcut uyarılar), `npm run build` ✓, `npm test` ✓ (115/115).
 
 ---
@@ -77,16 +81,19 @@ Severity: **P0** = görünür/kırık, **P1** = can sıkıcı, **P2** = cila.
 
 ## P1 — İyileştirme
 
-### 5. Mobil sekme şeridi sıkışık
+### 5. Mobil sekme şeridi sıkışık — ✅ KISMEN DÜZELTİLDİ
 - Aktif sekme "Alışveriş…" kırpılıyor; açık sekme sayısı **"2"** etiketsiz biçimde aktif sekmeyle
   `⋯` arasına sıkışıyor; mobilde sekmeyi kapatmanın görünür yolu yok (`⋯` içinde).
 - Kanıt: `m-07-dark-editor.png`, `m-01-list.png`.
-- Yön: sayaç rozetini `⋯` düğmesine taşı veya çıkar; sekmeleri kaydırılabilir/ küçültülebilir yap.
+- **Uygulandı:** `TabBar.tsx` — tek sekme açıkken gereksiz sayaç rozeti gizlendi (`openIds.length > 1`).
+  Kalan kırpılma/`⋯` taşıma davranışı tasarım kararı olarak bırakıldı. (`fix3-mobile-1tab.png`)
 
 ### 6. Boş Çöp / Arşiv için özel boş durum yok
 - Çöp boşken genel **"Eşleşen not yok."** metni görünüyor; saklama süresi / "Asla" ayarı gibi
   bağlam yok. Kanıt: `d-02-trash.png`.
 - Yön: kapsama özel boş durum metni (`Çöp boş`, `Arşivde not yok`) ve kısa açıklama.
+- **Ertelendi:** yeni i18n anahtarı gerektiriyor; `shared/locales.ts` başka bir çalışkanın
+  (service-worker güncelleme) commit'lenmemiş değişiklikleriyle iç içe, tek başına commit'lenemez.
 
 ### 7. ~~Metin hatası: "2 bekleyen değişiklikler."~~ (geçersiz)
 - İlk okumada yanlış görüldü. Kaynak `shared/locales.ts` zaten `'{n} bekleyen değişiklik.'` (tekil).
@@ -99,10 +106,13 @@ Severity: **P0** = görünür/kırık, **P1** = can sıkıcı, **P2** = cila.
   highlights in the open editor") bunu bilinçli yapıyor → hata değil. İstenirse yalnız sonuca
   tıklanınca açılacak şekilde daraltılabilir.
 
-### 9. Komut paleti boş durumu
+### 9. Komut paleti boş durumu — ✅ KISMEN DÜZELTİLDİ
 - "Son notlar" ilk ekranda görünmüyor; 8 eylem satırının altına düşüyor, kaydırma gerekiyor.
 - Mobilde masaüstü kısayol ipuçları gösteriliyor (ör. **Ctrl B**). Kanıt: `ui-16-palette-empty.png`, `m-12-palette.png`.
-- Yön: son notları üstte/flat göster; kısayol ipuçlarını dokunmatikte gizle.
+- **Uygulandı:** `CommandPalette.tsx` — yalnız klavye kısayolu olan ipuçları (`panels` → Ctrl+B)
+  `shortcut` olarak işaretlendi ve `(pointer: coarse)` cihazlarda gizlendi; göreli zaman ipuçları
+  korunuyor. Masaüstünde regresyon yok. "Son notlar" sıralaması tasarım kararı olarak bırakıldı.
+  (`fix3-palette-desktop.png`)
 
 ### 10. Ayarlar sekme etiketleri 390px'te bitişik — ✅ DÜZELTİLDİ
 - "GüvenlikSenkronizasyonVeri" neredeyse boşluksuz; dört sekme kenara dayanıyor.
@@ -118,9 +128,9 @@ Severity: **P0** = görünür/kırık, **P1** = can sıkıcı, **P2** = cila.
 
 - **11.** Mobilde liste satırlarında pin/arşiv düğmeleri her zaman görünüyor (hover yok) → görsel
   gürültü; taşma menüsü veya kaydırma ile yapılabilir. Kanıt: `m-02-list.png`.
-- **12.** `VaultNoteIcon` (`src/components/ui/vault-note-icon.tsx`) yükleme hatasında geri dönüşü
-  yok; PNG yüklenmezse kırık resim + kırpık alt metin. Basit bir `onError` fallback eklenebilir.
-  (İnceleme sırasında kilit ekranında geçici olarak gözlemlendi — sunucu yeniden başlıyordu.)
+- **12.** ✅ DÜZELTİLDİ — `VaultNoteIcon` artık `onError` ile nötr kilit işaretine düşüyor;
+  kırık resim/alt metin yok. Doğrulama: zorlanan `error` olayında `<img>` kayboluyor ve
+  `role="img"` kilit SVG'si geliyor. (`fix3-icon-fallback.png`)
 - **13.** Aynı anda birden çok diyalog/popover DOM'da bağlı (14 gizli input). Çift `aria-label`
   ve gereksiz mount riski; NotesShell düzenlemesi sonrası yeniden bakılmalı.
 
@@ -133,7 +143,7 @@ Severity: **P0** = görünür/kırık, **P1** = can sıkıcı, **P2** = cila.
 - Karanlık/açık tema tutarlı; mobil çekmece ve FAB düzeni temiz.
 
 ## Önerilen öncelik sırası
-1 ✅ · 2 ✅ · 4 ✅ · 10 ✅ · 3/7/8 (geçersiz/kasıtlı) → **5 → 6 → 9 → 11 → 12 → 13.**
+1 ✅ · 2 ✅ · 4 ✅ · 5 ✅ · 9 ✅ · 10 ✅ · 12 ✅ · 3/7/8 (geçersiz/kasıtlı) → **6 (i18n) → 11 → 13.**
 
 ## Ekler (`.playwright-mcp/`)
 `t-01-768.png`, `t-02-topbar.png`, `m-07-dark-editor.png`, `m-05-settings.png`,
