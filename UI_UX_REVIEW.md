@@ -22,7 +22,7 @@ Severity: **P0** = görünür/kırık, **P1** = can sıkıcı, **P2** = cila.
 - ✓ **#3** tasarım gereği: şerit zaten `overflow-x-auto` ile kaydırılabilir (yalnız ipucu yok).
 - ✓ **#7** geçersiz çıktı (metin zaten doğru), aksiyon yok.
 - ✓ **#8** kasıtlı: son commit (`bcf4688`) global arama vurgusunu notta koruyor.
-- ⏸ **#6** yeni i18n anahtarı ister (`locales.ts` başka işle iç içe) — kullanıcıya bırakıldı.
+- ✅ **#6** boş Çöp/Arşiv liste boş durumu — `NoteList.tsx` düzeltildi (yeni anahtar gerekmeden).
 - ⏸ **#11/#13** tasarım/inceleme kararı — kullanıcıya bırakıldı.
 - Doğrulama: `npm run lint` (yalnız mevcut uyarılar), `npm run build` ✓, `npm test` ✓ (115/115).
 
@@ -88,12 +88,14 @@ Severity: **P0** = görünür/kırık, **P1** = can sıkıcı, **P2** = cila.
 - **Uygulandı:** `TabBar.tsx` — tek sekme açıkken gereksiz sayaç rozeti gizlendi (`openIds.length > 1`).
   Kalan kırpılma/`⋯` taşıma davranışı tasarım kararı olarak bırakıldı. (`fix3-mobile-1tab.png`)
 
-### 6. Boş Çöp / Arşiv için özel boş durum yok
-- Çöp boşken genel **"Eşleşen not yok."** metni görünüyor; saklama süresi / "Asla" ayarı gibi
-  bağlam yok. Kanıt: `d-02-trash.png`.
-- Yön: kapsama özel boş durum metni (`Çöp boş`, `Arşivde not yok`) ve kısa açıklama.
-- **Ertelendi:** yeni i18n anahtarı gerektiriyor; `shared/locales.ts` başka bir çalışkanın
-  (service-worker güncelleme) commit'lenmemiş değişiklikleriyle iç içe, tek başına commit'lenemez.
+### 6. Boş Çöp / Arşiv için özel boş durum yok — ✅ DÜZELTİLDİ
+- Çöp boşken listede genel **"Eşleşen not yok."** görünüyordu; editör bölmesindeki kapsama özel
+  mesaj yalnız masaüstünde görünüyordu. Kanıt: `d-02-trash.png`.
+- **Uygulandı:** `NoteList.tsx` — liste boşken kapsam farkındalığı: canlı aramada `notes.list.empty`
+  ("Eşleşen not yok."), aksi halde `trash`/`archive`/`pinned` için mevcut `notes.empty.*Msg`
+  metinleri (`Çöp kutusu boş.`, `Arşivlediğin notlar burada saklanır.`). Yeni anahtar gerekmedi.
+  Doğrulama: masaüstü + 390px. (`verify6-trash-desktop.png`, `verify6-archive-desktop.png`,
+  `verify6-trash-mobile.png`, `verify6-search-nomatch.png`)
 
 ### 7. ~~Metin hatası: "2 bekleyen değişiklikler."~~ (geçersiz)
 - İlk okumada yanlış görüldü. Kaynak `shared/locales.ts` zaten `'{n} bekleyen değişiklik.'` (tekil).
@@ -143,7 +145,7 @@ Severity: **P0** = görünür/kırık, **P1** = can sıkıcı, **P2** = cila.
 - Karanlık/açık tema tutarlı; mobil çekmece ve FAB düzeni temiz.
 
 ## Önerilen öncelik sırası
-1 ✅ · 2 ✅ · 4 ✅ · 5 ✅ · 9 ✅ · 10 ✅ · 12 ✅ · 3/7/8 (geçersiz/kasıtlı) → **6 (i18n) → 11 → 13.**
+1 ✅ · 2 ✅ · 4 ✅ · 5 ✅ · 6 ✅ · 9 ✅ · 10 ✅ · 12 ✅ · 3/7/8 (geçersiz/kasıtlı) → **11 → 13.**
 
 ## Ekler (`.playwright-mcp/`)
 `t-01-768.png`, `t-02-topbar.png`, `m-07-dark-editor.png`, `m-05-settings.png`,
