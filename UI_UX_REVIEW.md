@@ -23,7 +23,7 @@ Severity: **P0** = görünür/kırık, **P1** = can sıkıcı, **P2** = cila.
 - ✓ **#7** geçersiz çıktı (metin zaten doğru), aksiyon yok.
 - ✓ **#8** kasıtlı: son commit (`bcf4688`) global arama vurgusunu notta koruyor.
 - ✅ **#6** boş Çöp/Arşiv liste boş durumu — `NoteList.tsx` düzeltildi (yeni anahtar gerekmeden).
-- ⏸ **#11/#13** tasarım/inceleme kararı — kullanıcıya bırakıldı.
+- ℹ️ **#11/#13** incelendi — tasarım gereği / zararsız; kod değişikliği yok (gerekçe ilgili maddede).
 - Doğrulama: `npm run lint` (yalnız mevcut uyarılar), `npm run build` ✓, `npm test` ✓ (115/115).
 
 ---
@@ -128,13 +128,18 @@ Severity: **P0** = görünür/kırık, **P1** = can sıkıcı, **P2** = cila.
 
 ## P2 — Cila
 
-- **11.** Mobilde liste satırlarında pin/arşiv düğmeleri her zaman görünüyor (hover yok) → görsel
-  gürültü; taşma menüsü veya kaydırma ile yapılabilir. Kanıt: `m-02-list.png`.
+- **11.** İNCELENDİ — tasarım gereği, değişiklik yok. Mobilde (< md) pin/arşiv düğmeleri satırda
+  kalıcı: dokunmatikte hover yok ve satır `pr-20` ile bu alanı zaten ayırıyor; uzun basma da
+  bağlam menüsünü açar. Gizlemek keşfedilebilirliği düşürür. Ölçüm (390px): küme `opacity:1`,
+  "Sabitle"/"Arşivle" görünür, "Yan tarafta aç" (`md:grid`) gizli. (`review11-mobile-rows.png`)
+  Kullanıcı isterse aktif satıra indirilebilir — net bir varsayılan olmadığı için bırakıldı.
 - **12.** ✅ DÜZELTİLDİ — `VaultNoteIcon` artık `onError` ile nötr kilit işaretine düşüyor;
   kırık resim/alt metin yok. Doğrulama: zorlanan `error` olayında `<img>` kayboluyor ve
   `role="img"` kilit SVG'si geliyor. (`fix3-icon-fallback.png`)
-- **13.** Aynı anda birden çok diyalog/popover DOM'da bağlı (14 gizli input). Çift `aria-label`
-  ve gereksiz mount riski; NotesShell düzenlemesi sonrası yeniden bakılmalı.
+- **13.** İNCELENDİ — zararsız, değişiklik yok. Native `<dialog>` kapalıyken `display:none` olduğundan
+  gizli input odaklanabilir değil. Ölçüm (390px): 23 `dialog`, 0 açık, kapalı diyaloglarda 13 input,
+  görünür input 1, **yinelenen `id` yok** (`useId` kullanılıyor). Kalıcı-mount giriş animasyonu ve
+  imperatif `showModal` için bilinçli; koşullu mount'a çevirmek riskli/kazanç düşük.
 
 ---
 
@@ -145,7 +150,7 @@ Severity: **P0** = görünür/kırık, **P1** = can sıkıcı, **P2** = cila.
 - Karanlık/açık tema tutarlı; mobil çekmece ve FAB düzeni temiz.
 
 ## Önerilen öncelik sırası
-1 ✅ · 2 ✅ · 4 ✅ · 5 ✅ · 6 ✅ · 9 ✅ · 10 ✅ · 12 ✅ · 3/7/8 (geçersiz/kasıtlı) → **11 → 13.**
+1 ✅ · 2 ✅ · 4 ✅ · 5 ✅ · 6 ✅ · 9 ✅ · 10 ✅ · 12 ✅ · 3/7/8 (geçersiz/kasıtlı) · 11/13 incelendi (değişiklik yok). **Tüm maddeler kapatıldı.**
 
 ## Ekler (`.playwright-mcp/`)
 `t-01-768.png`, `t-02-topbar.png`, `m-07-dark-editor.png`, `m-05-settings.png`,
