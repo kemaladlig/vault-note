@@ -11,6 +11,7 @@ import {
   getAccessTokenSilent,
   hasSession,
   isAuthConfigured,
+  isConnected,
   restoreSession,
   signOut,
 } from '../auth/googleAuth'
@@ -33,6 +34,8 @@ interface SyncState {
   lastSyncedAt?: number
   error?: string
   configured: boolean
+  /** Whether Drive is linked on this device (false after explicit disconnect). */
+  connected: boolean
   /** Manifest `modifiedTime` from the last sync; lets idle polls skip work. */
   manifestModifiedTime?: string
   /** Local rows not yet pushed to Drive (notes + notebook tree counts as 1). */
@@ -74,6 +77,7 @@ async function countPending(): Promise<number> {
 export const useSyncStore = create<SyncState>((set, get) => ({
   status: 'idle',
   configured: isAuthConfigured(),
+  connected: isConnected(),
   pending: 0,
   lastPulled: 0,
   lastPushed: 0,
@@ -144,6 +148,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       const conflictCount = result.conflicts.length + (folderConflict ? 1 : 0)
       set({
         status: 'idle',
+        connected: true,
         lastSyncedAt: now(),
         manifestModifiedTime: result.manifestModifiedTime,
         pending: await countPending(),
@@ -162,7 +167,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       }
     } catch (err) {
       const detail = err instanceof Error ? err.message : undefined
-      set({ status: 'error', error: detail ?? t('sync.failedTitle'), pending: await countPending(), restoredAt: undefined })
+      set({ status: 'error', connected: isConnected(), error: detail ?? t('sync.failedTitle'), pending: await countPending(), restoredAt: undefined })
       // A user-triggered sync should say why it failed; background polls stay quiet (the error
       // is still stored and surfaced in Settings).
       if (interactive) toast(`${t('sync.failedTitle')} ${t('sync.failedHint')}`, 'error')
@@ -174,20 +179,24 @@ export const useSyncStore = create<SyncState>((set, get) => ({
     try {
       const bootstrap = await downloadBootstrap(drive(true))
       if (!bootstrap) {
-        set({ status: 'idle' })
+        set({ status: 'idle', connected: true })
         return false
       }
       await useVaultStore.getState().restore(bootstrap.header, bootstrap.settings.mode)
-      set({ status: 'idle', restoredAt: now() })
+      set({ status: 'idle', connected: true, restoredAt: now() })
       return true
     } catch (err) {
-      set({ status: 'error', error: err instanceof Error ? err.message : 'Geri yükleme başarısız' })
+      set({ status: 'error', connected: isConnected(), error: err instanceof Error ? err.message : 'Geri yükleme başarısız' })
       return false
     }
   },
 
   disconnect: () => {
     signOut()
-    set({ status: 'idle', lastSyncedAt: undefined, error: undefined, manifestModifiedTime: undefined, pending: 0, lastPulled: 0, lastPushed: 0, lastConflicts: 0, folderConflict: false, restoredAt: undefined })
+    // Keep lastSyncedAt so the user still sees when the last sync happened; only the
+    // live link is dropped. The next manual sync re-authenticates and reconnects.
+    set({ status: 'idle', connected: false, error: undefined, manifestModifiedTime: undefined, lastPulled: 0, lastPushed: 0, lastConflicts: 0, folderConflict: false, restoredAt: undefined })
+    void countPending().then((pending) => set({ pending }))
+    toast(t('settings.disconnected'), 'success')
   },
 }))

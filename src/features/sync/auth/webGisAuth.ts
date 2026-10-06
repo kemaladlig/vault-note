@@ -223,6 +223,11 @@ export function hasSession(): boolean {
   return Boolean(accessToken) && Date.now() < expiresAt
 }
 
+/** Whether this browser ever completed Drive consent (persists across reloads). */
+export function isConnected(): boolean {
+  return hasConsented() || hasSession()
+}
+
 /** Returns a valid token: silent restore when possible, otherwise an interactive prompt. */
 export async function getAccessToken(): Promise<string> {
   if (!hasSession() && !(await restoreSession())) await signIn()

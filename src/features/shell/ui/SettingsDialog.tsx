@@ -103,6 +103,7 @@ export function SettingsDialog() {
   const reset = useVaultStore((s) => s.reset)
 
   const configured = useSyncStore((s) => s.configured)
+  const connected = useSyncStore((s) => s.connected)
   const syncStatus = useSyncStore((s) => s.status)
   const syncError = useSyncStore((s) => s.error)
   const lastSyncedAt = useSyncStore((s) => s.lastSyncedAt)
@@ -554,19 +555,24 @@ export function SettingsDialog() {
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="outline" disabled={!configured || syncing} onClick={() => void sync()}>
               {syncing ? <Spinner /> : <CloudOff />}
-              {t('settings.syncNow')}
+              {connected ? t('settings.syncNow') : t('settings.connect')}
             </Button>
-            <Button size="sm" variant="ghost" onClick={disconnect}>
+            <Button size="sm" variant="ghost" disabled={!connected} onClick={disconnect}>
               {t('settings.disconnect')}
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
             {!configured
               ? t('settings.syncNotConfigured')
-              : lastSyncedAt
-                ? t('settings.syncLast', { time: relativeTime(lastSyncedAt) })
-                : t('settings.syncNever')}
+              : !connected
+                ? t('settings.syncDisconnected')
+                : lastSyncedAt
+                  ? t('settings.syncLast', { time: relativeTime(lastSyncedAt) })
+                  : t('settings.syncNever')}
           </p>
+          {configured && connected && !lastSyncedAt && (
+            <p className="text-xs text-muted-foreground">{t('settings.syncConnected')}</p>
+          )}
           {configured && pending > 0 && (
             <p className="text-xs text-amber-600 dark:text-amber-400">
               {t('sync.pending', { n: pending })}

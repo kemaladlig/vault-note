@@ -14,6 +14,7 @@ const impl = Capacitor.isNativePlatform() ? native : web
 export { GOOGLE_CLIENT_ID, isAuthConfigured }
 
 export const hasSession = (): boolean => impl.hasSession()
+export const isConnected = (): boolean => impl.isConnected()
 export const restoreSession = (): Promise<boolean> => impl.restoreSession()
 export const signIn = (): Promise<void> => impl.signIn()
 export const getAccessToken = (): Promise<string> => impl.getAccessToken()

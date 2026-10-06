@@ -164,6 +164,33 @@ export function NoteEditor({ note, initialSearch }: NoteEditorProps) {
   const pending = useRef(false)
   /** Version last reflected here; a different one on the prop means a remote revision arrived. */
   const appliedVersion = useRef(note.version)
+  /** Last global query seen; the editor stays mounted while the list filters (same key). */
+  const prevInitialSearch = useRef(initialSearch ?? '')
+  const termRef = useRef(term)
+  termRef.current = term
+
+  // Global search seeds in-note highlights. List↔editor swap via CSS on mobile,
+  // so the editor (same key) never remounts when the query changes or when the
+  // tapped row is already selected — push the new query into the live view.
+  useEffect(() => {
+    const next = initialSearch ?? ''
+    const prev = prevInitialSearch.current
+    prevInitialSearch.current = next
+    if (next === prev) return
+    // Keep a custom in-note term the user typed after opening; only follow the
+    // global query while still synced to it (or untouched).
+    if (termRef.current !== prev) return
+    setTerm(next)
+    if (next) {
+      setSearchOpen(true)
+    } else {
+      setSearchOpen(false)
+      setMatchCount(0)
+    }
+    // Covers the already-mounted CodeMirror view; a still-loading view picks
+    // the updated term up via initialQuery on mount instead.
+    editorRef.current?.setQuery(next)
+  }, [initialSearch])
 
   function scheduleSave() {
     pending.current = true

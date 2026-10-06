@@ -51,6 +51,7 @@ export function TopBar() {
 
   const syncStatus = useSyncStore((s) => s.status)
   const configured = useSyncStore((s) => s.configured)
+  const connected = useSyncStore((s) => s.connected)
   const syncError = useSyncStore((s) => s.error)
   const pending = useSyncStore((s) => s.pending)
   const lastSyncedAt = useSyncStore((s) => s.lastSyncedAt)
@@ -104,7 +105,7 @@ export function TopBar() {
       onSelect: () => setMode('dark'),
     },
     { type: 'separator' },
-    { label: t('shell.disconnect'), icon: <CloudOff />, onSelect: disconnect },
+    { label: t('shell.disconnect'), icon: <CloudOff />, onSelect: disconnect, disabled: !connected },
   ]
 
   async function onNewNote() {
@@ -118,6 +119,8 @@ export function TopBar() {
 
   const syncIcon = syncError ? (
     <CloudOff className="size-4 text-destructive" />
+  ) : !connected && configured ? (
+    <CloudOff className="size-4 text-muted-foreground" />
   ) : (
     <Cloud className="size-4" />
   )
@@ -125,9 +128,11 @@ export function TopBar() {
   const syncTitle = syncError
     ?? (lastConflicts > 0 ? t('sync.conflict', { n: lastConflicts }) : undefined)
     ?? (pending > 0 ? t('sync.pending', { n: pending }) : undefined)
-    ?? (configured
-      ? (lastSyncedAt ? t('settings.syncLast', { time: relativeTime(lastSyncedAt) }) : t('shell.syncNow'))
-      : t('shell.syncNoClient'))
+    ?? (!configured
+      ? t('shell.syncNoClient')
+      : !connected
+        ? t('settings.syncDisconnected')
+        : (lastSyncedAt ? t('settings.syncLast', { time: relativeTime(lastSyncedAt) }) : t('shell.syncNow')))
 
   return (
     <header className="relative z-30 grid h-14 shrink-0 grid-cols-[1fr_auto] items-center gap-2 px-3 sm:grid-cols-[1fr_minmax(0,36rem)_1fr] sm:gap-4 md:px-4">
@@ -234,7 +239,7 @@ export function TopBar() {
             aria-hidden
             className={cn(
               'hidden size-1.5 rounded-full md:block',
-              syncError || lastConflicts > 0 ? 'bg-destructive' : pending > 0 ? 'bg-amber-500' : 'bg-success/70',
+              syncError || lastConflicts > 0 ? 'bg-destructive' : !connected ? 'bg-muted-foreground/50' : pending > 0 ? 'bg-amber-500' : 'bg-success/70',
             )}
           />
         </Button>
